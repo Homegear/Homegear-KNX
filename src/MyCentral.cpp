@@ -311,6 +311,8 @@ std::string MyCentral::handleCliCommand(std::string command)
 {
 	try
 	{
+		std::vector<std::string> arguments;
+		bool showHelp = false;
 		std::ostringstream stringStream;
 		if(_currentPeer)
 		{
@@ -321,7 +323,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 			}
 			return _currentPeer->handleCliCommand(command);
 		}
-		if(command == "help" || command == "h")
+		if(BaseLib::HelperFunctions::checkCliCommand(command, "help", "h", "", 0, arguments, showHelp))
 		{
 			stringStream << "List of commands:" << std::endl << std::endl;
 			stringStream << "For more information about the individual command type: COMMAND help" << std::endl << std::endl;
@@ -333,37 +335,18 @@ std::string MyCentral::handleCliCommand(std::string command)
 			stringStream << "unselect (u)       Unselect this device" << std::endl;
 			return stringStream.str();
 		}
-		if(command.compare(0, 12, "peers remove") == 0 || command.compare(0, 2, "pr") == 0)
+		else if(BaseLib::HelperFunctions::checkCliCommand(command, "peers remove", "pr", "", 0, arguments, showHelp))
 		{
-			uint64_t peerID = 0;
-
-			std::stringstream stream(command);
-			std::string element;
-			int32_t offset = (command.at(1) == 'r') ? 0 : 1;
-			int32_t index = 0;
-			while(std::getline(stream, element, ' '))
-			{
-				if(index < 1 + offset)
-				{
-					index++;
-					continue;
-				}
-				else if(index == 1 + offset)
-				{
-					if(element == "help") break;
-					peerID = BaseLib::Math::getNumber(element, false);
-					if(peerID == 0) return "Invalid id.\n";
-				}
-				index++;
-			}
-			if(index == 1 + offset)
+			if(showHelp)
 			{
 				stringStream << "Description: This command removes a peer." << std::endl;
 				stringStream << "Usage: peers unpair PEERID" << std::endl << std::endl;
 				stringStream << "Parameters:" << std::endl;
-				stringStream << "  PEERID:\tThe id of the peer to remove. Example: 513" << std::endl;
+				stringStream << "  PEERID: The id of the peer to remove. Example: 513" << std::endl;
 				return stringStream.str();
 			}
+
+			uint64_t peerID = (arguments.size() > 0 ? BaseLib::Math::getNumber64(arguments.at(0)) : 0);
 
 			if(!peerExists(peerID)) stringStream << "This peer is not paired to this central." << std::endl;
 			else
@@ -649,6 +632,15 @@ std::string MyCentral::handleCliCommand(std::string command)
 			else stringStream << "Search completed successfully." << std::endl;
 			return stringStream.str();
 		}
+		else if(command == "test")
+		{
+			std::vector<char> rawPacket = _bl->hf.getBinary("06100420001604BE00001100BCE0000021090200803A");
+			PMyPacket packet(new MyPacket(rawPacket));
+			std::string interface = "MyInterface";
+			onPacketReceived(interface, packet);
+			stringStream << "Hallo" << std::endl;
+			return stringStream.str();
+		}
 		else return "Unknown command.\n";
 	}
 	catch(const std::exception& ex)
@@ -891,6 +883,8 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			_peersById[peer->getID()] = peer;
 			newPeers.push_back(peer);
 		}
+
+		GD::out.printInfo("Info: Found " + std::to_string(newPeers.size()) + " new devices.");
 
 		if(newPeers.size() > 0)
 		{

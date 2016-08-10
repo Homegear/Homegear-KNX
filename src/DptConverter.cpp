@@ -42,16 +42,46 @@ DptConverter::~DptConverter()
 {
 }
 
-std::vector<uint8_t> DptConverter::getDpt(const std::string& type, const PVariable& value, bool& fitsInFirstByte)
+bool DptConverter::fitsInFirstByte(const std::string& type)
+{
+	try
+	{
+		return 	type == "DPT-1" || type.compare(0, 7, "DPST-1-") == 0 ||
+				type == "DPT-2" || type.compare(0, 7, "DPST-2-") == 0 ||
+				type == "DPT-3" || type.compare(0, 7, "DPST-3-") == 0 ||
+				type == "DPT-23" || type.compare(0, 8, "DPST-23-") == 0;
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return false;
+}
+
+std::vector<uint8_t> DptConverter::getDpt(const std::string& type, const PVariable& value)
 {
 	std::vector<uint8_t> dpt;
 	try
 	{
-		fitsInFirstByte = false;
 		if(type == "DPT-1")
 		{
-			fitsInFirstByte = true;
 			dpt.push_back(value->booleanValue ? 1 : 0);
+		}
+		else if(type == "DPT-5" || type.compare(0, 7, "DPST-5-") == 0)
+		{
+			dpt.push_back(value->integerValue & 0xFF);
+		}
+		else if(type == "DPT-6" || type.compare(0, 7, "DPST-6-") == 0)
+		{
+			dpt.push_back(value->integerValue & 0xFF);
 		}
 		else if(type == "DPT-9" || type.compare(0, 7, "DPST-9-") == 0)
 		{
@@ -121,6 +151,24 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 			}
 			return PVariable(new Variable((bool)(value.at(0) & 1)));
 		}
+		else if(type == "DPT-5" || type.compare(0, 7, "DPST-5-") == 0)
+		{
+			if(value.empty())
+			{
+				_bl->out.printError("Error: DPT-5 vector is empty.");
+				return PVariable(new Variable((int32_t)0));
+			}
+			return PVariable(new Variable((int32_t)value.at(0)));
+		}
+		else if(type == "DPT-6" || type.compare(0, 7, "DPST-6-") == 0)
+		{
+			if(value.empty())
+			{
+				_bl->out.printError("Error: DPT-6 vector is empty.");
+				return PVariable(new Variable((int32_t)0));
+			}
+			return PVariable(new Variable((int32_t)value.at(0)));
+		}
 		else if(type == "DPT-9" || type.compare(0, 7, "DPST-9-") == 0)
 		{
 			if(value.size() < 2)
@@ -161,6 +209,519 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 	return PVariable(new Variable());
+}
+
+std::vector<uint8_t> DptConverter::getPositionV(uint32_t position, uint32_t size, const std::vector<uint8_t>& data)
+{
+	std::vector<uint8_t> result;
+	try
+	{
+		if(size <= 8) result.push_back(getPosition8(position, size, data));
+		else if(size <= 16)
+		{
+			uint16_t intResult = getPosition16(position, size, data);
+			result.resize(2);
+			result[0] = intResult >> 8;
+			result[1] = intResult & 0xFF;
+		}
+		else if(size <= 32)
+		{
+			uint32_t intResult = getPosition32(position, size, data);
+			if(size <= 24)
+			{
+				result.resize(3);
+				result[0] = intResult >> 16;
+				result[1] = (intResult >> 8) & 0xFF;
+				result[2] = intResult & 0xFF;
+			}
+			else
+			{
+				result.resize(4);
+				result[0] = intResult >> 24;
+				result[1] = (intResult >> 16) & 0xFF;
+				result[2] = (intResult >> 8) & 0xFF;
+				result[3] = intResult & 0xFF;
+			}
+		}
+		else
+		{
+			uint64_t intResult = getPosition64(position, size, data);
+			if(size <= 40)
+			{
+				result.resize(5);
+				result[0] = intResult >> 32;
+				result[1] = (intResult >> 24) & 0xFF;
+				result[2] = (intResult >> 16) & 0xFF;
+				result[3] = (intResult >> 8) & 0xFF;
+				result[4] = intResult & 0xFF;
+			}
+			else if(size <= 48)
+			{
+				result.resize(6);
+				result[0] = intResult >> 40;
+				result[1] = (intResult >> 32) & 0xFF;
+				result[2] = (intResult >> 24) & 0xFF;
+				result[3] = (intResult >> 16) & 0xFF;
+				result[4] = (intResult >> 8) & 0xFF;
+				result[5] = intResult & 0xFF;
+			}
+			else if(size <= 56)
+			{
+				result.resize(7);
+				result[0] = intResult >> 48;
+				result[1] = (intResult >> 40) & 0xFF;
+				result[2] = (intResult >> 32) & 0xFF;
+				result[3] = (intResult >> 24) & 0xFF;
+				result[4] = (intResult >> 16) & 0xFF;
+				result[5] = (intResult >> 8) & 0xFF;
+				result[6] = intResult & 0xFF;
+			}
+			else
+			{
+				result.resize(8);
+				result[0] = intResult >> 56;
+				result[1] = (intResult >> 48) & 0xFF;
+				result[2] = (intResult >> 40) & 0xFF;
+				result[3] = (intResult >> 32) & 0xFF;
+				result[4] = (intResult >> 24) & 0xFF;
+				result[5] = (intResult >> 16) & 0xFF;
+				result[6] = (intResult >> 8) & 0xFF;
+				result[7] = intResult & 0xFF;
+			}
+		}
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return result;
+}
+
+uint8_t DptConverter::getPosition8(uint32_t position, uint32_t size, const std::vector<uint8_t>& data)
+{
+	try
+	{
+		if(size > 8) size = 8;
+		else if(size == 0) return 0;
+		uint8_t result = 0;
+
+		uint32_t bytePosition = position / 8;
+		int32_t bitPosition = position % 8;
+		int32_t sourceByteSize = (bitPosition + size) / 8 + ((bitPosition + size) % 8 != 0 ? 1 : 0);
+
+		if(bytePosition >= data.size()) return 0;
+
+		uint8_t firstByte = data.at(bytePosition) & _bitMaskGet[bitPosition];
+		if(sourceByteSize == 1)
+		{
+			result = firstByte >> ((8 - ((bitPosition + size) % 8)) % 8);
+			return result;
+		}
+
+		result |= (uint16_t)firstByte << (size - (8 - bitPosition));
+
+		if(bytePosition + 1 >= data.size()) return result;
+		result |= data.at(bytePosition + 1) >> ((8 - ((bitPosition + size) % 8)) % 8);
+		return result;
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return 0;
+}
+
+uint16_t DptConverter::getPosition16(uint32_t position, uint32_t size, const std::vector<uint8_t>& data)
+{
+	try
+	{
+		if(size > 16) size = 16;
+		else if(size == 0) return 0;
+		uint16_t result = 0;
+
+		uint32_t bytePosition = position / 8;
+		int32_t bitPosition = position % 8;
+		int32_t sourceByteSize = (bitPosition + size) / 8 + ((bitPosition + size) % 8 != 0 ? 1 : 0);
+
+		if(bytePosition >= data.size()) return 0;
+
+		uint8_t firstByte = data.at(bytePosition) & _bitMaskGet[bitPosition];
+		if(sourceByteSize == 1)
+		{
+			result = firstByte >> ((8 - ((bitPosition + size) % 8)) % 8);
+			return result;
+		}
+
+		int32_t bitsLeft = size - (8 - bitPosition);
+		result |= (uint16_t)firstByte << bitsLeft;
+		bitsLeft -= 8;
+
+		for(uint32_t i = bytePosition + 1; i < bytePosition + sourceByteSize - 1; i++)
+		{
+			if(i >= data.size()) return result;
+			result |= (uint16_t)data.at(i) << bitsLeft;
+			bitsLeft -= 8;
+		}
+
+		if(bytePosition + sourceByteSize - 1 >= data.size()) return result;
+		result |= data.at(bytePosition + sourceByteSize - 1) >> ((8 - ((bitPosition + size) % 8)) % 8);
+		return result;
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return 0;
+}
+
+uint32_t DptConverter::getPosition32(uint32_t position, uint32_t size, const std::vector<uint8_t>& data)
+{
+	try
+	{
+		if(size > 32) size = 32;
+		else if(size == 0) return 0;
+		uint32_t result = 0;
+
+		uint32_t bytePosition = position / 8;
+		int32_t bitPosition = position % 8;
+		int32_t sourceByteSize = (bitPosition + size) / 8 + ((bitPosition + size) % 8 != 0 ? 1 : 0);
+
+		if(bytePosition >= data.size()) return 0;
+
+		uint8_t firstByte = data.at(bytePosition) & _bitMaskGet[bitPosition];
+		if(sourceByteSize == 1)
+		{
+			result = firstByte >> ((8 - ((bitPosition + size) % 8)) % 8);
+			return result;
+		}
+
+		int32_t bitsLeft = size - (8 - bitPosition);
+		result |= (uint32_t)firstByte << bitsLeft;
+		bitsLeft -= 8;
+
+		for(uint32_t i = bytePosition + 1; i < bytePosition + sourceByteSize - 1; i++)
+		{
+			if(i >= data.size()) return result;
+			result |= (uint32_t)data.at(i) << bitsLeft;
+			bitsLeft -= 8;
+		}
+
+		if(bytePosition + sourceByteSize - 1 >= data.size()) return result;
+		result |= data.at(bytePosition + sourceByteSize - 1) >> ((8 - ((bitPosition + size) % 8)) % 8);
+		return result;
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return 0;
+}
+
+uint64_t DptConverter::getPosition64(uint32_t position, uint32_t size, const std::vector<uint8_t>& data)
+{
+	try
+	{
+		if(size > 64) size = 64;
+		else if(size == 0) return 0;
+		uint64_t result = 0;
+
+		uint32_t bytePosition = position / 8;
+		int32_t bitPosition = position % 8;
+		int32_t sourceByteSize = (bitPosition + size) / 8 + ((bitPosition + size) % 8 != 0 ? 1 : 0);
+
+		if(bytePosition >= data.size()) return 0;
+
+		uint8_t firstByte = data.at(bytePosition) & _bitMaskGet[bitPosition];
+		if(sourceByteSize == 1)
+		{
+			result = firstByte >> ((8 - ((bitPosition + size) % 8)) % 8);
+			return result;
+		}
+
+		int32_t bitsLeft = size - (8 - bitPosition);
+		result |= (uint64_t)firstByte << bitsLeft;
+		bitsLeft -= 8;
+
+		for(uint32_t i = bytePosition + 1; i < bytePosition + sourceByteSize - 1; i++)
+		{
+			if(i >= data.size()) return result;
+			result |= (uint64_t)data.at(i) << bitsLeft;
+			bitsLeft -= 8;
+		}
+
+		if(bytePosition + sourceByteSize - 1 >= data.size()) return result;
+		result |= data.at(bytePosition + sourceByteSize - 1) >> ((8 - ((bitPosition + size) % 8)) % 8);
+		return result;
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return 0;
+}
+
+void DptConverter::setPosition(uint32_t position, uint32_t size, std::vector<uint8_t>& target, const std::vector<uint8_t>& source)
+{
+	try
+	{
+		if(source.empty()) return;
+		if(source.size() == 1) setPosition(position, size, target, source[0]);
+		else if(source.size() == 2)
+		{
+			uint16_t intSource = ((uint16_t)source[0] << 8) | source[1];
+			setPosition(position, size, target, intSource);
+		}
+		else if(source.size() == 3)
+		{
+			uint32_t intSource = ((uint32_t)source[0] << 16) | ((uint32_t)source[1] << 8) | source[2];
+			setPosition(position, size, target, intSource);
+		}
+		else if(source.size() == 4)
+		{
+			uint32_t intSource = ((uint32_t)source[0] << 24) | ((uint32_t)source[1] << 16) | ((uint32_t)source[2] << 8) | source[3];
+			setPosition(position, size, target, intSource);
+		}
+		else if(source.size() == 5)
+		{
+			uint64_t intSource = ((uint64_t)source[0] << 32) | ((uint64_t)source[1] << 24) | ((uint64_t)source[2] << 16) | ((uint64_t)source[3] << 8) | source[4];
+			setPosition(position, size, target, intSource);
+		}
+		else if(source.size() == 6)
+		{
+			uint64_t intSource = ((uint64_t)source[0] << 40) | ((uint64_t)source[1] << 32) | ((uint64_t)source[2] << 24) | ((uint64_t)source[3] << 16) | ((uint64_t)source[4] << 8) | source[5];
+			setPosition(position, size, target, intSource);
+		}
+		else if(source.size() == 7)
+		{
+			uint64_t intSource = ((uint64_t)source[0] << 48) | ((uint64_t)source[1] << 40) | ((uint64_t)source[2] << 32) | ((uint64_t)source[3] << 24) | ((uint64_t)source[4] << 16) | ((uint64_t)source[5] << 8) | source[6];
+			setPosition(position, size, target, intSource);
+		}
+		else if(source.size() >= 8)
+		{
+			uint64_t intSource = ((uint64_t)source[0] << 56) | ((uint64_t)source[1] << 48) | ((uint64_t)source[2] << 40) | ((uint64_t)source[3] << 32) | ((uint64_t)source[4] << 24) | ((uint64_t)source[5] << 16) | ((uint64_t)source[6] << 8) | source[7];
+			setPosition(position, size, target, intSource);
+		}
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+}
+
+void DptConverter::setPosition(uint32_t position, uint32_t size, std::vector<uint8_t>& target, uint8_t source)
+{
+	try
+	{
+		if(size > 8) size = 8;
+		else if(size == 0) return;
+		source = source << (8 - size);
+
+		int32_t bytePosition = position / 8;
+		int32_t bitPosition = position % 8;
+		int32_t targetByteCount = (bitPosition + size) / 8 + ((bitPosition + size) % 8 != 0 ? 1 : 0);
+		int32_t endIndex = targetByteCount - 1;
+		uint32_t requiredSize = bytePosition + targetByteCount;
+		if(target.size() < requiredSize) target.resize(requiredSize, 0);
+
+		if(endIndex == 0) target[bytePosition] &= (_bitMaskSetStart[bitPosition] | _bitMaskSetEnd[(bitPosition + size) % 8]);
+		else
+		{
+			target[bytePosition] &= _bitMaskSetStart[bitPosition];
+			target[bytePosition + endIndex] &= _bitMaskSetEnd[(bitPosition + size) % 8];
+		}
+		target[bytePosition] |= source >> bitPosition;
+		if(endIndex == 0) return;
+		target[bytePosition + endIndex] |= (source << ((endIndex - 1) * 8 + (8 - bitPosition)));
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+}
+
+void DptConverter::setPosition(uint32_t position, uint32_t size, std::vector<uint8_t>& target, uint16_t source)
+{
+	try
+	{
+		if(size > 16) size = 16;
+		else if(size == 0) return;
+		source = source << (16 - size);
+
+		int32_t bytePosition = position / 8;
+		int32_t bitPosition = position % 8;
+		int32_t targetByteCount = (bitPosition + size) / 8 + ((bitPosition + size) % 8 != 0 ? 1 : 0);
+		int32_t endIndex = targetByteCount - 1;
+		uint32_t requiredSize = bytePosition + targetByteCount;
+		if(target.size() < requiredSize) target.resize(requiredSize, 0);
+
+		if(endIndex == 0) target[bytePosition] &= (_bitMaskSetStart[bitPosition] | _bitMaskSetEnd[(bitPosition + size) % 8]);
+		else
+		{
+			target[bytePosition] &= _bitMaskSetStart[bitPosition];
+			target[bytePosition + endIndex] &= _bitMaskSetEnd[(bitPosition + size) % 8];
+		}
+		target[bytePosition] |= source >> (bitPosition + 8);
+		if(endIndex == 0) return;
+		for(int32_t i = 1; i < endIndex; i++)
+		{
+			target[bytePosition + i] = (source << ((i - 1) * 8 + (8 - bitPosition))) >> (16 - i * 8);
+		}
+		target[bytePosition + endIndex] |= (source << ((endIndex - 1) * 8 + (8 - bitPosition))) >> (16 - endIndex * 8);
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+}
+
+void DptConverter::setPosition(uint32_t position, uint32_t size, std::vector<uint8_t>& target, uint32_t source)
+{
+	try
+	{
+		if(size > 32) size = 32;
+		else if(size == 0) return;
+		source = source << (32 - size);
+
+		int32_t bytePosition = position / 8;
+		int32_t bitPosition = position % 8;
+		int32_t targetByteCount = (bitPosition + size) / 8 + ((bitPosition + size) % 8 != 0 ? 1 : 0);
+		int32_t endIndex = targetByteCount - 1;
+		uint32_t requiredSize = bytePosition + targetByteCount;
+		if(target.size() < requiredSize) target.resize(requiredSize, 0);
+
+		if(endIndex == 0) target[bytePosition] &= (_bitMaskSetStart[bitPosition] | _bitMaskSetEnd[(bitPosition + size) % 8]);
+		else
+		{
+			target[bytePosition] &= _bitMaskSetStart[bitPosition];
+			target[bytePosition + endIndex] &= _bitMaskSetEnd[(bitPosition + size) % 8];
+		}
+		target[bytePosition] |= source >> (bitPosition + 24);
+		if(endIndex == 0) return;
+		for(int32_t i = 1; i < endIndex; i++)
+		{
+			target[bytePosition + i] = (source << ((i - 1) * 8 + (8 - bitPosition))) >> (32 - i * 8);
+		}
+		target[bytePosition + endIndex] |= (source << ((endIndex - 1) * 8 + (8 - bitPosition))) >> (32 - endIndex * 8);
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+}
+
+void DptConverter::setPosition(uint32_t position, uint32_t size, std::vector<uint8_t>& target, uint64_t source)
+{
+	try
+	{
+		if(size > 64) size = 64;
+		else if(size == 0) return;
+		source = source << (64 - size);
+
+		int32_t bytePosition = position / 8;
+		int32_t bitPosition = position % 8;
+		int32_t targetByteCount = (bitPosition + size) / 8 + ((bitPosition + size) % 8 != 0 ? 1 : 0);
+		int32_t endIndex = targetByteCount - 1;
+		uint32_t requiredSize = bytePosition + targetByteCount;
+		if(target.size() < requiredSize) target.resize(requiredSize, 0);
+
+		if(endIndex == 0) target[bytePosition] &= (_bitMaskSetStart[bitPosition] | _bitMaskSetEnd[(bitPosition + size) % 8]);
+		else
+		{
+			target[bytePosition] &= _bitMaskSetStart[bitPosition];
+			target[bytePosition + endIndex] &= _bitMaskSetEnd[(bitPosition + size) % 8];
+		}
+		target[bytePosition] |= source >> (bitPosition + 56);
+		if(endIndex == 0) return;
+		for(int32_t i = 1; i < endIndex; i++)
+		{
+			target[bytePosition + i] = (source << ((i - 1) * 8 + (8 - bitPosition))) >> (64 - i * 8);
+		}
+		target[bytePosition + endIndex] |= (source << ((endIndex - 1) * 8 + (8 - bitPosition))) >> (64 - endIndex * 8);
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
 }
 
 }

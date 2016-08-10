@@ -94,9 +94,17 @@ protected:
 		PParameter parameter;
 	};
 
+	struct GroupedParametersInfo
+	{
+		PParameter rawParameter;
+		PParameter submitParameter;
+		std::vector<PParameter> parameters;
+	};
+
 	bool _shuttingDown = false;
 	std::shared_ptr<DptConverter> _dptConverter;
 	std::map<uint16_t, ParametersByGroupAddressInfo> _parametersByGroupAddress;
+	std::map<int32_t, std::map<std::string, GroupedParametersInfo>> _groupedParameters;
 
 	//{{{ getValueFromDevice
 		struct GetValueFromDeviceInfo

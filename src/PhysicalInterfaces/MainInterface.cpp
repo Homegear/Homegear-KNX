@@ -286,10 +286,13 @@ void MainInterface::stopListening()
 	try
 	{
 		// {{{ DISCONNECT_REQ (0x0209)
+		if(!_stopped)
+		{
 			std::vector<char> data{ 0x06, 0x10, 0x02, 0x09, 0x00, 0x10, _channelId, 0x00, 0x08, 0x01, _listenIpBytes[0], _listenIpBytes[1], _listenIpBytes[2], _listenIpBytes[3], _listenPortBytes[0], _listenPortBytes[1] };
 			std::vector<char> response;
 			getSystemResponse(0x020A, data, response);
 			_initComplete = false;
+		}
 		// }}}
 
 		_stopCallbackThread = true;

@@ -412,15 +412,39 @@ void MyPeer::initParametersByGroupAddress()
 			if(i->second->channel == 0) continue;
 			for(Parameters::iterator j = i->second->variables->parameters.begin(); j != i->second->variables->parameters.end(); ++j)
 			{
-				if(j->second->physical->operationType != BaseLib::DeviceDescription::IPhysical::OperationType::command) continue;
 				if(j->second->casts.empty()) continue;
-				ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second->casts.at(0));
-				if(!cast) continue;
-				ParametersByGroupAddressInfo info;
-				info.channel = i->second->channel;
-				info.cast = cast;
-				info.parameter = j->second;
-				_parametersByGroupAddress[j->second->physical->address] = info;
+
+				std::string::size_type pos = j->first.find('.');
+				if(pos != std::string::npos)
+				{
+					std::string baseName = j->first.substr(0, pos);
+					std::string extension = j->first.substr(pos);
+					if(extension == ".RAW")
+					{
+						_groupedParameters[i->first][baseName].rawParameter = j->second;
+
+						ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second->casts.at(0));
+						if(!cast) continue;
+						ParametersByGroupAddressInfo info;
+						info.channel = i->first;
+						info.cast = cast;
+						info.parameter = j->second;
+						_parametersByGroupAddress[j->second->physical->address] = info;
+					}
+					else if(extension == ".SUBMIT") _groupedParameters[i->first][baseName].submitParameter = j->second;
+					else _groupedParameters[i->first][baseName].parameters.push_back(j->second);
+				}
+				else
+				{
+					if(j->second->physical->operationType != BaseLib::DeviceDescription::IPhysical::OperationType::command) continue;
+					ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second->casts.at(0));
+					if(!cast) continue;
+					ParametersByGroupAddressInfo info;
+					info.channel = i->first;
+					info.cast = cast;
+					info.parameter = j->second;
+					_parametersByGroupAddress[j->second->physical->address] = info;
+				}
 			}
 		}
 	}
@@ -459,7 +483,61 @@ void MyPeer::packetReceived(PMyPacket& packet)
 		PVariable variable = _dptConverter->getVariable(parameterIterator->second.cast->type, packet->getPayload());
 		if(!variable) return;
 
-		if(_getValueFromDeviceInfo.requested)
+		std::shared_ptr<std::vector<std::string>> valueKeys(new std::vector<std::string>{ parameterIterator->second.parameter->id });
+		std::shared_ptr<std::vector<PVariable>> values(new std::vector<PVariable>{ variable });
+
+		std::string::size_type pos = parameterIterator->second.parameter->id.find('.');
+		if(pos != std::string::npos)
+		{
+			std::string baseName = parameterIterator->second.parameter->id.substr(0, pos);
+			std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>>::iterator channelIterator = valuesCentral.find(parameterIterator->second.channel);
+			if(channelIterator != valuesCentral.end())
+			{
+				std::map<int32_t, std::map<std::string, GroupedParametersInfo>>::iterator groupedParametersChannelIterator = _groupedParameters.find(parameterIterator->second.channel);
+				if(groupedParametersChannelIterator != _groupedParameters.end())
+				{
+					std::map<std::string, GroupedParametersInfo>::iterator groupedParametersIterator = groupedParametersChannelIterator->second.find(baseName);
+					if(groupedParametersIterator != groupedParametersChannelIterator->second.end())
+					{
+						for(std::vector<PParameter>::iterator i = groupedParametersIterator->second.parameters.begin(); i != groupedParametersIterator->second.parameters.end(); ++i)
+						{
+							std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator groupedParameterIterator = channelIterator->second.find((*i)->id);
+							if(groupedParameterIterator != channelIterator->second.end())
+							{
+								BaseLib::Systems::RPCConfigurationParameter& groupedParameter = groupedParameterIterator->second;
+
+								if((*i)->casts.empty()) continue;
+								ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>((*i)->casts.at(0));
+								if(!groupedCast) continue;
+
+								groupedParameter.data = _dptConverter->getPositionV((*i)->physical->address, (*i)->physical->bitSize, parameter.data);
+								if(groupedParameter.databaseID > 0) saveParameter(groupedParameter.databaseID, groupedParameter.data);
+								else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator->second.channel, (*i)->id, groupedParameter.data);
+								if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator->second.channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameter.data) + ".");
+
+								PVariable groupedVariable = _dptConverter->getVariable(groupedCast->type, groupedParameter.data);
+								if(!groupedVariable) continue;
+								if(_getValueFromDeviceInfo.requested && parameterIterator->second.channel == _getValueFromDeviceInfo.channel && (*i)->id == _getValueFromDeviceInfo.variableName)
+								{
+									_getValueFromDeviceInfo.requested = false;
+									_getValueFromDeviceInfo.value = groupedVariable;
+									{
+										std::lock_guard<std::mutex> lock(_getValueFromDeviceInfo.mutex);
+										_getValueFromDeviceInfo.mutexReady = true;
+									}
+									_getValueFromDeviceInfo.conditionVariable.notify_one();
+								}
+
+								valueKeys->push_back((*i)->id);
+								values->push_back(groupedVariable);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if(_getValueFromDeviceInfo.requested && parameterIterator->second.channel == _getValueFromDeviceInfo.channel && parameterIterator->second.parameter->id == _getValueFromDeviceInfo.variableName)
 		{
 			_getValueFromDeviceInfo.requested = false;
 			_getValueFromDeviceInfo.value = variable;
@@ -469,9 +547,6 @@ void MyPeer::packetReceived(PMyPacket& packet)
 			}
 			_getValueFromDeviceInfo.conditionVariable.notify_one();
 		}
-
-		std::shared_ptr<std::vector<std::string>> valueKeys(new std::vector<std::string>{ parameterIterator->second.parameter->id });
-		std::shared_ptr<std::vector<PVariable>> values(new std::vector<PVariable>{ variable });
 
 		raiseEvent(_peerID, parameterIterator->second.channel, valueKeys, values);
 		raiseRPCEvent(_peerID, parameterIterator->second.channel, _serialNumber + ":" + std::to_string(parameterIterator->second.channel), valueKeys, values);
@@ -640,12 +715,11 @@ bool MyPeer::convertToPacketHook(PParameter parameter, PVariable data, std::vect
 {
 	try
 	{
-		bool fitsInFirstByte = false;
 		if(!parameter) return false;
 		if(parameter->casts.empty()) return false;
 		ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.at(0));
 		if(!cast) return false;
-		result = _dptConverter->getDpt(cast->type, data, fitsInFirstByte);
+		result = _dptConverter->getDpt(cast->type, data);
 	}
 	catch(const std::exception& ex)
     {
@@ -732,24 +806,6 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			values->push_back(value);
 		}
 
-		if(rpcParameter->physical->operationType == IPhysical::OperationType::Enum::store)
-		{
-			rpcParameter->convertToPacket(value, parameter.data);
-			if(parameter.databaseID > 0) saveParameter(parameter.databaseID, parameter.data);
-			else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameter.data);
-			if(!valueKeys->empty())
-			{
-				raiseEvent(_peerID, channel, valueKeys, values);
-				raiseRPCEvent(_peerID, channel, _serialNumber + ":" + std::to_string(channel), valueKeys, values);
-			}
-			return PVariable(new Variable(VariableType::tVoid));
-		}
-		else if(rpcParameter->physical->operationType != IPhysical::OperationType::Enum::command) return Variable::createError(-6, "Parameter is not settable.");
-
-		if(rpcParameter->casts.empty()) return Variable::createError(-7, "No DPT conversion defined.");
-		ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(rpcParameter->casts.at(0));
-		if(!cast) return Variable::createError(-7, "No DPT conversion defined.");
-
 		//{{{ Boundary check
 			if(rpcParameter->logical->type == ILogical::Type::tInteger)
 			{
@@ -783,19 +839,113 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 				PLogicalEnumeration logical = std::dynamic_pointer_cast<LogicalEnumeration>(rpcParameter->logical);
 				if(logical)
 				{
-					if(value->integerValue > logical->maximumValue) value->integerValue = logical->maximumValue;
-					else if(value->integerValue < logical->minimumValue) value->integerValue = logical->minimumValue;
+					int32_t index = std::abs(logical->minimumValue) + value->integerValue;
+					if(index < 0 || index >= (signed)logical->values.size() || !logical->values.at(index).indexDefined) return Variable::createError(-11, "Unknown enumeration index.");
 				}
 			}
 		//}}}
 
 		bool fitsInFirstByte = false;
-		parameter.data = _dptConverter->getDpt(cast->type, value, fitsInFirstByte);
+		if(!rpcParameter->casts.empty())
+		{
+			ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(rpcParameter->casts.at(0));
+			if(!cast) return Variable::createError(-7, "No DPT conversion defined.");
+			parameter.data = _dptConverter->getDpt(cast->type, value);
+			fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
+		}
+
+		if(rpcParameter->physical->operationType == IPhysical::OperationType::Enum::store)
+		{
+			if(parameter.databaseID > 0) saveParameter(parameter.databaseID, parameter.data);
+			else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameter.data);
+			if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameter.data) + ".");
+
+			std::string::size_type pos = valueKey.find('.');
+			if(pos != std::string::npos)
+			{
+				std::string baseName = valueKey.substr(0, pos);
+				std::string rawParameterName = baseName + ".RAW";
+				std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator rawParameterIterator = channelIterator->second.find(rawParameterName);
+				if(rawParameterIterator == channelIterator->second.end()) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
+				PParameter rawRpcParameter = rawParameterIterator->second.rpcParameter;
+				if(!rawRpcParameter) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
+				BaseLib::Systems::RPCConfigurationParameter& rawParameter = rawParameterIterator->second;
+
+				if(rawRpcParameter->casts.empty()) return Variable::createError(-10, rawParameterName + " hast no cast defined.");
+				ParameterCast::PGeneric rawCast = std::dynamic_pointer_cast<ParameterCast::Generic>(rawRpcParameter->casts.at(0));
+				if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
+
+				_dptConverter->setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameter.data, parameter.data);
+				if(rawParameter.databaseID > 0) saveParameter(rawParameter.databaseID, rawParameter.data);
+				else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, rawParameterName, rawParameter.data);
+				if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + rawParameterName + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(rawParameter.data) + ".");
+
+				valueKeys->push_back(rawParameterName);
+				values->push_back(_dptConverter->getVariable(rawCast->type, rawParameter.data));
+			}
+
+			if(!valueKeys->empty())
+			{
+				raiseEvent(_peerID, channel, valueKeys, values);
+				raiseRPCEvent(_peerID, channel, _serialNumber + ":" + std::to_string(channel), valueKeys, values);
+			}
+			return PVariable(new Variable(VariableType::tVoid));
+		}
+		else if(rpcParameter->physical->operationType != IPhysical::OperationType::Enum::command) return Variable::createError(-6, "Parameter is not settable.");
+
 		if(parameter.databaseID > 0) saveParameter(parameter.databaseID, parameter.data);
 		else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameter.data);
 		if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameter.data) + ".");
 
-		PMyPacket packet(new MyPacket(MyPacket::Operation::write, 0, rpcParameter->physical->address, fitsInFirstByte, parameter.data));
+		if(valueKey.size() > 4 && valueKey.compare(valueKey.size() - 4, 4, ".RAW") == 0)
+		{
+			std::string baseName = valueKey.substr(0, valueKey.size() - 4);
+			std::map<int32_t, std::map<std::string, GroupedParametersInfo>>::iterator groupedParametersChannelIterator = _groupedParameters.find(channel);
+			if(groupedParametersChannelIterator == _groupedParameters.end()) return Variable::createError(-8, "No grouped parameters found.");
+			std::map<std::string, GroupedParametersInfo>::iterator groupedParametersIterator = groupedParametersChannelIterator->second.find(baseName);
+			if(groupedParametersIterator == groupedParametersChannelIterator->second.end()) return Variable::createError(-8, "No grouped parameters found.");
+
+			for(std::vector<PParameter>::iterator i = groupedParametersIterator->second.parameters.begin(); i != groupedParametersIterator->second.parameters.end(); ++i)
+			{
+				std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator groupedParameterIterator = channelIterator->second.find((*i)->id);
+				if(groupedParameterIterator == channelIterator->second.end()) continue;
+				PParameter groupedRpcParameter = groupedParameterIterator->second.rpcParameter;
+				if(!groupedRpcParameter) continue;
+				BaseLib::Systems::RPCConfigurationParameter& groupedParameter = groupedParameterIterator->second;
+
+				if(groupedRpcParameter->casts.empty()) continue;
+				ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>(groupedRpcParameter->casts.at(0));
+				if(!groupedCast) continue;
+
+				std::vector<uint8_t> groupedParameterData = _dptConverter->getPositionV(groupedRpcParameter->physical->address, groupedRpcParameter->physical->bitSize, parameter.data);
+				if(groupedParameter.data.size() == groupedParameterData.size() && std::equal(groupedParameterData.begin(), groupedParameterData.end(), groupedParameter.data.begin())) continue;
+				groupedParameter.data = groupedParameterData;
+				if(groupedParameter.databaseID > 0) saveParameter(groupedParameter.databaseID, groupedParameter.data);
+				else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, (*i)->id, groupedParameter.data);
+				if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameter.data) + ".");
+
+				valueKeys->push_back((*i)->id);
+				values->push_back(_dptConverter->getVariable(groupedCast->type, groupedParameter.data));
+			}
+		}
+
+		PMyPacket packet;
+		if(valueKey.size() > 7 && valueKey.compare(valueKey.size() - 7, 7, ".SUBMIT") == 0 && rpcParameter->logical->type == ILogical::Type::tAction)
+		{
+			std::string baseName = valueKey.substr(0, valueKey.size() - 7);
+			std::string rawParameterName = baseName + ".RAW";
+			std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator rawParameterIterator = channelIterator->second.find(rawParameterName);
+			if(rawParameterIterator == channelIterator->second.end()) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
+			PParameter rawRpcParameter = rawParameterIterator->second.rpcParameter;
+			if(!rawRpcParameter) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
+			BaseLib::Systems::RPCConfigurationParameter& rawParameter = rawParameterIterator->second;
+			if(rawRpcParameter->casts.empty()) return Variable::createError(-10, rawParameterName + " hast no cast defined.");
+			ParameterCast::PGeneric rawCast = std::dynamic_pointer_cast<ParameterCast::Generic>(rawRpcParameter->casts.at(0));
+			if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
+
+			packet.reset(new MyPacket(MyPacket::Operation::write, 0, rpcParameter->physical->address, _dptConverter->fitsInFirstByte(rawCast->type), rawParameter.data));
+		}
+		else packet.reset(new MyPacket(MyPacket::Operation::write, 0, rpcParameter->physical->address, fitsInFirstByte, parameter.data));
 
 		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
 		{

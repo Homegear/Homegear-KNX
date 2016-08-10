@@ -91,7 +91,7 @@ std::vector<Search::PeerInfo> Search::search()
 				}
 
 				structIterator = i->description->structValue->find("variable");
-				if(structIterator != i->description->structValue->end()) variableName = structIterator->second->stringValue;
+				if(structIterator != i->description->structValue->end()) variableName = _bl->hf.stringReplace(structIterator->second->stringValue, ".", "_");;
 
 				structIterator = i->description->structValue->find("unit");
 				if(structIterator != i->description->structValue->end()) unit = structIterator->second->stringValue;
@@ -102,7 +102,7 @@ std::vector<Search::PeerInfo> Search::search()
 				PHomegearDevice device(new HomegearDevice(_bl, GD::family->getFamily()));
 				device->version = 1;
 				PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
-				supportedDevice->id = "KNX_" + std::to_string(i->address);
+				supportedDevice->id = "KNX_" + std::to_string(i->address >> 11) + "_" + std::to_string((i->address >> 8) & 0x7) + "_" + std::to_string(i->address & 0xFF);
 				supportedDevice->description = "KNX_" + std::to_string(i->address >> 11) + "/" + std::to_string((i->address >> 8) & 0x7) + "/" + std::to_string(i->address & 0xFF);
 				supportedDevice->typeNumber = i->address;
 				device->supportedDevices.push_back(supportedDevice);
@@ -116,16 +116,10 @@ std::vector<Search::PeerInfo> Search::search()
 				function->variablesId = "knx_values";
 				device->functions[function->channel] = function;
 
-				PParameter parameter(new Parameter(_bl, function->variables.get()));
-				parameter->id = variableName.empty() ? "VALUE" : variableName;
-				parameter->metadata = i->datapointType;
-				parameter->unit = unit;
-				parameter->physical = PPhysical(new Physical(_bl));
-				parameter->physical->operationType = IPhysical::OperationType::command;
-				parameter->physical->groupId = parameter->id;
-				parameter->physical->address = i->address;
+				PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, i->datapointType, unit, IPhysical::OperationType::command, i->address);
+				if(!parameter) continue;
 
-				parseDatapointType(i->datapointType, parameter);
+				parseDatapointType(function, i->datapointType, parameter);
 
 				if(!parameter->casts.empty())
 				{
@@ -166,16 +160,10 @@ std::vector<Search::PeerInfo> Search::search()
 				}
 				else function = functionIterator->second;
 
-				PParameter parameter(new Parameter(_bl, function->variables.get()));
-				parameter->id = variableName.empty() ? "VALUE" : variableName;
-				parameter->metadata = i->datapointType;
-				parameter->unit = unit;
-				parameter->physical = PPhysical(new Physical(_bl));
-				parameter->physical->operationType = IPhysical::OperationType::command;
-				parameter->physical->groupId = parameter->id;
-				parameter->physical->address = i->address;
+				PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, i->datapointType, unit, IPhysical::OperationType::command, i->address);
+				if(!parameter) continue;
 
-				parseDatapointType(i->datapointType, parameter);
+				parseDatapointType(function, i->datapointType, parameter);
 
 				if(!parameter->casts.empty())
 				{
@@ -500,13 +488,48 @@ std::vector<Search::XmlData> Search::extractXmlData(std::vector<std::shared_ptr<
 	return xmlData;
 }
 
-void Search::parseDatapointType(std::string& datapointType, PParameter& parameter)
+PParameter Search::createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, uint16_t address, int32_t size, std::shared_ptr<ILogical> logical, bool noCast)
 {
 	try
 	{
-		if(!parameter->casts.empty()) return;
-		ParameterCast::PGeneric cast(new ParameterCast::Generic(_bl));
-		parameter->casts.push_back(cast);
+		PParameter parameter(new Parameter(_bl, function->variables.get()));
+		parameter->id = name;
+		parameter->metadata = metadata;
+		parameter->unit = unit;
+		if(logical) parameter->logical = logical;
+		parameter->physical = PPhysical(new Physical(_bl));
+		parameter->physical->operationType = operationType;
+		parameter->physical->address = address;
+		parameter->physical->bitSize = size;
+		if(!noCast)
+		{
+			ParameterCast::PGeneric cast(new ParameterCast::Generic(_bl));
+			parameter->casts.push_back(cast);
+			cast->type = metadata;
+		}
+		return parameter;
+	}
+	catch(const std::exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(const Exception& ex)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return PParameter();
+}
+
+void Search::parseDatapointType(PFunction& function, std::string& datapointType, PParameter& parameter)
+{
+	try
+	{
+		std::vector<PParameter> additionalParameters;
+		ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
 		//1-bit
 		if(datapointType == "DPT-1" || datapointType.compare(0, 7, "DPST-1-") == 0)
@@ -527,31 +550,33 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			logical->values.push_back(EnumerationValue("NoControlTrue", 1));
 			logical->values.push_back(EnumerationValue("ControlFalse", 2));
 			logical->values.push_back(EnumerationValue("ControlTrue", 3));
+
+			std::string baseName = parameter->id;
+			parameter->id = baseName + ".RAW";
+			additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+			additionalParameters.push_back(createParameter(function, baseName + ".CONTROL", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			additionalParameters.push_back(createParameter(function, baseName + ".STATE", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 		}
 		//3-bit controlled
 		else if(datapointType == "DPT-3" || datapointType.compare(0, 7, "DPST-3-") == 0)
 		{
 			cast->type = "DPT-3";
-			PLogicalEnumeration logical(new LogicalEnumeration(_bl));
+			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
 			logical->minimumValue = 0;
 			logical->maximumValue = 15;
-			logical->values.push_back(EnumerationValue("NoControl0", 0));
-			logical->values.push_back(EnumerationValue("NoControl1", 1));
-			logical->values.push_back(EnumerationValue("NoControl2", 2));
-			logical->values.push_back(EnumerationValue("NoControl3", 3));
-			logical->values.push_back(EnumerationValue("NoControl4", 4));
-			logical->values.push_back(EnumerationValue("NoControl5", 5));
-			logical->values.push_back(EnumerationValue("NoControl6", 6));
-			logical->values.push_back(EnumerationValue("NoControl7", 7));
-			logical->values.push_back(EnumerationValue("Control0", 8));
-			logical->values.push_back(EnumerationValue("Control1", 9));
-			logical->values.push_back(EnumerationValue("Control2", 10));
-			logical->values.push_back(EnumerationValue("Control3", 11));
-			logical->values.push_back(EnumerationValue("Control4", 12));
-			logical->values.push_back(EnumerationValue("Control5", 13));
-			logical->values.push_back(EnumerationValue("Control6", 14));
-			logical->values.push_back(EnumerationValue("Control7", 15));
+
+			std::string baseName = parameter->id;
+			parameter->id = baseName + ".RAW";
+			additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+			additionalParameters.push_back(createParameter(function, baseName + ".CONTROL", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+			PLogicalInteger stepCode(new LogicalInteger(_bl));
+			stepCode->minimumValue = 0;
+			stepCode->minimumValue = 7;
+			additionalParameters.push_back(createParameter(function, baseName + ".STEP_CODE", "DPT-5", "", IPhysical::OperationType::store, 5, 3, stepCode));
 		}
 		//character
 		else if(datapointType == "DPT-4" || datapointType.compare(0, 7, "DPST-4-") == 0)
@@ -580,17 +605,17 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			{
 				logical->minimumValue = 0;
 				logical->maximumValue = 100;
-				parameter->unit = "%";
+				if(parameter->unit.empty()) parameter->unit = "%";
 			}
 			// Angle
 			else if(datapointType == "DPST-5-3")
 			{
 				logical->minimumValue = 0;
 				logical->maximumValue = 360;
-				parameter->unit = "°";
+				if(parameter->unit.empty()) parameter->unit = "°";
 			}
 			// Percentage (0..255%)
-			else if(datapointType == "DPST-5-4") parameter->unit = "%";
+			else if(datapointType == "DPST-5-4") { if(parameter->unit.empty()) parameter->unit = "%"; }
 			// Tariff (0..255)
 			else if(datapointType == "DPST-5-6")
 			{
@@ -598,7 +623,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 				logical->maximumValue = 254; //Don't know if this is correct it says "0..255" but also "MaxInclusive=254"
 			}
 			// Counter pulses (0..255)
-			else if(datapointType == "DPST-5-10") parameter->unit = "counter pulses";
+			else if(datapointType == "DPST-5-10") { if(parameter->unit.empty()) parameter->unit = "counter pulses"; }
 			else cast->type = "DPT-5";
 		}
 		//8-bit signed value
@@ -610,8 +635,28 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			logical->maximumValue = 127;
 			cast->type = datapointType;
 			// Percentage (-128..127%)
-			if(datapointType == "DPST-6-1") parameter->unit = "%";
-			else if(datapointType == "DPST-6-10") parameter->unit = "counter pulses";
+			if(datapointType == "DPST-6-1") { if(parameter->unit.empty()) parameter->unit = "%"; }
+			else if(datapointType == "DPST-6-10") { if(parameter->unit.empty()) parameter->unit = "counter pulses"; }
+			// Status with mode
+			else if(datapointType == "DPST-6-20")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_A", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_B", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_C", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_D", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_E", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				PLogicalEnumeration enumeration(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".MODE", "DPT-5", "", IPhysical::OperationType::store, 5, 3, enumeration));
+				enumeration->minimumValue = 1;
+				enumeration->maximumValue = 4;
+				enumeration->values.push_back(EnumerationValue("Mode 0", 1));
+				enumeration->values.push_back(EnumerationValue("Mode 1", 2));
+				enumeration->values.push_back(EnumerationValue("Mode 2", 4));
+			}
 			else cast->type = "DPT-6";
 		}
 		//2-byte unsigned value
@@ -623,25 +668,25 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			logical->maximumValue = 65535;
 			cast->type = datapointType;
 			//Pulses
-			if(datapointType == "DPST-7-1") parameter->unit = "pulses";
+			if(datapointType == "DPST-7-1") { if(parameter->unit.empty()) parameter->unit = "pulses"; }
 			//Time (ms)
-			else if(datapointType == "DPST-7-2") parameter->unit = "ms";
+			else if(datapointType == "DPST-7-2") { if(parameter->unit.empty()) parameter->unit = "ms"; }
 			//Time (10 ms)
-			else if(datapointType == "DPST-7-3") parameter->unit = "* 10 ms";
+			else if(datapointType == "DPST-7-3") { if(parameter->unit.empty()) parameter->unit = "* 10 ms"; }
 			//Time (100 ms)
-			else if(datapointType == "DPST-7-4") parameter->unit = "* 100 ms)";
+			else if(datapointType == "DPST-7-4") { if(parameter->unit.empty()) parameter->unit = "* 100 ms)"; }
 			//Time (s)
-			else if(datapointType == "DPST-7-5") parameter->unit = "s";
+			else if(datapointType == "DPST-7-5") { if(parameter->unit.empty()) parameter->unit = "s"; }
 			//Time (min)
-			else if(datapointType == "DPST-7-6") parameter->unit = "min";
+			else if(datapointType == "DPST-7-6") { if(parameter->unit.empty()) parameter->unit = "min"; }
 			//Time (h)
-			else if(datapointType == "DPST-7-7") parameter->unit = "h";
+			else if(datapointType == "DPST-7-7") { if(parameter->unit.empty()) parameter->unit = "h"; }
 			//Length (mm)
-			else if(datapointType == "DPST-7-11") parameter->unit = "mm";
+			else if(datapointType == "DPST-7-11") { if(parameter->unit.empty()) parameter->unit = "mm"; }
 			//Current (mA)
-			else if(datapointType == "DPST-7-12") parameter->unit = "mA";
+			else if(datapointType == "DPST-7-12") { if(parameter->unit.empty()) parameter->unit = "mA"; }
 			//Brightness (lux)
-			else if(datapointType == "DPST-7-13") parameter->unit = "lux";
+			else if(datapointType == "DPST-7-13") { if(parameter->unit.empty()) parameter->unit = "lux"; }
 			else cast->type = "DPT-7";
 		}
 		//2-byte signed value
@@ -653,23 +698,23 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			logical->maximumValue = 32767;
 			cast->type = datapointType;
 			//Pulses difference
-			if(datapointType == "DPST-8-1") parameter->unit = "pulses";
+			if(datapointType == "DPST-8-1") { if(parameter->unit.empty()) parameter->unit = "pulses"; }
 			//Time lag (ms)
-			else if(datapointType == "DPST-8-2") parameter->unit = "ms";
+			else if(datapointType == "DPST-8-2") { if(parameter->unit.empty()) parameter->unit = "ms"; }
 			//Time lag (10 ms)
-			else if(datapointType == "DPST-8-3") parameter->unit = "* 10 ms";
+			else if(datapointType == "DPST-8-3") { if(parameter->unit.empty()) parameter->unit = "* 10 ms"; }
 			//Time lag (100 ms)
-			else if(datapointType == "DPST-8-4") parameter->unit = "* 100 ms)";
+			else if(datapointType == "DPST-8-4") { if(parameter->unit.empty()) parameter->unit = "* 100 ms)"; }
 			//Time lag (s)
-			else if(datapointType == "DPST-8-5") parameter->unit = "s";
+			else if(datapointType == "DPST-8-5") { if(parameter->unit.empty()) parameter->unit = "s"; }
 			//Time lag (min)
-			else if(datapointType == "DPST-8-6") parameter->unit = "min";
+			else if(datapointType == "DPST-8-6") { if(parameter->unit.empty()) parameter->unit = "min"; }
 			//Time lag (h)
-			else if(datapointType == "DPST-8-7") parameter->unit = "h";
+			else if(datapointType == "DPST-8-7") { if(parameter->unit.empty()) parameter->unit = "h"; }
 			//Percentage difference (%)
-			else if(datapointType == "DPST-8-10") parameter->unit = "%";
+			else if(datapointType == "DPST-8-10") { if(parameter->unit.empty()) parameter->unit = "%"; }
 			//Rotation angle
-			else if(datapointType == "DPST-8-11") parameter->unit = "°";
+			else if(datapointType == "DPST-8-11") { if(parameter->unit.empty()) parameter->unit = "°"; }
 			else cast->type = "DPT-8";
 		}
 		//2-byte float value
@@ -683,92 +728,127 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			//Temperature (°C)
 			if(datapointType == "DPST-9-1")
 			{
-				parameter->unit = "°C";
+				if(parameter->unit.empty()) parameter->unit = "°C";
 				logical->minimumValue = -273;
 			}
 			//Temperature difference (K)
-			else if(datapointType == "DPST-9-2") parameter->unit = "K";
+			else if(datapointType == "DPST-9-2") { if(parameter->unit.empty()) parameter->unit = "K"; }
 			//Kelvin/hour (K/h)
-			else if(datapointType == "DPST-9-3") parameter->unit = "K/h";
+			else if(datapointType == "DPST-9-3") { if(parameter->unit.empty()) parameter->unit = "K/h"; }
 			//Lux (lux);
 			else if(datapointType == "DPST-9-4")
 			{
-				parameter->unit = "lux";
+				if(parameter->unit.empty()) parameter->unit = "lux";
 				logical->minimumValue = 0;
 			}
 			//Speed (m/s)
 			else if(datapointType == "DPST-9-5")
 			{
-				parameter->unit = "m/s";
+				if(parameter->unit.empty()) parameter->unit = "m/s";
 				logical->minimumValue = 0;
 			}
 			//Pressure (Pa)
 			else if(datapointType == "DPST-9-6")
 			{
-				parameter->unit = "Pa";
+				if(parameter->unit.empty()) parameter->unit = "Pa";
 				logical->minimumValue = 0;
 			}
 			//Humidity (%)
 			else if(datapointType == "DPST-9-7")
 			{
-				parameter->unit = "%";
+				if(parameter->unit.empty()) parameter->unit = "%";
 				logical->minimumValue = 0;
 			}
 			//Parts/million (ppm) [air quality]
 			else if(datapointType == "DPST-9-8")
 			{
-				parameter->unit = "ppm";
+				if(parameter->unit.empty()) parameter->unit = "ppm";
 				logical->minimumValue = 0;
 			}
 			//Air flow (m³/h)
-			else if(datapointType == "DPST-9-9") parameter->unit = "m³/h";
+			else if(datapointType == "DPST-9-9") { if(parameter->unit.empty()) parameter->unit = "m³/h"; }
 			//Time (s)
-			else if(datapointType == "DPST-9-10") parameter->unit = "s";
+			else if(datapointType == "DPST-9-10") { if(parameter->unit.empty()) parameter->unit = "s"; }
 			//Time (ms)
-			else if(datapointType == "DPST-9-11") parameter->unit = "ms";
+			else if(datapointType == "DPST-9-11") { if(parameter->unit.empty()) parameter->unit = "ms"; }
 			//Voltage (mV)
-			else if(datapointType == "DPST-9-20") parameter->unit = "mV";
+			else if(datapointType == "DPST-9-20") { if(parameter->unit.empty()) parameter->unit = "mV"; }
 			//Current (mA)
-			else if(datapointType == "DPST-9-21") parameter->unit = "mA";
+			else if(datapointType == "DPST-9-21") { if(parameter->unit.empty()) parameter->unit = "mA"; }
 			//Power density (W/m²)
-			else if(datapointType == "DPST-9-22") parameter->unit = "W/m²";
+			else if(datapointType == "DPST-9-22") { if(parameter->unit.empty()) parameter->unit = "W/m²"; }
 			//Kelvin/percent (K/%)
-			else if(datapointType == "DPST-9-23") parameter->unit = "K/%";
+			else if(datapointType == "DPST-9-23") { if(parameter->unit.empty()) parameter->unit = "K/%"; }
 			//Power (kW)
-			else if(datapointType == "DPST-9-24") parameter->unit = "kW";
+			else if(datapointType == "DPST-9-24") { if(parameter->unit.empty()) parameter->unit = "kW"; }
 			//Volume flow (l/h)
-			else if(datapointType == "DPST-9-25") parameter->unit = "l/h";
+			else if(datapointType == "DPST-9-25") { if(parameter->unit.empty()) parameter->unit = "l/h"; }
 			//Rain amount (l/m²)
 			else if(datapointType == "DPST-9-26")
 			{
-				parameter->unit = "l/m²";
+				if(parameter->unit.empty()) parameter->unit = "l/m²";
 				logical->minimumValue = -671088.64;
 				logical->maximumValue = 670760.96;
 			}
 			//Temperature (°F)
 			else if(datapointType == "DPST-9-27")
 			{
-				parameter->unit = "°F";
+				if(parameter->unit.empty()) parameter->unit = "°F";
 				logical->minimumValue = -459.6;
 				logical->maximumValue = 670760.96;
 			}
 			//Wind speed (km/h)
 			else if(datapointType == "DPST-9-28")
 			{
-				parameter->unit = "km/h";
+				if(parameter->unit.empty()) parameter->unit = "km/h";
 				logical->minimumValue = 0;
 				logical->maximumValue = 670760.96;
 			}
 			else cast->type = "DPT-9";
 		}
 		//3-byte time
-		else if(datapointType == "DPT-10" || datapointType.compare(0, 7, "DPST-10") == 0)
+		else if(datapointType == "DPT-10" || datapointType.compare(0, 8, "DPST-10-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
 			logical->minimumValue = 0;
 			logical->maximumValue = 16777215;
 			cast->type = "DPT-10";
+
+			if(datapointType == "DPST-10-1")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalEnumeration weekDays(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".DAY", "DPT-5", "", IPhysical::OperationType::store, 0, 3, weekDays));
+				weekDays->minimumValue = 0;
+				weekDays->maximumValue = 7;
+				weekDays->values.push_back(EnumerationValue("No day", 0));
+				weekDays->values.push_back(EnumerationValue("Monday", 1));
+				weekDays->values.push_back(EnumerationValue("Tuesday", 2));
+				weekDays->values.push_back(EnumerationValue("Wednesday", 3));
+				weekDays->values.push_back(EnumerationValue("Thursday", 4));
+				weekDays->values.push_back(EnumerationValue("Friday", 5));
+				weekDays->values.push_back(EnumerationValue("Saturday", 6));
+				weekDays->values.push_back(EnumerationValue("Sunday", 7));
+
+				PLogicalInteger hours(new LogicalInteger(_bl));
+				hours->minimumValue = 0;
+				hours->maximumValue = 23;
+				additionalParameters.push_back(createParameter(function, baseName + ".HOURS", "DPT-5", "h", IPhysical::OperationType::store, 3, 5, hours));
+
+				PLogicalInteger minutes(new LogicalInteger(_bl));
+				hours->minimumValue = 0;
+				hours->maximumValue = 59;
+				additionalParameters.push_back(createParameter(function, baseName + ".MINUTES", "DPT-5", "min", IPhysical::OperationType::store, 10, 6, minutes));
+
+				PLogicalInteger seconds(new LogicalInteger(_bl));
+				hours->minimumValue = 0;
+				hours->maximumValue = 59;
+				additionalParameters.push_back(createParameter(function, baseName + ".SECONDS", "DPT-5", "s", IPhysical::OperationType::store, 18, 6, minutes));
+			}
 		}
 		//3-byte date
 		else if(datapointType == "DPT-11" || datapointType.compare(0, 7, "DPST-11") == 0)
@@ -780,7 +860,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			cast->type = "DPT-11";
 		}
 		//4-byte unsigned value
-		else if(datapointType == "DPT-12" || datapointType.compare(0, 7, "DPST-12") == 0)
+		else if(datapointType == "DPT-12" || datapointType.compare(0, 8, "DPST-12-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
@@ -791,7 +871,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			else cast->type = "DPT-12";
 		}
 		//4-byte signed value
-		else if(datapointType == "DPT-13" || datapointType.compare(0, 7, "DPST-13") == 0)
+		else if(datapointType == "DPT-13" || datapointType.compare(0, 8, "DPST-13-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
@@ -818,7 +898,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			else cast->type = "DPT-12";
 		}
 		//4-byte float value
-		else if(datapointType == "DPT-14" || datapointType.compare(0, 7, "DPST-14") == 0)
+		else if(datapointType == "DPT-14" || datapointType.compare(0, 8, "DPST-14-") == 0)
 		{
 			PLogicalDecimal logical(new LogicalDecimal(_bl));
 			parameter->logical = logical;
@@ -983,14 +1063,14 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			else cast->type = "DPT-14";
 		}
 		//Entrance access (32bit)
-		else if(datapointType == "DPT-15" || datapointType.compare(0, 7, "DPST-15") == 0)
+		else if(datapointType == "DPT-15" || datapointType.compare(0, 8, "DPST-15-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
 			cast->type = "DPT-15";
 		}
 		//character string
-		else if(datapointType == "DPT-16" || datapointType.compare(0, 7, "DPST-16") == 0)
+		else if(datapointType == "DPT-16" || datapointType.compare(0, 8, "DPST-16-") == 0)
 		{
 			PLogicalString logical(new LogicalString(_bl));
 			parameter->logical = logical;
@@ -1000,7 +1080,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			else cast->type = "DPT-16";
 		}
 		//Scene number
-		else if(datapointType == "DPT-17" || datapointType.compare(0, 7, "DPST-17") == 0)
+		else if(datapointType == "DPT-17" || datapointType.compare(0, 8, "DPST-17-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
@@ -1009,7 +1089,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			cast->type = "DPT-17";
 		}
 		//Scene control
-		else if(datapointType == "DPT-18" || datapointType.compare(0, 7, "DPST-18") == 0)
+		else if(datapointType == "DPT-18" || datapointType.compare(0, 8, "DPST-18-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
@@ -1018,7 +1098,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			cast->type = "DPT-18";
 		}
 		//Date time
-		else if(datapointType == "DPT-19" || datapointType.compare(0, 7, "DPST-19") == 0)
+		else if(datapointType == "DPT-19" || datapointType.compare(0, 8, "DPST-19-") == 0)
 		{
 #ifdef CCU2
 			parameter->casts.clear();
@@ -1029,7 +1109,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			cast->type = "DPT-19";
 		}
 		//1-byte
-		else if(datapointType == "DPT-20" || datapointType.compare(0, 7, "DPST-20") == 0)
+		else if(datapointType == "DPT-20" || datapointType.compare(0, 8, "DPST-20-") == 0)
 		{
 			PLogicalEnumeration logical(new LogicalEnumeration(_bl));
 			parameter->logical = logical;
@@ -1636,7 +1716,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			}
 		}
 		//8-bit set
-		else if(datapointType == "DPT-21" || datapointType.compare(0, 7, "DPST-21") == 0)
+		else if(datapointType == "DPT-21" || datapointType.compare(0, 8, "DPST-21-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
@@ -1645,7 +1725,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			cast->type = "DPT-21";
 		}
 		//16-bit set
-		else if(datapointType == "DPT-22" || datapointType.compare(0, 7, "DPST-22") == 0)
+		else if(datapointType == "DPT-22" || datapointType.compare(0, 8, "DPST-22-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
@@ -1653,7 +1733,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			logical->maximumValue = 65535;
 			cast->type = "DPT-22";
 		}
-		else if(datapointType == "DPT-23" || datapointType.compare(0, 7, "DPST-23") == 0)
+		else if(datapointType == "DPT-23" || datapointType.compare(0, 8, "DPST-23-") == 0)
 		{
 			PLogicalEnumeration logical(new LogicalEnumeration(_bl));
 			parameter->logical = logical;
@@ -1707,7 +1787,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			}
 		}
 		//2-nibble set
-		else if(datapointType == "DPT-25" || datapointType.compare(0, 7, "DPST-25") == 0)
+		else if(datapointType == "DPT-25" || datapointType.compare(0, 8, "DPST-25-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
@@ -1716,7 +1796,7 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			cast->type = "DPT-25";
 		}
 		//8-bit set
-		else if(datapointType == "DPT-26" || datapointType.compare(0, 7, "DPST-26") == 0)
+		else if(datapointType == "DPT-26" || datapointType.compare(0, 8, "DPST-26-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
@@ -1725,14 +1805,14 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			cast->type = "DPT-26";
 		}
 		//32-bit set
-		else if(datapointType == "DPT-27" || datapointType.compare(0, 7, "DPST-27") == 0)
+		else if(datapointType == "DPT-27" || datapointType.compare(0, 8, "DPST-27-") == 0)
 		{
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
 			cast->type = "DPT-27";
 		}
 		//Electrical energy
-		else if(datapointType == "DPT-29" || datapointType.compare(0, 7, "DPST-29") == 0)
+		else if(datapointType == "DPT-29" || datapointType.compare(0, 8, "DPST-29-") == 0)
 		{
 #ifdef CCU2
 			parameter->casts.clear();
@@ -1742,12 +1822,72 @@ void Search::parseDatapointType(std::string& datapointType, PParameter& paramete
 			parameter->logical = logical;
 			cast->type = datapointType;
 			//Active energy
-			if(datapointType == "DPST-29-10") parameter->unit = "Wh";
+			if(datapointType == "DPST-29-10") { if(parameter->unit.empty()) parameter->unit = "Wh"; }
 			//Apparent energy
-			else if(datapointType == "DPST-29-11") parameter->unit = "VAh";
+			else if(datapointType == "DPST-29-11") { if(parameter->unit.empty()) parameter->unit = "VAh"; }
 			//Reactive energy
-			else if(datapointType == "DPST-29-12") parameter->unit = "VARh";
+			else if(datapointType == "DPST-29-12") { if(parameter->unit.empty()) parameter->unit = "VARh"; }
 			else cast->type = "DPT-29";
+		}
+		//24 channels activation
+		else if(datapointType == "DPT-30" || datapointType.compare(0, 8, "DPST-30-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 16777215;
+			cast->type = "DPT-30";
+		}
+		//16-bit unsigned value and 8-bit enumeration
+		if(datapointType == "DPT-206" || datapointType.compare(0, 9, "DPST-206-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 16777215;
+			cast->type = "DPT-206";
+		}
+		//Datapoint type version
+		else if(datapointType == "DPT-217" || datapointType.compare(0, 9, "DPST-217-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 65535;
+			cast->type = "DPT-217";
+		}
+		//Alarm info
+		else if(datapointType == "DPT-219" || datapointType.compare(0, 9, "DPST-219-") == 0)
+		{
+#ifdef CCU2
+			parameter->casts.clear();
+			return;
+#endif
+			PLogicalInteger64 logical(new LogicalInteger64(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 281474976710655;
+			cast->type = "DPT-219";
+		}
+		//3x 2-byte float value
+		else if(datapointType == "DPT-222" || datapointType.compare(0, 9, "DPST-222-") == 0)
+		{
+#ifdef CCU2
+			parameter->casts.clear();
+			return;
+#endif
+			PLogicalInteger64 logical(new LogicalInteger64(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 281474976710655;
+			cast->type = "DPT-222";
+		}
+
+		for(std::vector<PParameter>::iterator i = additionalParameters.begin(); i != additionalParameters.end(); ++i)
+		{
+			if(!*i) continue;
+			function->variables->parametersOrdered.push_back(*i);
+			function->variables->parameters[(*i)->id] = *i;
 		}
 	}
 	catch(const std::exception& ex)
