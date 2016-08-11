@@ -510,12 +510,9 @@ void MyPeer::packetReceived(PMyPacket& packet)
 								ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>((*i)->casts.at(0));
 								if(!groupedCast) continue;
 
-								groupedParameter.data = _dptConverter->getPositionV((*i)->physical->address, (*i)->physical->bitSize, parameter.data);
-								if(groupedParameter.databaseID > 0) saveParameter(groupedParameter.databaseID, groupedParameter.data);
-								else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator->second.channel, (*i)->id, groupedParameter.data);
-								if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator->second.channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameter.data) + ".");
+								std::vector<uint8_t> groupedParameterData = _dptConverter->getPositionV((*i)->physical->address, (*i)->physical->bitSize, parameter.data);
 
-								PVariable groupedVariable = _dptConverter->getVariable(groupedCast->type, groupedParameter.data);
+								PVariable groupedVariable = _dptConverter->getVariable(groupedCast->type, groupedParameterData);
 								if(!groupedVariable) continue;
 								if(_getValueFromDeviceInfo.requested && parameterIterator->second.channel == _getValueFromDeviceInfo.channel && (*i)->id == _getValueFromDeviceInfo.variableName)
 								{
@@ -527,6 +524,12 @@ void MyPeer::packetReceived(PMyPacket& packet)
 									}
 									_getValueFromDeviceInfo.conditionVariable.notify_one();
 								}
+
+								if(groupedParameter.data.size() == groupedParameterData.size() && std::equal(groupedParameterData.begin(), groupedParameterData.end(), groupedParameter.data.begin())) continue;
+								groupedParameter.data = groupedParameterData;
+								if(groupedParameter.databaseID > 0) saveParameter(groupedParameter.databaseID, groupedParameter.data);
+								else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator->second.channel, (*i)->id, groupedParameter.data);
+								if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator->second.channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameter.data) + ".");
 
 								valueKeys->push_back((*i)->id);
 								values->push_back(groupedVariable);

@@ -858,6 +858,28 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 16777215;
 			cast->type = "DPT-11";
+
+			if(datapointType == "DPST-11-1")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger day(new LogicalInteger(_bl));
+				day->minimumValue = 1;
+				day->maximumValue = 31;
+				additionalParameters.push_back(createParameter(function, baseName + ".DAY", "DPT-5", "", IPhysical::OperationType::store, 3, 5, day));
+
+				PLogicalInteger month(new LogicalInteger(_bl));
+				month->minimumValue = 1;
+				month->maximumValue = 12;
+				additionalParameters.push_back(createParameter(function, baseName + ".MONTH", "DPT-5", "", IPhysical::OperationType::store, 12, 4, month));
+
+				PLogicalInteger year(new LogicalInteger(_bl));
+				year->minimumValue = 0;
+				year->maximumValue = 99;
+				additionalParameters.push_back(createParameter(function, baseName + ".YEAR", "DPT-5", "", IPhysical::OperationType::store, 17, 7, year));
+			}
 		}
 		//4-byte unsigned value
 		else if(datapointType == "DPT-12" || datapointType.compare(0, 8, "DPST-12-") == 0)
@@ -1068,6 +1090,53 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
 			cast->type = "DPT-15";
+
+			if(datapointType == "DPST-15-0")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger field1(new LogicalInteger(_bl));
+				field1->minimumValue = 0;
+				field1->maximumValue = 9;
+				additionalParameters.push_back(createParameter(function, baseName + ".DATA1", "DPT-5", "", IPhysical::OperationType::store, 0, 4, field1));
+
+				PLogicalInteger field2(new LogicalInteger(_bl));
+				field2->minimumValue = 0;
+				field2->maximumValue = 9;
+				additionalParameters.push_back(createParameter(function, baseName + ".DATA2", "DPT-5", "", IPhysical::OperationType::store, 4, 4, field2));
+
+				PLogicalInteger field3(new LogicalInteger(_bl));
+				field3->minimumValue = 0;
+				field3->maximumValue = 9;
+				additionalParameters.push_back(createParameter(function, baseName + ".DATA3", "DPT-5", "", IPhysical::OperationType::store, 8, 4, field3));
+
+				PLogicalInteger field4(new LogicalInteger(_bl));
+				field4->minimumValue = 0;
+				field4->maximumValue = 9;
+				additionalParameters.push_back(createParameter(function, baseName + ".DATA4", "DPT-5", "", IPhysical::OperationType::store, 12, 4, field4));
+
+				PLogicalInteger field5(new LogicalInteger(_bl));
+				field5->minimumValue = 0;
+				field5->maximumValue = 9;
+				additionalParameters.push_back(createParameter(function, baseName + ".DATA5", "DPT-5", "", IPhysical::OperationType::store, 16, 4, field5));
+
+				PLogicalInteger field6(new LogicalInteger(_bl));
+				field6->minimumValue = 0;
+				field6->maximumValue = 9;
+				additionalParameters.push_back(createParameter(function, baseName + ".DATA6", "DPT-5", "", IPhysical::OperationType::store, 20, 4, field6));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".DETECTION_ERROR", "DPT-1", "", IPhysical::OperationType::store, 24, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".PERMISSION", "DPT-1", "", IPhysical::OperationType::store, 25, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".READ_DIRECTION", "DPT-1", "", IPhysical::OperationType::store, 26, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".ENCRYPTION", "DPT-1", "", IPhysical::OperationType::store, 27, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				PLogicalInteger codeIndex(new LogicalInteger(_bl));
+				codeIndex->minimumValue = 0;
+				codeIndex->maximumValue = 9;
+				additionalParameters.push_back(createParameter(function, baseName + ".CODE_INDEX", "DPT-5", "", IPhysical::OperationType::store, 28, 4, codeIndex));
+			}
 		}
 		//character string
 		else if(datapointType == "DPT-16" || datapointType.compare(0, 8, "DPST-16-") == 0)
@@ -1096,6 +1165,19 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 255;
 			cast->type = "DPT-18";
+			if(datapointType == "DPST-18-1")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".LEARN", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				PLogicalInteger hours(new LogicalInteger(_bl));
+				hours->minimumValue = 0;
+				hours->maximumValue = 63;
+				additionalParameters.push_back(createParameter(function, baseName + ".SCENE", "DPT-5", "", IPhysical::OperationType::store, 2, 6, hours));
+			}
 		}
 		//Date time
 		else if(datapointType == "DPT-19" || datapointType.compare(0, 8, "DPST-19-") == 0)
@@ -1107,6 +1189,57 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			PLogicalInteger64 logical(new LogicalInteger64(_bl));
 			parameter->logical = logical;
 			cast->type = "DPT-19";
+			if(datapointType == "DPST-19-1")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger year(new LogicalInteger(_bl));
+				year->minimumValue = 0;
+				year->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".YEAR", "DPT-5", "", IPhysical::OperationType::store, 0, 8, year));
+
+				PLogicalInteger month(new LogicalInteger(_bl));
+				month->minimumValue = 1;
+				month->maximumValue = 12;
+				additionalParameters.push_back(createParameter(function, baseName + ".MONTH", "DPT-5", "", IPhysical::OperationType::store, 12, 4, month));
+
+				PLogicalInteger dayOfMonth(new LogicalInteger(_bl));
+				dayOfMonth->minimumValue = 0;
+				dayOfMonth->maximumValue = 31;
+				additionalParameters.push_back(createParameter(function, baseName + ".DAY_OF_MONTH", "DPT-5", "", IPhysical::OperationType::store, 19, 5, dayOfMonth));
+
+				PLogicalInteger dayOfWeek(new LogicalInteger(_bl));
+				dayOfWeek->minimumValue = 0;
+				dayOfWeek->maximumValue = 7;
+				additionalParameters.push_back(createParameter(function, baseName + ".DAY_OF_WEEK", "DPT-5", "", IPhysical::OperationType::store, 24, 3, dayOfWeek));
+
+				PLogicalInteger hours(new LogicalInteger(_bl));
+				hours->minimumValue = 0;
+				hours->maximumValue = 24;
+				additionalParameters.push_back(createParameter(function, baseName + ".HOURS", "DPT-5", "h", IPhysical::OperationType::store, 27, 5, hours));
+
+				PLogicalInteger minutes(new LogicalInteger(_bl));
+				minutes->minimumValue = 0;
+				minutes->maximumValue = 59;
+				additionalParameters.push_back(createParameter(function, baseName + ".MINUTES", "DPT-5", "min", IPhysical::OperationType::store, 34, 6, minutes));
+
+				PLogicalInteger seconds(new LogicalInteger(_bl));
+				seconds->minimumValue = 0;
+				seconds->maximumValue = 59;
+				additionalParameters.push_back(createParameter(function, baseName + ".SECONDS", "DPT-5", "s", IPhysical::OperationType::store, 42, 6, seconds));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, 48, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".WORKING_DAY", "DPT-1", "", IPhysical::OperationType::store, 49, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".WD_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, 50, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".YEAR_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, 51, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".MONTH_AND_DOM_FIELDS_INVALID", "DPT-1", "", IPhysical::OperationType::store, 52, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DOW_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, 53, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TIME_FIELDS_INVALID", "DPT-1", "", IPhysical::OperationType::store, 54, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".SUMMERTIME", "DPT-1", "", IPhysical::OperationType::store, 55, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".EXT_SYNC_SIGNAL", "DPT-1", "", IPhysical::OperationType::store, 56, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
 		}
 		//1-byte
 		else if(datapointType == "DPT-20" || datapointType.compare(0, 8, "DPST-20-") == 0)
@@ -1723,6 +1856,188 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 255;
 			cast->type = "DPT-21";
+
+			//General status
+			if(datapointType == "DPST-21-1")
+			{
+				logical->maximumValue = 31;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".NO_ALARM_ACK", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DP_IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_CORRUPTED", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_OUT_OF_SERVICE", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Device control
+			else if(datapointType == "DPST-21-2")
+			{
+				logical->maximumValue = 7;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".VERIFY_MODE_ON", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OWN_ADDRESS_DATAGRAM", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".USER_APPLICATION_STOPPED", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Forcing signal
+			else if(datapointType == "DPST-21-100")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".ROOM_H_MAX", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".ROOM_H_CONF", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DHW_LEGIO", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DHW_NORM", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OVERRUN", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OVERSUPPLY", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".PROTECTION", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FORCE_REQUEST", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Forcing signal cool
+			else if(datapointType == "DPST-21-101")
+			{
+				logical->maximumValue = 1;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".FORCE_REQUEST", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Room heating controller status
+			else if(datapointType == "DPST-21-102")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".SUMMER_MODE", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_STOP_OPTIM", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_START_OPTIM", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_MORNING_BOOST", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TEMP_RETURN_LIMIT", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_LIMIT", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Solar DHW controller status
+			else if(datapointType == "DPST-21-103")
+			{
+				logical->maximumValue = 7;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_LOAD_SUFFICIENT", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".SDHW_LOAD_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Fuel type set
+			else if(datapointType == "DPST-21-104")
+			{
+				logical->maximumValue = 7;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".SOLID_STATE", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".GAS", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OIL", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Room cooling controller status
+			else if(datapointType == "DPST-21-105")
+			{
+				logical->maximumValue = 1;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Ventilation controller status
+			else if(datapointType == "DPST-21-106")
+			{
+				logical->maximumValue = 15;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".COOL", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".HEAT", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FAN_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Lighting actuator error information
+			else if(datapointType == "DPST-21-601")
+			{
+				logical->maximumValue = 127;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".OVERHEAT", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DEFECTIVE_LOAD", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".UNDERLOAD", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OVERCURRENT", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".UNDERVOLTAGE", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".LOAD_DETECTION_ERROR", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//RF communication mode info
+			else if(datapointType == "DPST-21-1000")
+			{
+				logical->maximumValue = 7;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".BI_BAT_SLAVE", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".BI_BAT_MASTER", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".ASYNCHRONOUS", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//cEMI server supported RF filtering modes
+			else if(datapointType == "DPST-21-1001")
+			{
+				logical->maximumValue = 7;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".DOA", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".KNX_SN", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DOA_AND_KNX_SN", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Channel activation for 8 channels
+			else if(datapointType == "DPST-21-1010")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
 		}
 		//16-bit set
 		else if(datapointType == "DPT-22" || datapointType.compare(0, 8, "DPST-22-") == 0)
@@ -1732,6 +2047,88 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 65535;
 			cast->type = "DPT-22";
+
+			//DHW controller status
+			if(datapointType == "DPST-22-100")
+			{
+				logical->maximumValue = 255;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".TEMP_OPTIM_SHIFT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, 8, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_ENERGY_SUPPORT", "DPT-1", "", IPhysical::OperationType::store, 9, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_ENERGY_ONLY", "DPT-1", "", IPhysical::OperationType::store, 10, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OTHER_ENERGY_SOURCE_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, 11, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DHW_PUSH_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, 12, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".LEGIO_PROT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, 13, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DHW_LOAD_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, 14, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, 15, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//RHCC status
+			else if(datapointType == "DPST-22-101")
+			{
+				logical->maximumValue = 32767;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".OVERHEAT_ALARM", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FROST_ALARM", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".DEW_POINT_STATUS", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".COOLING_DISABLED", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_PRE_COOL", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO_C", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".HEAT_COOL_MODE", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".HEATING_DISABLED", "DPT-1", "", IPhysical::OperationType::store, 8, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_STOP_OPTIM", "DPT-1", "", IPhysical::OperationType::store, 9, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_START_OPTIM", "DPT-1", "", IPhysical::OperationType::store, 10, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_MORNING_BOOST_H", "DPT-1", "", IPhysical::OperationType::store, 11, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_RETURN_LIMIT", "DPT-1", "", IPhysical::OperationType::store, 12, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_LIMIT", "DPT-1", "", IPhysical::OperationType::store, 13, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO_H", "DPT-1", "", IPhysical::OperationType::store, 14, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, 15, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Media
+			else if(datapointType == "DPST-22-1000")
+			{
+				logical->maximumValue = 63;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".KNX_IP", "DPT-1", "", IPhysical::OperationType::store, 10, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".RF", "DPT-1", "", IPhysical::OperationType::store, 11, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".PL110", "DPT-1", "", IPhysical::OperationType::store, 13, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TP1", "DPT-1", "", IPhysical::OperationType::store, 14, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+			//Channel activation for 16 channels
+			else if(datapointType == "DPST-22-1010")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, 8, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, 9, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, 10, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, 11, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, 12, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, 13, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, 14, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, 15, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
 		}
 		else if(datapointType == "DPT-23" || datapointType.compare(0, 8, "DPST-23-") == 0)
 		{
@@ -1794,6 +2191,23 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 255;
 			cast->type = "DPT-25";
+
+			if(datapointType == "DPST-25-1000")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger nibble1(new LogicalInteger(_bl));
+				nibble1->minimumValue = 0;
+				nibble1->maximumValue = 3;
+				additionalParameters.push_back(createParameter(function, baseName + ".BUSY", "DPT-5", "", IPhysical::OperationType::store, 0, 4, nibble1));
+
+				PLogicalInteger nibble2(new LogicalInteger(_bl));
+				nibble2->minimumValue = 0;
+				nibble2->maximumValue = 3;
+				additionalParameters.push_back(createParameter(function, baseName + ".NAK", "DPT-5", "", IPhysical::OperationType::store, 4, 4, nibble2));
+			}
 		}
 		//8-bit set
 		else if(datapointType == "DPT-26" || datapointType.compare(0, 8, "DPST-26-") == 0)
@@ -1803,6 +2217,22 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 255;
 			cast->type = "DPT-26";
+
+			if(datapointType == "DPST-26-1")
+			{
+				logical->maximumValue = 127;
+
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".INACTIVE", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				PLogicalInteger hours(new LogicalInteger(_bl));
+				hours->minimumValue = 0;
+				hours->maximumValue = 63;
+				additionalParameters.push_back(createParameter(function, baseName + ".SCENE", "DPT-5", "", IPhysical::OperationType::store, 2, 6, hours));
+			}
 		}
 		//32-bit set
 		else if(datapointType == "DPT-27" || datapointType.compare(0, 8, "DPST-27-") == 0)
@@ -1810,6 +2240,47 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			PLogicalInteger logical(new LogicalInteger(_bl));
 			parameter->logical = logical;
 			cast->type = "DPT-27";
+
+			//Bit-combined info on/off
+			if(datapointType == "DPST-27-1")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_16_VALID", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_15_VALID", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_14_VALID", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_13_VALID", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_12_VALID", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_11_VALID", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_10_VALID", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_9_VALID", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_8_VALID", "DPT-1", "", IPhysical::OperationType::store, 8, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_7_VALID", "DPT-1", "", IPhysical::OperationType::store, 9, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_6_VALID", "DPT-1", "", IPhysical::OperationType::store, 10, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_5_VALID", "DPT-1", "", IPhysical::OperationType::store, 11, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_4_VALID", "DPT-1", "", IPhysical::OperationType::store, 12, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_3_VALID", "DPT-1", "", IPhysical::OperationType::store, 13, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_2_VALID", "DPT-1", "", IPhysical::OperationType::store, 14, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_1_VALID", "DPT-1", "", IPhysical::OperationType::store, 15, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, 16, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, 17, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, 18, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, 19, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, 20, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, 21, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, 22, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, 23, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, 24, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, 25, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, 26, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, 27, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, 28, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, 29, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, 30, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, 31, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
 		}
 		//Electrical energy
 		else if(datapointType == "DPT-29" || datapointType.compare(0, 8, "DPST-29-") == 0)
@@ -1837,6 +2308,39 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 16777215;
 			cast->type = "DPT-30";
+
+			//24 channels activation states
+			if(datapointType == "DPST-30-1010")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, 8, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, 9, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, 10, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, 11, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, 12, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, 13, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, 14, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, 15, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_17", "DPT-1", "", IPhysical::OperationType::store, 16, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_18", "DPT-1", "", IPhysical::OperationType::store, 17, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_19", "DPT-1", "", IPhysical::OperationType::store, 18, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_20", "DPT-1", "", IPhysical::OperationType::store, 19, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_21", "DPT-1", "", IPhysical::OperationType::store, 20, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_22", "DPT-1", "", IPhysical::OperationType::store, 21, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_23", "DPT-1", "", IPhysical::OperationType::store, 22, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".STATE_24", "DPT-1", "", IPhysical::OperationType::store, 23, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
 		}
 		//16-bit unsigned value and 8-bit enumeration
 		if(datapointType == "DPT-206" || datapointType.compare(0, 9, "DPST-206-") == 0)
@@ -1846,6 +2350,91 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 16777215;
 			cast->type = "DPT-206";
+
+			//Time delay & HVAC mode
+			if(datapointType == "DPST-206-100")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger delay(new LogicalInteger(_bl));
+				delay->minimumValue = 0;
+				delay->maximumValue = 65535;
+				additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, 0, 16, delay));
+
+				PLogicalEnumeration hvacMode(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".HVAC_MODE", "DPT-5", "", IPhysical::OperationType::store, 16, 8, hvacMode));
+				hvacMode->minimumValue = 0;
+				hvacMode->maximumValue = 4;
+				hvacMode->values.push_back(EnumerationValue("Undefined", 0));
+				hvacMode->values.push_back(EnumerationValue("Comfort", 1));
+				hvacMode->values.push_back(EnumerationValue("Stand by", 2));
+				hvacMode->values.push_back(EnumerationValue("Economy", 3));
+				hvacMode->values.push_back(EnumerationValue("Building protection", 4));
+			}
+			//Time delay & DHW mode
+			else if(datapointType == "DPST-206-102")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger delay(new LogicalInteger(_bl));
+				delay->minimumValue = 0;
+				delay->maximumValue = 65535;
+				additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, 0, 16, delay));
+
+				PLogicalEnumeration dhwMode(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".DHW_MODE", "DPT-5", "", IPhysical::OperationType::store, 16, 8, dhwMode));
+				dhwMode->minimumValue = 0;
+				dhwMode->maximumValue = 4;
+				dhwMode->values.push_back(EnumerationValue("Undefined", 0));
+				dhwMode->values.push_back(EnumerationValue("Legio protect", 1));
+				dhwMode->values.push_back(EnumerationValue("Normal", 2));
+				dhwMode->values.push_back(EnumerationValue("Reduced", 3));
+				dhwMode->values.push_back(EnumerationValue("Off / frost protection", 4));
+			}
+			//Time delay & occupancy mode
+			else if(datapointType == "DPST-206-104")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger delay(new LogicalInteger(_bl));
+				delay->minimumValue = 0;
+				delay->maximumValue = 65535;
+				additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, 0, 16, delay));
+
+				PLogicalEnumeration occupancyMode(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".OCCUPANCY_MODE", "DPT-5", "", IPhysical::OperationType::store, 16, 8, occupancyMode));
+				occupancyMode->minimumValue = 0;
+				occupancyMode->maximumValue = 2;
+				occupancyMode->values.push_back(EnumerationValue("Occupied", 0));
+				occupancyMode->values.push_back(EnumerationValue("Stand by", 1));
+				occupancyMode->values.push_back(EnumerationValue("Not occupied", 2));
+			}
+			//Time delay & building mode
+			else if(datapointType == "DPST-206-105")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger delay(new LogicalInteger(_bl));
+				delay->minimumValue = 0;
+				delay->maximumValue = 65535;
+				additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, 0, 16, delay));
+
+				PLogicalEnumeration buildingMode(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".BUILDING_MODE", "DPT-5", "", IPhysical::OperationType::store, 16, 8, buildingMode));
+				buildingMode->minimumValue = 0;
+				buildingMode->maximumValue = 2;
+				buildingMode->values.push_back(EnumerationValue("In use", 0));
+				buildingMode->values.push_back(EnumerationValue("Not in use", 1));
+				buildingMode->values.push_back(EnumerationValue("Protected", 2));
+			}
 		}
 		//Datapoint type version
 		else if(datapointType == "DPT-217" || datapointType.compare(0, 9, "DPST-217-") == 0)
@@ -1855,6 +2444,28 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 65535;
 			cast->type = "DPT-217";
+
+			if(datapointType == "DPST-217-1")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger magic(new LogicalInteger(_bl));
+				magic->minimumValue = 0;
+				magic->maximumValue = 31;
+				additionalParameters.push_back(createParameter(function, baseName + ".MAGIC_NUMBER", "DPT-5", "", IPhysical::OperationType::store, 0, 5, magic));
+
+				PLogicalInteger version(new LogicalInteger(_bl));
+				version->minimumValue = 0;
+				version->maximumValue = 31;
+				additionalParameters.push_back(createParameter(function, baseName + ".VERSION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, 5, 5, version));
+
+				PLogicalInteger revision(new LogicalInteger(_bl));
+				revision->minimumValue = 0;
+				revision->maximumValue = 63;
+				additionalParameters.push_back(createParameter(function, baseName + ".REVISION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, 10, 6, revision));
+			}
 		}
 		//Alarm info
 		else if(datapointType == "DPT-219" || datapointType.compare(0, 9, "DPST-219-") == 0)
@@ -1868,6 +2479,62 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 281474976710655;
 			cast->type = "DPT-219";
+
+			if(datapointType == "DPST-219-1")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger logNumber(new LogicalInteger(_bl));
+				logNumber->minimumValue = 0;
+				logNumber->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".LOG_NUMBER", "DPT-5", "", IPhysical::OperationType::store, 0, 8, logNumber));
+
+				PLogicalEnumeration alarmPriority(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".PRIORITY", "DPT-5", "", IPhysical::OperationType::store, 8, 8, alarmPriority));
+				alarmPriority->minimumValue = 0;
+				alarmPriority->maximumValue = 3;
+				alarmPriority->values.push_back(EnumerationValue("High", 0));
+				alarmPriority->values.push_back(EnumerationValue("Medium", 1));
+				alarmPriority->values.push_back(EnumerationValue("Low", 2));
+				alarmPriority->values.push_back(EnumerationValue("None", 3));
+
+				PLogicalEnumeration applicationArea(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, 16, 8, applicationArea));
+				applicationArea->minimumValue = 0;
+				applicationArea->maximumValue = 50;
+				applicationArea->values.push_back(EnumerationValue("No fault", 0));
+				applicationArea->values.push_back(EnumerationValue("Common interest", 1));
+				applicationArea->values.push_back(EnumerationValue("HVAC general FB's", 10));
+				applicationArea->values.push_back(EnumerationValue("HVAC hot water heating", 11));
+				applicationArea->values.push_back(EnumerationValue("HVAC electrical heating", 12));
+				applicationArea->values.push_back(EnumerationValue("HVAC terminal units", 13));
+				applicationArea->values.push_back(EnumerationValue("HVAC VAC", 14));
+				applicationArea->values.push_back(EnumerationValue("Lighting", 20));
+				applicationArea->values.push_back(EnumerationValue("Security", 30));
+				applicationArea->values.push_back(EnumerationValue("Shutters and blinds", 50));
+
+				PLogicalEnumeration errorClass(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CLASS", "DPT-5", "", IPhysical::OperationType::store, 24, 8, errorClass));
+				errorClass->minimumValue = 0;
+				errorClass->maximumValue = 5;
+				errorClass->values.push_back(EnumerationValue("No fault", 0));
+				errorClass->values.push_back(EnumerationValue("General device fault", 1));
+				errorClass->values.push_back(EnumerationValue("Communication fault", 2));
+				errorClass->values.push_back(EnumerationValue("Configuration fault", 3));
+				errorClass->values.push_back(EnumerationValue("HW fault", 4));
+				errorClass->values.push_back(EnumerationValue("SW fault", 5));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CODE_SUP", "DPT-1", "", IPhysical::OperationType::store, 36, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".ALARM_TEXT_SUP", "DPT-1", "", IPhysical::OperationType::store, 37, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TIME_STAMP_SUP", "DPT-1", "", IPhysical::OperationType::store, 38, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".ACK_SUP", "DPT-1", "", IPhysical::OperationType::store, 39, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".LOCKED", "DPT-1", "", IPhysical::OperationType::store, 45, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".ALARM_UN_ACK", "DPT-1", "", IPhysical::OperationType::store, 46, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, 47, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
 		}
 		//3x 2-byte float value
 		else if(datapointType == "DPT-222" || datapointType.compare(0, 9, "DPST-222-") == 0)
@@ -1881,6 +2548,396 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			logical->minimumValue = 0;
 			logical->maximumValue = 281474976710655;
 			cast->type = "DPT-222";
+
+			//Room temperature setpoint
+			if(datapointType == "DPST-222-100")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalDecimal comfort(new LogicalDecimal(_bl));
+				comfort->minimumValue = -273.0;
+				comfort->maximumValue = 670760.0;
+				additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, 0, 16, comfort));
+
+				PLogicalDecimal standBy(new LogicalDecimal(_bl));
+				standBy->minimumValue = -273.0;
+				standBy->maximumValue = 670760.0;
+				additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, 16, 16, standBy));
+
+				PLogicalDecimal eco(new LogicalDecimal(_bl));
+				eco->minimumValue = -273.0;
+				eco->maximumValue = 670760.0;
+				additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, 32, 16, eco));
+			}
+			//Room temperature setpoint shift
+			else if(datapointType == "DPST-222-101")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalDecimal comfort(new LogicalDecimal(_bl));
+				comfort->minimumValue = -670760.0;
+				comfort->maximumValue = 670760.0;
+				additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, 0, 16, comfort));
+
+				PLogicalDecimal standBy(new LogicalDecimal(_bl));
+				standBy->minimumValue = -670760.0;
+				standBy->maximumValue = 670760.0;
+				additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, 16, 16, standBy));
+
+				PLogicalDecimal eco(new LogicalDecimal(_bl));
+				eco->minimumValue = -670760.0;
+				eco->maximumValue = 670760.0;
+				additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, 32, 16, eco));
+			}
+		}
+		//4-1-1 byte combined information
+		else if(datapointType == "DPT-229" || datapointType.compare(0, 9, "DPST-229-") == 0)
+		{
+#ifdef CCU2
+			parameter->casts.clear();
+			return;
+#endif
+			PLogicalInteger64 logical(new LogicalInteger64(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 281474976710655;
+			cast->type = "DPT-229";
+
+			//Metering value (value, encoding, cmd)
+			if(datapointType == "DPST-229-1")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger counter(new LogicalInteger(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".COUNTER", "DPT-12", "", IPhysical::OperationType::store, 0, 32, counter));
+
+				PLogicalEnumeration valueInformation(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, 32, 8, valueInformation));
+				valueInformation->minimumValue = 0;
+				valueInformation->maximumValue = 177;
+				valueInformation->values.push_back(EnumerationValue("Energy, 0.001 Wh", 0));
+				valueInformation->values.push_back(EnumerationValue("Energy, 0.01 Wh", 1));
+				valueInformation->values.push_back(EnumerationValue("Energy, 0.1 Wh", 2));
+				valueInformation->values.push_back(EnumerationValue("Energy, 1 Wh", 3));
+				valueInformation->values.push_back(EnumerationValue("Energy, 10 Wh", 4));
+				valueInformation->values.push_back(EnumerationValue("Energy, 100 Wh", 5));
+				valueInformation->values.push_back(EnumerationValue("Energy, 1000 Wh", 6));
+				valueInformation->values.push_back(EnumerationValue("Energy, 10000 Wh", 7));
+				valueInformation->values.push_back(EnumerationValue("Energy, 0.001kJ", 8));
+				valueInformation->values.push_back(EnumerationValue("Energy, 0.01 kJ", 9));
+				valueInformation->values.push_back(EnumerationValue("Energy, 0.1 kJ", 10));
+				valueInformation->values.push_back(EnumerationValue("Energy, 1 kJ", 11));
+				valueInformation->values.push_back(EnumerationValue("Energy, 10 kJ", 12));
+				valueInformation->values.push_back(EnumerationValue("Energy, 100 kJ", 13));
+				valueInformation->values.push_back(EnumerationValue("Energy, 1000 kJ", 14));
+				valueInformation->values.push_back(EnumerationValue("Energy, 10000 kJ", 15));
+				valueInformation->values.push_back(EnumerationValue("Volume, 0.001 l", 16));
+				valueInformation->values.push_back(EnumerationValue("Volume, 0.01 l", 17));
+				valueInformation->values.push_back(EnumerationValue("Volume, 0.1 l", 18));
+				valueInformation->values.push_back(EnumerationValue("Volume, 1 l", 19));
+				valueInformation->values.push_back(EnumerationValue("Volume, 10 l", 20));
+				valueInformation->values.push_back(EnumerationValue("Volume, 100 l", 21));
+				valueInformation->values.push_back(EnumerationValue("Volume, 1000 l", 22));
+				valueInformation->values.push_back(EnumerationValue("Volume, 10000 l", 23));
+				valueInformation->values.push_back(EnumerationValue("Mass, 0.001 kg", 24));
+				valueInformation->values.push_back(EnumerationValue("Mass, 0.01 kg", 25));
+				valueInformation->values.push_back(EnumerationValue("Mass, 0.1 kg", 26));
+				valueInformation->values.push_back(EnumerationValue("Mass, 1 kg", 27));
+				valueInformation->values.push_back(EnumerationValue("Mass, 10 kg", 28));
+				valueInformation->values.push_back(EnumerationValue("Mass, 100 kg", 29));
+				valueInformation->values.push_back(EnumerationValue("Mass, 1000 kg", 30));
+				valueInformation->values.push_back(EnumerationValue("Mass, 10000 kg", 31));
+
+				valueInformation->values.push_back(EnumerationValue("Power, 0.001 W", 40));
+				valueInformation->values.push_back(EnumerationValue("Power, 0.01 W", 41));
+				valueInformation->values.push_back(EnumerationValue("Power, 0.1 W", 42));
+				valueInformation->values.push_back(EnumerationValue("Power, 1 W", 43));
+				valueInformation->values.push_back(EnumerationValue("Power, 10 W", 44));
+				valueInformation->values.push_back(EnumerationValue("Power, 100 W", 45));
+				valueInformation->values.push_back(EnumerationValue("Power, 1000 W", 46));
+				valueInformation->values.push_back(EnumerationValue("Power, 10000 W", 47));
+				valueInformation->values.push_back(EnumerationValue("Power, 0.001 kJ/h", 48));
+				valueInformation->values.push_back(EnumerationValue("Power, 0.01 kJ/h", 49));
+				valueInformation->values.push_back(EnumerationValue("Power, 0.1 kJ/h", 50));
+				valueInformation->values.push_back(EnumerationValue("Power, 1 kJ/h", 51));
+				valueInformation->values.push_back(EnumerationValue("Power, 10 kJ/h", 52));
+				valueInformation->values.push_back(EnumerationValue("Power, 100 kJ/h", 53));
+				valueInformation->values.push_back(EnumerationValue("Power, 1000 kJ/h", 54));
+				valueInformation->values.push_back(EnumerationValue("Power, 10000 kJ/h", 55));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.001 l/h", 56));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.01 l/h", 57));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.1 l/h", 58));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 1 l/h", 59));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 10 l/h", 60));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 100 l/h", 61));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 1000 l/h", 62));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 10000 l/h", 63));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.0001 l/min", 64));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.001 l/min", 65));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.01 l/min", 66));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.1 l/min", 67));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 1 l/min", 68));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 10 l/min", 69));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 100 l/min", 70));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 1000 l/min", 71));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.001 ml/s", 72));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.01 ml/s", 73));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 0.1 ml/s", 74));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 1 ml/s", 75));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 10 ml/s", 76));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 100 ml/s", 77));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 1000 ml/s", 78));
+				valueInformation->values.push_back(EnumerationValue("Volume flow, 10000 ml/s", 79));
+				valueInformation->values.push_back(EnumerationValue("Mass flow, 0.001 kg/h", 80));
+				valueInformation->values.push_back(EnumerationValue("Mass flow, 0.01 kg/h", 81));
+				valueInformation->values.push_back(EnumerationValue("Mass flow, 0.1 kg/h", 82));
+				valueInformation->values.push_back(EnumerationValue("Mass flow, 1 kg/h", 83));
+				valueInformation->values.push_back(EnumerationValue("Mass flow, 10 kg/h", 84));
+				valueInformation->values.push_back(EnumerationValue("Mass flow, 100 kg/h", 85));
+				valueInformation->values.push_back(EnumerationValue("Mass flow, 1000 kg/h", 86));
+				valueInformation->values.push_back(EnumerationValue("Mass flow, 10000 kg/h", 87));
+
+				valueInformation->values.push_back(EnumerationValue("Units for HCA", 110));
+
+				valueInformation->values.push_back(EnumerationValue("Energy, 0.1 MWh", 128));
+				valueInformation->values.push_back(EnumerationValue("Energy, 1 MWh", 129));
+
+				valueInformation->values.push_back(EnumerationValue("Energy, 0.1 GJ", 136));
+				valueInformation->values.push_back(EnumerationValue("Energy, 1 GJ", 137));
+
+				valueInformation->values.push_back(EnumerationValue("Power, 0.1 MW", 168));
+				valueInformation->values.push_back(EnumerationValue("Power, 1 MW", 169));
+
+				valueInformation->values.push_back(EnumerationValue("Power, 0.1 GJ/h", 176));
+				valueInformation->values.push_back(EnumerationValue("Power, 1 GJ/h", 177));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".ALARM_UN_ACK", "DPT-1", "", IPhysical::OperationType::store, 43, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, 44, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, 45, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, 46, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OUT_OF_SERVICE", "DPT-1", "", IPhysical::OperationType::store, 47, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+		}
+		//MBus address
+		else if(datapointType == "DPT-230" || datapointType.compare(0, 9, "DPST-230-") == 0)
+		{
+#ifdef CCU2
+			parameter->casts.clear();
+			return;
+#endif
+			PLogicalInteger64 logical(new LogicalInteger64(_bl));
+			parameter->logical = logical;
+			cast->type = "DPT-230";
+
+			if(datapointType == "DPST-230-1000")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger manufacturerId(new LogicalInteger(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".MANUFACTURER_ID", "DPT-7", "", IPhysical::OperationType::store, 0, 16, manufacturerId));
+
+				PLogicalInteger identNumber(new LogicalInteger(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-12", "", IPhysical::OperationType::store, 16, 32, identNumber));
+
+				PLogicalInteger version(new LogicalInteger(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-5", "", IPhysical::OperationType::store, 48, 8, version));
+
+				PLogicalEnumeration medium(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".MEDIUM", "DPT-5", "", IPhysical::OperationType::store, 56, 8, medium));
+				medium->minimumValue = 0;
+				medium->maximumValue = 55;
+				medium->values.push_back(EnumerationValue("Other", 0));
+				medium->values.push_back(EnumerationValue("Oil meter", 1));
+				medium->values.push_back(EnumerationValue("Electricity meter", 2));
+				medium->values.push_back(EnumerationValue("Gas meter", 3));
+				medium->values.push_back(EnumerationValue("Heat meter", 4));
+				medium->values.push_back(EnumerationValue("Steam meter", 5));
+				medium->values.push_back(EnumerationValue("Warm water meter", 6));
+				medium->values.push_back(EnumerationValue("Water meter", 7));
+				medium->values.push_back(EnumerationValue("Heat cost allocator", 8));
+				medium->values.push_back(EnumerationValue("Compressed air", 9));
+				medium->values.push_back(EnumerationValue("Cooling load meter (inlet)", 10));
+				medium->values.push_back(EnumerationValue("Cooling load meter (outlet)", 11));
+				medium->values.push_back(EnumerationValue("Heat (inlet)", 12));
+				medium->values.push_back(EnumerationValue("Heat and cool", 13));
+				medium->values.push_back(EnumerationValue("Bus/system", 14));
+				medium->values.push_back(EnumerationValue("Unknown device type", 15));
+
+				medium->values.push_back(EnumerationValue("Breaker (electricity)", 32));
+				medium->values.push_back(EnumerationValue("Valve (gas or water)", 33));
+
+				medium->values.push_back(EnumerationValue("Waste water meter", 40));
+				medium->values.push_back(EnumerationValue("Garbage", 41));
+
+				medium->values.push_back(EnumerationValue("Radio converter", 55));
+			}
+		}
+		//3-byte color RGB
+		else if(datapointType == "DPT-232" || datapointType.compare(0, 9, "DPST-232-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 16777215;
+			cast->type = "DPT-232";
+
+			if(datapointType == "DPST-232-600")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger red(new LogicalInteger(_bl));
+				red->minimumValue = 0;
+				red->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, 0, 8, red));
+
+				PLogicalInteger green(new LogicalInteger(_bl));
+				green->minimumValue = 0;
+				green->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".GREEN", "DPT-5", "", IPhysical::OperationType::store, 8, 8, green));
+
+				PLogicalInteger blue(new LogicalInteger(_bl));
+				blue->minimumValue = 0;
+				blue->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".BLUE", "DPT-5", "", IPhysical::OperationType::store, 16, 8, blue));
+			}
+		}
+		//ISO 639-1 language code
+		else if(datapointType == "DPT-234" || datapointType.compare(0, 9, "DPST-234-") == 0)
+		{
+			PLogicalString logical(new LogicalString(_bl));
+			parameter->logical = logical;
+			cast->type = "DPT-234";
+		}
+		//Configuration / diagnostics
+		else if(datapointType == "DPT-237" || datapointType.compare(0, 9, "DPST-237-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 2047;
+			cast->type = "DPT-237";
+
+			//DPT DALI control gear diagnostic
+			if(datapointType == "DPST-237-600")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_ERROR", "DPT-1", "", IPhysical::OperationType::store, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".BALLAST_FAILURE", "DPT-1", "", IPhysical::OperationType::store, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".READ", "DPT-1", "", IPhysical::OperationType::store, 8, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".GROUP_ADDRESS", "DPT-1", "", IPhysical::OperationType::store, 9, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				PLogicalInteger red(new LogicalInteger(_bl));
+				red->minimumValue = 0;
+				red->maximumValue = 63;
+				additionalParameters.push_back(createParameter(function, baseName + ".DALI_ADDRESS", "DPT-5", "", IPhysical::OperationType::store, 10, 6, red));
+			}
+		}
+		//Configuration / diagnostics
+		else if(datapointType == "DPT-238" || datapointType.compare(0, 9, "DPST-238-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 255;
+			cast->type = "DPT-238";
+
+			//DPT DALI diagnostics
+			if(datapointType == "DPST-238-600")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".BALLAST_FAILURE", "DPT-1", "", IPhysical::OperationType::store, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				PLogicalInteger red(new LogicalInteger(_bl));
+				red->minimumValue = 0;
+				red->maximumValue = 63;
+				additionalParameters.push_back(createParameter(function, baseName + ".DEVICE_ADDRESS", "DPT-5", "", IPhysical::OperationType::store, 2, 6, red));
+			}
+		}
+		//Combined position
+		else if(datapointType == "DPT-240" || datapointType.compare(0, 9, "DPST-240-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			logical->minimumValue = 0;
+			logical->maximumValue = 16777215;
+			cast->type = "DPT-240";
+
+			if(datapointType == "DPST-240-800")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger height(new LogicalInteger(_bl));
+				height->minimumValue = 0;
+				height->maximumValue = 100;
+				additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, 0, 8, height));
+
+				PLogicalInteger slats(new LogicalInteger(_bl));
+				slats->minimumValue = 0;
+				slats->maximumValue = 100;
+				additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, 8, 8, slats));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, 22, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, 23, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+		}
+		//Sun blind and shutter actuator status
+		else if(datapointType == "DPT-241" || datapointType.compare(0, 9, "DPST-241-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			cast->type = "DPT-241";
+
+			if(datapointType == "DPST-241-800")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger height(new LogicalInteger(_bl));
+				height->minimumValue = 0;
+				height->maximumValue = 100;
+				additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, 0, 8, height));
+
+				PLogicalInteger slats(new LogicalInteger(_bl));
+				slats->minimumValue = 0;
+				slats->maximumValue = 100;
+				additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, 8, 8, slats));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".UPPER_END_REACHED", "DPT-1", "", IPhysical::OperationType::store, 16, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".LOWER_END_REACHED", "DPT-1", "", IPhysical::OperationType::store, 17, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".LOWER_PREDEF_REACHED", "DPT-1", "", IPhysical::OperationType::store, 18, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TARGET_REACHED", "DPT-1", "", IPhysical::OperationType::store, 19, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".CANT_REACH_TARGET_POS", "DPT-1", "", IPhysical::OperationType::store, 20, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".CANT_REACH_SLATS_POS", "DPT-1", "", IPhysical::OperationType::store, 21, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, 22, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".UP_DOWN_FORCED_INPUT", "DPT-1", "", IPhysical::OperationType::store, 23, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".LOCKED", "DPT-1", "", IPhysical::OperationType::store, 24, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, 25, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".FAILURE", "DPT-1", "", IPhysical::OperationType::store, 26, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, 30, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, 13, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
 		}
 
 		for(std::vector<PParameter>::iterator i = additionalParameters.begin(); i != additionalParameters.end(); ++i)

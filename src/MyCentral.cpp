@@ -634,7 +634,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 		}
 		else if(command == "test")
 		{
-			std::vector<char> rawPacket = _bl->hf.getBinary("06100420001604BE00001100BCE0000021090200803A");
+			std::vector<char> rawPacket = _bl->hf.getBinary("061004200018044D02001100BCE00000210A0400800B3500");
 			PMyPacket packet(new MyPacket(rawPacket));
 			std::string interface = "MyInterface";
 			onPacketReceived(interface, packet);
