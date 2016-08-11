@@ -182,7 +182,7 @@ std::vector<uint8_t> DptConverter::getDpt(const std::string& type, const PVariab
 			dpt.push_back((value->integerValue >> 8) & 0xFF);
 			dpt.push_back(value->integerValue & 0xFF);
 		}
-		else if(type == "DPT-16" || type.compare(0, 8, "DPST-16") == 0)
+		else if(type == "DPT-16" || type.compare(0, 8, "DPST-16-") == 0)
 		{
 			std::string ansiString = _ansi->toAnsi(value->stringValue);
 			dpt.reserve(ansiString.size() + 1);
