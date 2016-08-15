@@ -403,8 +403,8 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-5 vector is empty.");
 				return PVariable(new Variable((int32_t)0));
 			}
-			if(type == "DPST-5-1") return PVariable(new Variable(std::lround((double)value.at(0) / 2.55)));
-			else if(type == "DPST-5-3") return PVariable(new Variable(std::lround((double)value.at(0) * 1.4117647)));
+			if(type == "DPST-5-1") return PVariable(new Variable((int32_t)std::lround((double)value.at(0) / 2.55)));
+			else if(type == "DPST-5-3") return PVariable(new Variable((int32_t)std::lround((double)value.at(0) * 1.4117647)));
 			else return PVariable(new Variable((int32_t)value.at(0)));
 		}
 		else if(type == "DPT-6" || type.compare(0, 7, "DPST-6-") == 0)
