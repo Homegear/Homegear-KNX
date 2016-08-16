@@ -420,7 +420,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 2)
 			{
-				_bl->out.printError("Error: DPT-7 vector is too small.");
+				_bl->out.printError("Error: DPT-7 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -429,7 +429,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 2)
 			{
-				_bl->out.printError("Error: DPT-8 vector is too small.");
+				_bl->out.printError("Error: DPT-8 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable((int32_t)(((int16_t)value.at(1) << 8) | value.at(2))));
@@ -438,7 +438,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 2)
 			{
-				_bl->out.printError("Error: DPT-9 vector is too small.");
+				_bl->out.printError("Error: DPT-9 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable(0.0));
 			}
 			uint16_t dptValue = (value.at(0) << 8) | value.at(1);
@@ -459,7 +459,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 3)
 			{
-				_bl->out.printError("Error: DPT-10 vector is too small.");
+				_bl->out.printError("Error: DPT-10 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -468,7 +468,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 3)
 			{
-				_bl->out.printError("Error: DPT-10 vector is too small.");
+				_bl->out.printError("Error: DPT-10 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -477,7 +477,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 4)
 			{
-				_bl->out.printError("Error: DPT-12 vector is too small.");
+				_bl->out.printError("Error: DPT-12 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(0) << 24) | ((uint32_t)value.at(1) << 16) | ((uint32_t)value.at(2) << 8) | value.at(3)));
@@ -486,7 +486,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 4)
 			{
-				_bl->out.printError("Error: DPT-13 vector is too small.");
+				_bl->out.printError("Error: DPT-13 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int32_t)value.at(0) << 24) | ((int32_t)value.at(1) << 16) | ((int32_t)value.at(2) << 8) | value.at(3)));
@@ -495,7 +495,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 4)
 			{
-				_bl->out.printError("Error: DPT-14 vector is too small.");
+				_bl->out.printError("Error: DPT-14 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable((double)BaseLib::Math::getFloatFromIeee754Binary32(((uint32_t)value.at(0) << 24) | ((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2))));
@@ -504,7 +504,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 4)
 			{
-				_bl->out.printError("Error: DPT-15 vector is too small.");
+				_bl->out.printError("Error: DPT-15 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int32_t)value.at(0) << 24) | ((int32_t)value.at(1) << 16) | ((int32_t)value.at(2) << 8) | value.at(3)));
@@ -536,7 +536,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 8)
 			{
-				_bl->out.printError("Error: DPT-19 vector is too small.");
+				_bl->out.printError("Error: DPT-19 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int64_t)value.at(0) << 56) | ((int64_t)value.at(1) << 48) | ((int64_t)value.at(2) << 40) | ((int64_t)value.at(3) << 32) | ((int64_t)value.at(4) << 24) | ((int64_t)value.at(5) << 16) | ((int64_t)value.at(6) << 8) | value.at(7)));
@@ -563,7 +563,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 2)
 			{
-				_bl->out.printError("Error: DPT-22 vector is too small.");
+				_bl->out.printError("Error: DPT-22 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -599,7 +599,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 4)
 			{
-				_bl->out.printError("Error: DPT-27 vector is too small.");
+				_bl->out.printError("Error: DPT-27 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int32_t)value.at(0) << 24) | ((int32_t)value.at(1) << 16) | ((int32_t)value.at(2) << 8) | value.at(3)));
@@ -608,7 +608,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 8)
 			{
-				_bl->out.printError("Error: DPT-29 vector is too small.");
+				_bl->out.printError("Error: DPT-29 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int64_t)value.at(0) << 56) | ((int64_t)value.at(1) << 48) | ((int64_t)value.at(2) << 40) | ((int64_t)value.at(3) << 32) | ((int64_t)value.at(4) << 24) | ((int64_t)value.at(5) << 16) | ((int64_t)value.at(6) << 8) | value.at(7)));
@@ -617,7 +617,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 3)
 			{
-				_bl->out.printError("Error: DPT-30 vector is too small.");
+				_bl->out.printError("Error: DPT-30 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -626,7 +626,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 3)
 			{
-				_bl->out.printError("Error: DPT-206 vector is too small.");
+				_bl->out.printError("Error: DPT-206 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -635,7 +635,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 2)
 			{
-				_bl->out.printError("Error: DPT-217 vector is too small.");
+				_bl->out.printError("Error: DPT-217 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -644,7 +644,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 8)
 			{
-				_bl->out.printError("Error: DPT-219 vector is too small.");
+				_bl->out.printError("Error: DPT-219 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int64_t)value.at(0) << 40) | ((int64_t)value.at(1) << 32) | ((int64_t)value.at(2) << 24) | ((int64_t)value.at(3) << 16) | ((int64_t)value.at(4) << 8) | value.at(5)));
@@ -653,7 +653,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 8)
 			{
-				_bl->out.printError("Error: DPT-222 vector is too small.");
+				_bl->out.printError("Error: DPT-222 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int64_t)value.at(0) << 40) | ((int64_t)value.at(1) << 32) | ((int64_t)value.at(2) << 24) | ((int64_t)value.at(3) << 16) | ((int64_t)value.at(4) << 8) | value.at(5)));
@@ -662,7 +662,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 8)
 			{
-				_bl->out.printError("Error: DPT-229 vector is too small.");
+				_bl->out.printError("Error: DPT-229 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int64_t)value.at(0) << 40) | ((int64_t)value.at(1) << 32) | ((int64_t)value.at(2) << 24) | ((int64_t)value.at(3) << 16) | ((int64_t)value.at(4) << 8) | value.at(5)));
@@ -671,7 +671,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 8)
 			{
-				_bl->out.printError("Error: DPT-230 vector is too small.");
+				_bl->out.printError("Error: DPT-230 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int64_t)value.at(0) << 56) | ((int64_t)value.at(1) << 48) | ((int64_t)value.at(2) << 40) | ((int64_t)value.at(3) << 32) | ((int64_t)value.at(4) << 24) | ((int64_t)value.at(5) << 16) | ((int64_t)value.at(6) << 8) | value.at(7)));
@@ -680,7 +680,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 3)
 			{
-				_bl->out.printError("Error: DPT-232 vector is too small.");
+				_bl->out.printError("Error: DPT-232 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -689,7 +689,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 2)
 			{
-				_bl->out.printError("Error: DPT-234 vector is too small.");
+				_bl->out.printError("Error: DPT-234 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -698,7 +698,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 2)
 			{
-				_bl->out.printError("Error: DPT-237 vector is too small.");
+				_bl->out.printError("Error: DPT-237 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -716,7 +716,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 3)
 			{
-				_bl->out.printError("Error: DPT-240 vector is too small.");
+				_bl->out.printError("Error: DPT-240 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2)));
@@ -725,7 +725,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 4)
 			{
-				_bl->out.printError("Error: DPT-241 vector is too small.");
+				_bl->out.printError("Error: DPT-241 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int32_t)value.at(0) << 24) | ((int32_t)value.at(1) << 16) | ((int32_t)value.at(2) << 8) | value.at(3)));

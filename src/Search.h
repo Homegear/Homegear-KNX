@@ -71,7 +71,7 @@ protected:
 	void createDirectories();
 	void createXmlMaintenanceChannel(PHomegearDevice& device);
 	void parseDatapointType(PFunction& function, std::string& datapointType, PParameter& parameter);
-	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
+	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
 	std::vector<std::shared_ptr<std::vector<char>>> extractKnxProjectFiles();
 	std::vector<XmlData> extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles);
 };
