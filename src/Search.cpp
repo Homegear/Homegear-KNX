@@ -146,6 +146,7 @@ std::vector<Search::PeerInfo> Search::search()
 					PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
 					supportedDevice->id = id;
 					supportedDevice->description = supportedDevice->id;
+					if(type == -1) type = 0;
 					supportedDevice->typeNumber = type + 65535;
 					device->supportedDevices.push_back(supportedDevice);
 					rpcDevices[supportedDevice->id] = device;
