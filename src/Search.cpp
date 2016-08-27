@@ -70,8 +70,8 @@ std::vector<Search::PeerInfo> Search::search()
 			int32_t channel = 1;
 			std::string variableName;
 			std::string unit;
-			bool readable = false;
-			bool writeable = false;
+			bool readable = true;
+			bool writeable = true;
 
 			if(i->description)
 			{
@@ -184,7 +184,7 @@ std::vector<Search::PeerInfo> Search::search()
 
 		for(std::map<std::string, PHomegearDevice>::iterator i = rpcDevices.begin(); i != rpcDevices.end(); ++i)
 		{
-			std::string filename = _xmlPath + i->second->supportedDevices.at(0)->id + ".xml";
+			std::string filename = _xmlPath + GD::bl->hf.stringReplace(i->second->supportedDevices.at(0)->id, "/", "_") + ".xml";
 			i->second->save(filename);
 
 			PeerInfo info;

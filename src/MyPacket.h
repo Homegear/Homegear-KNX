@@ -54,6 +54,7 @@ class MyPacket : public BaseLib::Systems::Packet
         std::vector<char> getBinary(char channelId, char sequenceCounter);
         uint16_t getSourceAddress() { return _sourceAddress; }
         uint16_t getDestinationAddress() { return _destinationAddress; }
+        std::string getFormattedDestinationAddress() { return std::to_string(_destinationAddress >> 11) + "/" + std::to_string((_destinationAddress >> 8) & 0x7) + "/" + std::to_string(_destinationAddress & 0xFF); }
         std::vector<uint8_t>& getPayload() { return _payload; }
     protected:
         Operation _operation = Operation::write;
