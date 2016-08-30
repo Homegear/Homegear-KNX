@@ -423,7 +423,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-7 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
-			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
+			return PVariable(new Variable(((uint32_t)value.at(0) << 8) | value.at(1)));
 		}
 		else if(type == "DPT-8" || type.compare(0, 7, "DPST-8-") == 0)
 		{
@@ -432,7 +432,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-8 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
-			return PVariable(new Variable((int32_t)(((int16_t)value.at(1) << 8) | value.at(2))));
+			return PVariable(new Variable((int32_t)(((int16_t)value.at(0) << 8) | value.at(1))));
 		}
 		else if(type == "DPT-9" || type.compare(0, 7, "DPST-9-") == 0)
 		{
@@ -498,7 +498,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-14 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
-			return PVariable(new Variable((double)BaseLib::Math::getFloatFromIeee754Binary32(((uint32_t)value.at(0) << 24) | ((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2))));
+			return PVariable(new Variable((double)BaseLib::Math::getFloatFromIeee754Binary32(((uint32_t)value.at(0) << 24) | ((uint32_t)value.at(1) << 16) | ((uint32_t)value.at(2) << 8) | value.at(3))));
 		}
 		else if(type == "DPT-15" || type.compare(0, 8, "DPST-15-") == 0)
 		{
@@ -566,7 +566,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-22 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
-			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
+			return PVariable(new Variable(((uint32_t)value.at(0) << 8) | value.at(1)));
 		}
 		else if(type == "DPT-23" || type.compare(0, 8, "DPST-23-") == 0)
 		{
@@ -638,11 +638,11 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-217 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
-			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
+			return PVariable(new Variable(((uint32_t)value.at(0) << 8) | value.at(1)));
 		}
 		else if(type == "DPT-219" || type.compare(0, 9, "DPST-219-") == 0)
 		{
-			if(value.size() < 8)
+			if(value.size() < 6)
 			{
 				_bl->out.printError("Error: DPT-219 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
@@ -651,7 +651,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		}
 		else if(type == "DPT-222" || type.compare(0, 9, "DPST-222-") == 0)
 		{
-			if(value.size() < 8)
+			if(value.size() < 6)
 			{
 				_bl->out.printError("Error: DPT-222 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
@@ -660,7 +660,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		}
 		else if(type == "DPT-229" || type.compare(0, 9, "DPST-229-") == 0)
 		{
-			if(value.size() < 8)
+			if(value.size() < 6)
 			{
 				_bl->out.printError("Error: DPT-229 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
@@ -692,7 +692,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-234 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
-			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
+			return PVariable(new Variable(((uint32_t)value.at(0) << 8) | value.at(1)));
 		}
 		else if(type == "DPT-237" || type.compare(0, 9, "DPST-237-") == 0)
 		{
@@ -701,7 +701,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-237 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
-			return PVariable(new Variable(((uint32_t)value.at(1) << 8) | value.at(2)));
+			return PVariable(new Variable(((uint32_t)value.at(0) << 8) | value.at(1)));
 		}
 		else if(type == "DPT-238" || type.compare(0, 9, "DPST-238-") == 0)
 		{

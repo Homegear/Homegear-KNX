@@ -215,6 +215,8 @@ bool MyCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib:
 		std::shared_ptr<MyPacket> myPacket(std::dynamic_pointer_cast<MyPacket>(packet));
 		if(!myPacket) return false;
 
+		if(_bl->debugLevel >= 4) GD::out.printInfo("Packet received from 0x" + BaseLib::HelperFunctions::getHexString(myPacket->getSourceAddress(), 4) + " to " + myPacket->getFormattedDestinationAddress() + ". Payload: " + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
+
 		std::shared_ptr<MyPeer> peer = getPeer(myPacket->getDestinationAddress());
 		if(!peer) return false;
 		peer->packetReceived(myPacket);
@@ -288,6 +290,8 @@ void MyCentral::deletePeer(uint64_t id)
 		if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
 		if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
 		_peersMutex.unlock();
+		GD::out.printInfo("Info: Deleting XML file \"" + peer->getRpcDevice()->getPath() + "\"");
+		GD::bl->io.deleteFile(peer->getRpcDevice()->getPath());
 		GD::out.printMessage("Removed KNX peer " + std::to_string(peer->getID()));
 	}
 	catch(const std::exception& ex)
@@ -881,6 +885,11 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			_peersBySerial[peer->getSerialNumber()] = peer;
 			_peersById[peer->getID()] = peer;
+			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
+			for(std::vector<uint16_t>::iterator i = groupAddresses.begin(); i != groupAddresses.end(); ++i)
+			{
+				_peersByGroupAddress[*i] = peer;
+			}
 			newPeers.push_back(peer);
 		}
 
