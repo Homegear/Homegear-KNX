@@ -35,8 +35,6 @@
 
 #include <homegear-base/BaseLib.h>
 
-#include <list>
-
 using namespace BaseLib;
 using namespace BaseLib::DeviceDescription;
 
@@ -70,6 +68,7 @@ public:
 
     std::string printConfig();
 
+    void initParametersByGroupAddress();
     std::vector<uint16_t> getGroupAddresses();
 
     /**
@@ -123,7 +122,6 @@ protected:
 		GetValueFromDeviceInfo _getValueFromDeviceInfo;
 	//}}}
 
-	void initParametersByGroupAddress();
 	virtual void loadVariables(BaseLib::Systems::ICentral* central, std::shared_ptr<BaseLib::Database::DataTable>& rows);
 
 	virtual std::shared_ptr<BaseLib::Systems::ICentral> getCentral();

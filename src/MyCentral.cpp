@@ -285,11 +285,21 @@ void MyCentral::deletePeer(uint64_t id)
 		}
 
 		raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
+
 		peer->deleteFromDatabase();
-		_peersMutex.lock();
-		if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
-		if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
-		_peersMutex.unlock();
+
+		{
+			std::lock_guard<std::mutex> peersGuard(_peersMutex);
+			if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
+			if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
+
+			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
+			for(const uint16_t& address : groupAddresses)
+			{
+				_peersByGroupAddress.erase(address);
+			}
+		}
+
 		GD::out.printInfo("Info: Deleting XML file \"" + peer->getRpcDevice()->getPath() + "\"");
 		GD::bl->io.deleteFile(peer->getRpcDevice()->getPath());
 		GD::out.printMessage("Removed KNX peer " + std::to_string(peer->getID()));
@@ -397,7 +407,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 				}
 				if(index == -1)
 				{
-					stringStream << "Description: This command unpairs a peer." << std::endl;
+					stringStream << "Description: This command lists information about all peers." << std::endl;
 					stringStream << "Usage: peers list [FILTERTYPE] [FILTERVALUE]" << std::endl << std::endl;
 					stringStream << "Parameters:" << std::endl;
 					stringStream << "  FILTERTYPE:  See filter types below." << std::endl;
@@ -860,6 +870,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			peers = _peersBySerial;
 			_peersBySerial.clear();
 			_peersById.clear();
+			_peersByGroupAddress.clear();
 		}
 
 		std::vector<Search::PeerInfo> peerInfo = _search->search();
@@ -881,6 +892,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			}
 
 			peer->initializeCentralConfig();
+			peer->initParametersByGroupAddress();
 
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			_peersBySerial[peer->getSerialNumber()] = peer;
