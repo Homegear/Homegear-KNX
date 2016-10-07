@@ -107,7 +107,7 @@ std::vector<Search::PeerInfo> Search::search()
 
 			if(id.empty())
 			{
-				PHomegearDevice device(new HomegearDevice(_bl, GD::family->getFamily()));
+				PHomegearDevice device(new HomegearDevice(_bl));
 				device->version = 1;
 				PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
 				supportedDevice->id = "KNX_" + std::to_string(i->address >> 11) + "_" + std::to_string((i->address >> 8) & 0x7) + "_" + std::to_string(i->address & 0xFF);
@@ -141,7 +141,7 @@ std::vector<Search::PeerInfo> Search::search()
 				std::map<std::string, PHomegearDevice>::iterator deviceIterator = rpcDevices.find(id);
 				if(deviceIterator == rpcDevices.end())
 				{
-					device.reset(new HomegearDevice(_bl, GD::family->getFamily()));
+					device.reset(new HomegearDevice(_bl));
 					device->version = 1;
 					PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
 					supportedDevice->id = id;
