@@ -285,11 +285,21 @@ void MyCentral::deletePeer(uint64_t id)
 		}
 
 		raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
+
 		peer->deleteFromDatabase();
-		_peersMutex.lock();
-		if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
-		if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
-		_peersMutex.unlock();
+
+		{
+			std::lock_guard<std::mutex> peersGuard(_peersMutex);
+			if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
+			if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
+
+			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
+			for(const uint16_t& address : groupAddresses)
+			{
+				_peersByGroupAddress.erase(address);
+			}
+		}
+
 		GD::out.printInfo("Info: Deleting XML file \"" + peer->getRpcDevice()->getPath() + "\"");
 		GD::bl->io.deleteFile(peer->getRpcDevice()->getPath());
 		GD::out.printMessage("Removed KNX peer " + std::to_string(peer->getID()));
@@ -397,7 +407,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 				}
 				if(index == -1)
 				{
-					stringStream << "Description: This command unpairs a peer." << std::endl;
+					stringStream << "Description: This command lists information about all peers." << std::endl;
 					stringStream << "Usage: peers list [FILTERTYPE] [FILTERVALUE]" << std::endl << std::endl;
 					stringStream << "Parameters:" << std::endl;
 					stringStream << "  FILTERTYPE:  See filter types below." << std::endl;
@@ -464,7 +474,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 					else if(filterType == "type")
 					{
 						int32_t deviceType = BaseLib::Math::getNumber(filterValue, true);
-						if((int32_t)i->second->getDeviceType().type() != deviceType) continue;
+						if((int32_t)i->second->getDeviceType() != deviceType) continue;
 					}
 
 					stringStream << std::setw(idWidth) << std::setfill(' ') << std::to_string(i->second->getID()) << bar;
@@ -478,7 +488,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 					else name.resize(nameWidth + (name.size() - nameSize), ' ');
 					stringStream << name << bar
 						<< std::setw(serialWidth) << i->second->getSerialNumber() << bar
-						<< std::setw(typeWidth1) << BaseLib::HelperFunctions::getHexString(i->second->getDeviceType().type()) << bar;
+						<< std::setw(typeWidth1) << BaseLib::HelperFunctions::getHexString(i->second->getDeviceType()) << bar;
 					if(i->second->getRpcDevice())
 					{
 						PSupportedDevice type = i->second->getRpcDevice()->getType(i->second->getDeviceType(), i->second->getFirmwareVersion());
@@ -599,7 +609,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 			if(!_currentPeer) stringStream << "This peer is not paired to this central." << std::endl;
 			else
 			{
-				stringStream << "Peer with id " << std::hex << std::to_string(id) << " and device type 0x" << _bl->hf.getHexString(_currentPeer->getDeviceType().type()) << " selected." << std::dec << std::endl;
+				stringStream << "Peer with id " << std::hex << std::to_string(id) << " and device type 0x" << _bl->hf.getHexString(_currentPeer->getDeviceType()) << " selected." << std::dec << std::endl;
 				stringStream << "For information about the peer's commands type: \"help\"" << std::endl;
 			}
 			return stringStream.str();
@@ -662,12 +672,11 @@ std::string MyCentral::handleCliCommand(std::string command)
     return "Error executing command. See log file for more details.\n";
 }
 
-std::shared_ptr<MyPeer> MyCentral::createPeer(int32_t type, std::string serialNumber, bool save)
+std::shared_ptr<MyPeer> MyCentral::createPeer(uint32_t deviceType, std::string serialNumber, bool save)
 {
 	try
 	{
 		std::shared_ptr<MyPeer> peer(new MyPeer(_deviceId, this));
-		BaseLib::Systems::LogicalDeviceType deviceType(MY_FAMILY_ID, type);
 		peer->setDeviceType(deviceType);
 		peer->setSerialNumber(serialNumber);
 		peer->setRpcDevice(GD::family->getRpcDevices()->find(deviceType, 0x10, -1));
@@ -860,6 +869,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			peers = _peersBySerial;
 			_peersBySerial.clear();
 			_peersById.clear();
+			_peersByGroupAddress.clear();
 		}
 
 		std::vector<Search::PeerInfo> peerInfo = _search->search();
@@ -881,6 +891,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			}
 
 			peer->initializeCentralConfig();
+			peer->initParametersByGroupAddress();
 
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			_peersBySerial[peer->getSerialNumber()] = peer;

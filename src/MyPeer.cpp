@@ -371,7 +371,7 @@ bool MyPeer::load(BaseLib::Systems::ICentral* central)
 		loadVariables(central, rows);
 		if(!_rpcDevice)
 		{
-			GD::out.printError("Error loading peer " + std::to_string(_peerID) + ": Device type not found: 0x" + BaseLib::HelperFunctions::getHexString((uint32_t)_deviceType.type()) + " Firmware version: " + std::to_string(_firmwareVersion));
+			GD::out.printError("Error loading peer " + std::to_string(_peerID) + ": Device type not found: 0x" + BaseLib::HelperFunctions::getHexString(_deviceType) + " Firmware version: " + std::to_string(_firmwareVersion));
 			return false;
 		}
 
@@ -510,7 +510,7 @@ void MyPeer::packetReceived(PMyPacket& packet)
 								ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>((*i)->casts.at(0));
 								if(!groupedCast) continue;
 
-								std::vector<uint8_t> groupedParameterData = _dptConverter->getPositionV((*i)->physical->address, (*i)->physical->bitSize, parameter.data);
+								std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(parameter.data, (*i)->physical->address, (*i)->physical->bitSize);
 
 								PVariable groupedVariable = _dptConverter->getVariable(groupedCast->type, groupedParameterData);
 								if(!groupedVariable) continue;
@@ -878,7 +878,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 				ParameterCast::PGeneric rawCast = std::dynamic_pointer_cast<ParameterCast::Generic>(rawRpcParameter->casts.at(0));
 				if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
 
-				_dptConverter->setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameter.data, parameter.data);
+				BaseLib::BitReaderWriter::setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameter.data, parameter.data);
 				if(rawParameter.databaseID > 0) saveParameter(rawParameter.databaseID, rawParameter.data);
 				else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, rawParameterName, rawParameter.data);
 				if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + rawParameterName + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(rawParameter.data) + ".");
@@ -920,7 +920,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 				ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>(groupedRpcParameter->casts.at(0));
 				if(!groupedCast) continue;
 
-				std::vector<uint8_t> groupedParameterData = _dptConverter->getPositionV(groupedRpcParameter->physical->address, groupedRpcParameter->physical->bitSize, parameter.data);
+				std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(parameter.data, groupedRpcParameter->physical->address, groupedRpcParameter->physical->bitSize);
 				if(groupedParameter.data.size() == groupedParameterData.size() && std::equal(groupedParameterData.begin(), groupedParameterData.end(), groupedParameter.data.begin())) continue;
 				groupedParameter.data = groupedParameterData;
 				if(groupedParameter.databaseID > 0) saveParameter(groupedParameter.databaseID, groupedParameter.data);

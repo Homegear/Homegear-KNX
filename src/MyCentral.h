@@ -75,7 +75,7 @@ protected:
 	virtual void savePeers(bool full);
 	virtual void loadVariables() {}
 	virtual void saveVariables() {}
-	std::shared_ptr<MyPeer> createPeer(int32_t type, std::string serialNumber, bool save = true);
+	std::shared_ptr<MyPeer> createPeer(uint32_t type, std::string serialNumber, bool save = true);
 	void deletePeer(uint64_t id);
 };
 
