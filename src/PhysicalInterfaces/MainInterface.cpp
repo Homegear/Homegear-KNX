@@ -322,7 +322,12 @@ void MainInterface::getAddress()
 {
 	try
 	{
-		if(_settings->listenIp.empty())
+		if(!_settings->listenIp.empty() && !BaseLib::Net::isIp(_settings->listenIp))
+		{
+			//Assume address is interface name
+			_listenIp = BaseLib::Net::getMyIpAddress(_settings->listenIp);
+		}
+		else if(_settings->listenIp.empty())
 		{
 			_listenIp = BaseLib::Net::getMyIpAddress();
 			if(_listenIp.empty()) _bl->out.printError("Error: No IP address could be found to bind the server to. Please specify the IP address manually in knx.conf.");
