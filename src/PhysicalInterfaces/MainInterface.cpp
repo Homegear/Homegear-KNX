@@ -62,6 +62,10 @@ MainInterface::MainInterface(std::shared_ptr<BaseLib::Systems::PhysicalInterface
 	_tunnelingAckStatusCodes[0x29] = "E_TUNNELLING_LAYER - The KNXnet/IP server device does not support the requested tunnelling layer.";
 
 	_stopped = true;
+	_sequenceCounter = 0;
+	_initComplete = false;
+	_knxAddress = 0;
+	_channelId = 0;
 }
 
 MainInterface::~MainInterface()

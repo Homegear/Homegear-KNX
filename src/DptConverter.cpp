@@ -33,7 +33,7 @@
 namespace MyFamily
 {
 
-DptConverter::DptConverter(BaseLib::Obj* baseLib) : _bl(baseLib)
+DptConverter::DptConverter(BaseLib::SharedObjects* baseLib) : _bl(baseLib)
 {
 	_ansi.reset(new BaseLib::Ansi(true, true));
 }

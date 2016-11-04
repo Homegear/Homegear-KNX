@@ -33,7 +33,7 @@
 namespace MyFamily
 {
 
-Search::Search(BaseLib::Obj* baseLib) : _bl(baseLib)
+Search::Search(BaseLib::SharedObjects* baseLib) : _bl(baseLib)
 {
 }
 

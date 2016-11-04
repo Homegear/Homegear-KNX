@@ -50,7 +50,7 @@ public:
 		int32_t type = -1;
 	};
 
-	Search(BaseLib::Obj* baseLib);
+	Search(BaseLib::SharedObjects* baseLib);
 	virtual ~Search();
 
 	std::vector<PeerInfo> search();
@@ -66,7 +66,7 @@ protected:
 	};
 
 	std::string _xmlPath;
-	BaseLib::Obj* _bl = nullptr;
+	BaseLib::SharedObjects* _bl = nullptr;
 
 	void createDirectories();
 	void createXmlMaintenanceChannel(PHomegearDevice& device);
