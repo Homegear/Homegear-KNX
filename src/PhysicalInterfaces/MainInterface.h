@@ -67,7 +67,6 @@ protected:
 
 	BaseLib::Output _out;
 	std::atomic_bool _initComplete;
-	std::string _hostname;
 	std::string _port;
 	std::string _listenIp;
 	char _listenIpBytes[4];
@@ -87,7 +86,7 @@ protected:
 	std::thread _keepAliveThread;
 	std::thread _initThread;
 
-	void getAddress();
+	void setListenAddress();
 	void reconnect();
 	void init();
 	void listen();
