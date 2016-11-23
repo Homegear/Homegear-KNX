@@ -62,6 +62,10 @@ MainInterface::MainInterface(std::shared_ptr<BaseLib::Systems::PhysicalInterface
 	_tunnelingAckStatusCodes[0x29] = "E_TUNNELLING_LAYER - The KNXnet/IP server device does not support the requested tunnelling layer.";
 
 	_stopped = true;
+	_sequenceCounter = 0;
+	_initComplete = false;
+	_knxAddress = 0;
+	_channelId = 0;
 }
 
 MainInterface::~MainInterface()
@@ -168,7 +172,7 @@ void MainInterface::startListening()
 	try
 	{
 		stopListening();
-		getAddress();
+		setListenAddress();
 		if(_listenIp.empty()) return;
 		_out.printInfo("Info: Listen IP is: " + _listenIp);
 		_socket = std::unique_ptr<BaseLib::UdpSocket>(new BaseLib::UdpSocket(_bl, _settings->host, _settings->port));
@@ -177,6 +181,8 @@ void MainInterface::startListening()
 		_socket->open();
 		_listenPortBytes[0] = (char)(uint8_t)((_socket->getListenPort() >> 8) & 0xFF);
 		_listenPortBytes[1] = (char)(uint8_t)(_socket->getListenPort() & 0xFF);
+		_hostname = _settings->host;
+		_ipAddress = _socket->getClientIp();
 		_stopped = false;
 		if(_settings->listenThreadPriority > -1) GD::bl->threadManager.start(_listenThread, true, _settings->listenThreadPriority, _settings->listenThreadPolicy, &MainInterface::listen, this);
 		else GD::bl->threadManager.start(_listenThread, true, &MainInterface::listen, this);
@@ -208,6 +214,8 @@ void MainInterface::reconnect()
 		_socket->open();
 		_listenPortBytes[0] = (char)(uint8_t)((_socket->getListenPort() >> 8) & 0xFF);
 		_listenPortBytes[1] = (char)(uint8_t)(_socket->getListenPort() & 0xFF);
+		_hostname = _settings->host;
+		_ipAddress = _socket->getClientIp();
 		_stopped = false;
 		_out.printInfo("Connected to device with hostname " + _settings->host + " on port " + _settings->port + ".");
 		GD::bl->threadManager.join(_initThread);
@@ -259,6 +267,7 @@ void MainInterface::init()
 				return;
 			}
 			_knxAddress = (((uint16_t)(uint8_t)response.at(18)) << 8) + (uint8_t)response.at(19);
+			_myAddress = _knxAddress;
 			_channelId = response.at(6);
 			_out.printInfo("Info: Connected. Gateway's KNX address is: " + std::to_string(_knxAddress >> 12) + '.' + std::to_string((_knxAddress >> 8) & 0xf) + '.' + std::to_string(_knxAddress & 0xFF));
 		// }}}
@@ -318,7 +327,7 @@ void MainInterface::stopListening()
     }
 }
 
-void MainInterface::getAddress()
+void MainInterface::setListenAddress()
 {
 	try
 	{

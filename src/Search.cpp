@@ -33,7 +33,7 @@
 namespace MyFamily
 {
 
-Search::Search(BaseLib::Obj* baseLib) : _bl(baseLib)
+Search::Search(BaseLib::SharedObjects* baseLib) : _bl(baseLib)
 {
 }
 
@@ -564,7 +564,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 			std::string baseName = parameter->id;
 			parameter->id = baseName + ".RAW";
-			additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+			if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 			additionalParameters.push_back(createParameter(function, baseName + ".CONTROL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 			additionalParameters.push_back(createParameter(function, baseName + ".STATE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -580,7 +580,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 			std::string baseName = parameter->id;
 			parameter->id = baseName + ".RAW";
-			additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+			if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 			additionalParameters.push_back(createParameter(function, baseName + ".CONTROL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 
@@ -653,7 +653,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_A", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_B", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -830,7 +830,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalEnumeration weekDays(new LogicalEnumeration(_bl));
 				additionalParameters.push_back(createParameter(function, baseName + ".DAY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 3, weekDays));
@@ -874,7 +874,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger day(new LogicalInteger(_bl));
 				day->minimumValue = 1;
@@ -1106,7 +1106,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger field1(new LogicalInteger(_bl));
 				field1->minimumValue = 0;
@@ -1180,7 +1180,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".LEARN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 
@@ -1204,7 +1204,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger year(new LogicalInteger(_bl));
 				year->minimumValue = 0;
@@ -1875,7 +1875,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".NO_ALARM_ACK", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".DP_IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -1890,7 +1890,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".VERIFY_MODE_ON", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".OWN_ADDRESS_DATAGRAM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -1901,7 +1901,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".ROOM_H_MAX", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".ROOM_H_CONF", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -1919,7 +1919,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".FORCE_REQUEST", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 			}
@@ -1928,7 +1928,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".SUMMER_MODE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".STATUS_STOP_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -1946,7 +1946,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_LOAD_SUFFICIENT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".SDHW_LOAD_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -1959,7 +1959,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".SOLID_STATE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".GAS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -1972,7 +1972,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 			}
@@ -1983,7 +1983,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".COOL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".HEAT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -1997,7 +1997,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".OVERHEAT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2014,7 +2014,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".BI_BAT_SLAVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".BI_BAT_MASTER", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2027,7 +2027,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".DOA", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".KNX_SN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2038,7 +2038,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2066,7 +2066,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".TEMP_OPTIM_SHIFT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_ENERGY_SUPPORT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 9, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2084,7 +2084,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".OVERHEAT_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".FROST_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2109,7 +2109,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".KNX_IP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".RF", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 11, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2121,7 +2121,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2207,7 +2207,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger nibble1(new LogicalInteger(_bl));
 				nibble1->minimumValue = 0;
@@ -2235,7 +2235,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".INACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 
@@ -2257,7 +2257,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_16_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_15_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2325,7 +2325,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2367,7 +2367,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger delay(new LogicalInteger(_bl));
 				delay->minimumValue = 0;
@@ -2389,7 +2389,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger delay(new LogicalInteger(_bl));
 				delay->minimumValue = 0;
@@ -2411,7 +2411,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger delay(new LogicalInteger(_bl));
 				delay->minimumValue = 0;
@@ -2431,7 +2431,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger delay(new LogicalInteger(_bl));
 				delay->minimumValue = 0;
@@ -2460,7 +2460,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger magic(new LogicalInteger(_bl));
 				magic->minimumValue = 0;
@@ -2495,7 +2495,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger logNumber(new LogicalInteger(_bl));
 				logNumber->minimumValue = 0;
@@ -2565,7 +2565,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalDecimal comfort(new LogicalDecimal(_bl));
 				comfort->minimumValue = -273.0;
@@ -2587,7 +2587,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalDecimal comfort(new LogicalDecimal(_bl));
 				comfort->minimumValue = -670760.0;
@@ -2623,7 +2623,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger counter(new LogicalInteger(_bl));
 				additionalParameters.push_back(createParameter(function, baseName + ".COUNTER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 32, counter));
@@ -2750,7 +2750,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger manufacturerId(new LogicalInteger(_bl));
 				additionalParameters.push_back(createParameter(function, baseName + ".MANUFACTURER_ID", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, manufacturerId));
@@ -2804,7 +2804,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger red(new LogicalInteger(_bl));
 				red->minimumValue = 0;
@@ -2843,7 +2843,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_ERROR", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".BALLAST_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2871,7 +2871,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				additionalParameters.push_back(createParameter(function, baseName + ".BALLAST_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 				additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
@@ -2895,7 +2895,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger height(new LogicalInteger(_bl));
 				height->minimumValue = 0;
@@ -2922,7 +2922,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 			{
 				std::string baseName = parameter->id;
 				parameter->id = baseName + ".RAW";
-				additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
 
 				PLogicalInteger height(new LogicalInteger(_bl));
 				height->minimumValue = 0;

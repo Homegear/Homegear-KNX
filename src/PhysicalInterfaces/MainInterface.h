@@ -66,14 +66,13 @@ protected:
 	};
 
 	BaseLib::Output _out;
-	bool _initComplete = false;
-	std::string _hostname;
+	std::atomic_bool _initComplete;
 	std::string _port;
 	std::string _listenIp;
 	char _listenIpBytes[4];
 	char _listenPortBytes[2];
-	uint16_t _knxAddress = 0;
-	char _channelId = 0;
+	std::atomic_char _knxAddress;
+	std::atomic_char _channelId;
 	std::unique_ptr<BaseLib::UdpSocket> _socket;
 
 	std::mutex _sendPacketMutex;
@@ -82,12 +81,12 @@ protected:
 	std::mutex _requestsMutex;
 	std::map<uint32_t, std::shared_ptr<Request>> _requests;
 
-	char _sequenceCounter = 0;
+	std::atomic_char _sequenceCounter;
 	int64_t _lastConnectionState = 0;
 	std::thread _keepAliveThread;
 	std::thread _initThread;
 
-	void getAddress();
+	void setListenAddress();
 	void reconnect();
 	void init();
 	void listen();
