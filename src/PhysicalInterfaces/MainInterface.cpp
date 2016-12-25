@@ -637,6 +637,7 @@ void MainInterface::getSystemResponse(uint16_t serviceType, const std::vector<ch
 		if(!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(10000), [&] { return request->mutexReady; }))
 		{
 			_out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
+			_stopped = true; //Force reconnect
 		}
 		responsePacket = request->response;
 
