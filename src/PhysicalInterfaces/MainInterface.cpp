@@ -504,7 +504,16 @@ void MainInterface::listen()
 			}
 			catch(const BaseLib::SocketTimeOutException& ex)
 			{
-				if(data.empty()) continue; //When receivedBytes is exactly 2048 bytes long, proofread will be called again, time out and the packet is received with a delay of 5 seconds. It doesn't matter as packets this big are only received at start up.
+				if(data.empty())
+				{
+					if(BaseLib::HelperFunctions::getTime() - _lastConnectionState > 60000)
+					{
+						_lastConnectionState = BaseLib::HelperFunctions::getTime();
+						_bl->threadManager.join(_keepAliveThread);
+						_bl->threadManager.start(_keepAliveThread, false, &MainInterface::getConnectionState, this);
+					}
+					continue; //When receivedBytes is exactly 2048 bytes long, proofread will be called again, time out and the packet is received with a delay of 5 seconds. It doesn't matter as packets this big are only received at start up.
+				}
 			}
 			catch(const BaseLib::SocketClosedException& ex)
 			{
@@ -585,14 +594,8 @@ void MainInterface::processPacket(std::vector<char>& data)
 			if(data.at(2) == 0x02 && data.at(3) == 0x09) //DISCONNECT_REQUEST
 			{
 				sendDisconnectResponse(data.at(8), data.at(6) == _channelId ? 0 : 0x21);
+				_stopped = true;
 			}
-		}
-
-		if(BaseLib::HelperFunctions::getTime() - _lastConnectionState > 60000)
-		{
-			_lastConnectionState = BaseLib::HelperFunctions::getTime();
-			_bl->threadManager.join(_keepAliveThread);
-			_bl->threadManager.start(_keepAliveThread, false, &MainInterface::getConnectionState, this);
 		}
 	}
 	catch(const std::exception& ex)
