@@ -53,7 +53,7 @@ public:
 	std::string handleCliCommand(std::string command);
 	virtual bool onPacketReceived(std::string& senderId, std::shared_ptr<BaseLib::Systems::Packet> packet);
 
-	uint64_t getPeerIdFromSerial(std::string serialNumber) { std::shared_ptr<MyPeer> peer = getPeer(serialNumber); if(peer) return peer->getID(); else return 0; }
+	uint64_t getPeerIdFromSerial(std::string& serialNumber) { std::shared_ptr<MyPeer> peer = getPeer(serialNumber); if(peer) return peer->getID(); else return 0; }
 	std::shared_ptr<MyPeer> getPeer(uint64_t id);
 	std::shared_ptr<MyPeer> getPeer(std::string serialNumber);
 	std::shared_ptr<MyPeer> getPeer(uint16_t groupAddress);
