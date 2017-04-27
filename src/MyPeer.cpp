@@ -251,15 +251,16 @@ std::string MyPeer::printConfig()
 		std::ostringstream stringStream;
 		stringStream << "MASTER" << std::endl;
 		stringStream << "{" << std::endl;
-		for(std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>>::const_iterator i = configCentral.begin(); i != configCentral.end(); ++i)
+		for(std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>>::iterator i = configCentral.begin(); i != configCentral.end(); ++i)
 		{
 			stringStream << "\t" << "Channel: " << std::dec << i->first << std::endl;
 			stringStream << "\t{" << std::endl;
-			for(std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::const_iterator j = i->second.begin(); j != i->second.end(); ++j)
+			for(std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator j = i->second.begin(); j != i->second.end(); ++j)
 			{
 				stringStream << "\t\t[" << j->first << "]: ";
 				if(!j->second.rpcParameter) stringStream << "(No RPC parameter) ";
-				for(std::vector<uint8_t>::const_iterator k = j->second.data.begin(); k != j->second.data.end(); ++k)
+				std::vector<uint8_t> parameterData = j->second.getBinaryData();
+				for(std::vector<uint8_t>::const_iterator k = parameterData.begin(); k != parameterData.end(); ++k)
 				{
 					stringStream << std::hex << std::setfill('0') << std::setw(2) << (int32_t)*k << " ";
 				}
@@ -271,15 +272,16 @@ std::string MyPeer::printConfig()
 
 		stringStream << "VALUES" << std::endl;
 		stringStream << "{" << std::endl;
-		for(std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>>::const_iterator i = valuesCentral.begin(); i != valuesCentral.end(); ++i)
+		for(std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>>::iterator i = valuesCentral.begin(); i != valuesCentral.end(); ++i)
 		{
 			stringStream << "\t" << "Channel: " << std::dec << i->first << std::endl;
 			stringStream << "\t{" << std::endl;
-			for(std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::const_iterator j = i->second.begin(); j != i->second.end(); ++j)
+			for(std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator j = i->second.begin(); j != i->second.end(); ++j)
 			{
 				stringStream << "\t\t[" << j->first << "]: ";
 				if(!j->second.rpcParameter) stringStream << "(No RPC parameter) ";
-				for(std::vector<uint8_t>::const_iterator k = j->second.data.begin(); k != j->second.data.end(); ++k)
+				std::vector<uint8_t> parameterData = j->second.getBinaryData();
+				for(std::vector<uint8_t>::const_iterator k = parameterData.begin(); k != parameterData.end(); ++k)
 				{
 					stringStream << std::hex << std::setfill('0') << std::setw(2) << (int32_t)*k << " ";
 				}
@@ -472,13 +474,14 @@ void MyPeer::packetReceived(PMyPacket& packet)
 		std::map<uint16_t, ParametersByGroupAddressInfo>::iterator parameterIterator = _parametersByGroupAddress.find(packet->getDestinationAddress());
 		if(parameterIterator == _parametersByGroupAddress.end()) return;
 
-		BaseLib::Systems::RPCConfigurationParameter& parameter = valuesCentral[parameterIterator->second.channel][parameterIterator->second.parameter->id];
+		BaseLib::Systems::RpcConfigurationParameter& parameter = valuesCentral[parameterIterator->second.channel][parameterIterator->second.parameter->id];
 		if(!parameter.rpcParameter) return;
 
-		parameter.data = packet->getPayload();
-		if(parameter.databaseID > 0) saveParameter(parameter.databaseID, parameter.data);
-		else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator->second.channel, parameterIterator->second.parameter->id, parameter.data);
-		if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + parameterIterator->second.parameter->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator->second.channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameter.data) + ".");
+		std::vector<uint8_t> parameterData = packet->getPayload();
+		parameter.setBinaryData(parameterData);
+		if(parameter.databaseId > 0) saveParameter(parameter.databaseId, parameterData);
+		else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator->second.channel, parameterIterator->second.parameter->id, parameterData);
+		if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + parameterIterator->second.parameter->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator->second.channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
 		PVariable variable = _dptConverter->getVariable(parameterIterator->second.cast->type, packet->getPayload());
 		if(!variable) return;
@@ -490,7 +493,7 @@ void MyPeer::packetReceived(PMyPacket& packet)
 		if(pos != std::string::npos)
 		{
 			std::string baseName = parameterIterator->second.parameter->id.substr(0, pos);
-			std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>>::iterator channelIterator = valuesCentral.find(parameterIterator->second.channel);
+			std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>>::iterator channelIterator = valuesCentral.find(parameterIterator->second.channel);
 			if(channelIterator != valuesCentral.end())
 			{
 				std::map<int32_t, std::map<std::string, GroupedParametersInfo>>::iterator groupedParametersChannelIterator = _groupedParameters.find(parameterIterator->second.channel);
@@ -501,16 +504,16 @@ void MyPeer::packetReceived(PMyPacket& packet)
 					{
 						for(std::vector<PParameter>::iterator i = groupedParametersIterator->second.parameters.begin(); i != groupedParametersIterator->second.parameters.end(); ++i)
 						{
-							std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator groupedParameterIterator = channelIterator->second.find((*i)->id);
+							std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator groupedParameterIterator = channelIterator->second.find((*i)->id);
 							if(groupedParameterIterator != channelIterator->second.end())
 							{
-								BaseLib::Systems::RPCConfigurationParameter& groupedParameter = groupedParameterIterator->second;
+								BaseLib::Systems::RpcConfigurationParameter& groupedParameter = groupedParameterIterator->second;
 
 								if((*i)->casts.empty()) continue;
 								ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>((*i)->casts.at(0));
 								if(!groupedCast) continue;
 
-								std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(parameter.data, (*i)->physical->address, (*i)->physical->bitSize);
+								std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(parameter.getBinaryData(), (*i)->physical->address, (*i)->physical->bitSize);
 
 								PVariable groupedVariable = _dptConverter->getVariable(groupedCast->type, groupedParameterData);
 								if(!groupedVariable) continue;
@@ -525,11 +528,11 @@ void MyPeer::packetReceived(PMyPacket& packet)
 									_getValueFromDeviceInfo.conditionVariable.notify_one();
 								}
 
-								if(groupedParameter.data.size() == groupedParameterData.size() && std::equal(groupedParameterData.begin(), groupedParameterData.end(), groupedParameter.data.begin())) continue;
-								groupedParameter.data = groupedParameterData;
-								if(groupedParameter.databaseID > 0) saveParameter(groupedParameter.databaseID, groupedParameter.data);
-								else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator->second.channel, (*i)->id, groupedParameter.data);
-								if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator->second.channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameter.data) + ".");
+								if(groupedParameter.equals(groupedParameterData)) continue;
+								groupedParameter.setBinaryData(groupedParameterData);
+								if(groupedParameter.databaseId > 0) saveParameter(groupedParameter.databaseId, groupedParameterData);
+								else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator->second.channel, (*i)->id, groupedParameterData);
+								if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator->second.channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameterData) + ".");
 
 								valueKeys->push_back((*i)->id);
 								values->push_back(groupedVariable);
@@ -573,9 +576,9 @@ PVariable MyPeer::getValueFromDevice(PParameter& parameter, int32_t channel, boo
 	try
 	{
 		if(!parameter) return Variable::createError(-32500, "parameter is nullptr.");
-		std::unordered_map<uint32_t, std::unordered_map<std::string, Systems::RPCConfigurationParameter>>::iterator channelIterator = valuesCentral.find(channel);
+		std::unordered_map<uint32_t, std::unordered_map<std::string, Systems::RpcConfigurationParameter>>::iterator channelIterator = valuesCentral.find(channel);
 		if(channelIterator == valuesCentral.end()) return Variable::createError(-2, "Unknown channel.");
-		std::unordered_map<std::string, Systems::RPCConfigurationParameter>::iterator valuesIterator = channelIterator->second.find(parameter->id);
+		std::unordered_map<std::string, Systems::RpcConfigurationParameter>::iterator valuesIterator = channelIterator->second.find(parameter->id);
 		if(valuesIterator == channelIterator->second.end() || !valuesIterator->second.rpcParameter) return Variable::createError(-5, "Unknown parameter.");
 
 		if(valuesIterator->second.rpcParameter->casts.empty()) return Variable::createError(-7, "No DPT conversion defined.");
@@ -647,7 +650,12 @@ bool MyPeer::getAllValuesHook2(PRpcClientInfo clientInfo, PParameter parameter, 
 	{
 		if(channel == 1)
 		{
-			if(parameter->id == "PEER_ID") parameter->convertToPacket(PVariable(new Variable((int32_t)_peerID)), valuesCentral[channel][parameter->id].data);
+			if(parameter->id == "PEER_ID")
+			{
+				std::vector<uint8_t> parameterData;
+				parameter->convertToPacket(PVariable(new Variable((int32_t)_peerID)), parameterData);
+				valuesCentral[channel][parameter->id].setBinaryData(parameterData);
+			}
 		}
 	}
 	catch(const std::exception& ex)
@@ -671,7 +679,12 @@ bool MyPeer::getParamsetHook2(PRpcClientInfo clientInfo, PParameter parameter, u
 	{
 		if(channel == 1)
 		{
-			if(parameter->id == "PEER_ID") parameter->convertToPacket(PVariable(new Variable((int32_t)_peerID)), valuesCentral[channel][parameter->id].data);
+			if(parameter->id == "PEER_ID")
+			{
+				std::vector<uint8_t> parameterData;
+				parameter->convertToPacket(PVariable(new Variable((int32_t)_peerID)), parameterData);
+				valuesCentral[channel][parameter->id].setBinaryData(parameterData);
+			}
 		}
 	}
 	catch(const std::exception& ex)
@@ -794,13 +807,13 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 		if(_disposing) return Variable::createError(-32500, "Peer is disposing.");
 		if(valueKey.empty()) return Variable::createError(-5, "Value key is empty.");
 		if(channel == 0 && serviceMessages->set(valueKey, value->booleanValue)) return PVariable(new Variable(VariableType::tVoid));
-		std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>>::iterator channelIterator = valuesCentral.find(channel);
+		std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>>::iterator channelIterator = valuesCentral.find(channel);
 		if(channelIterator == valuesCentral.end()) return Variable::createError(-2, "Unknown channel.");
-		std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator parameterIterator = channelIterator->second.find(valueKey);
+		std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator parameterIterator = channelIterator->second.find(valueKey);
 		if(parameterIterator == channelIterator->second.end()) return Variable::createError(-5, "Unknown parameter.");
 		PParameter rpcParameter = parameterIterator->second.rpcParameter;
 		if(!rpcParameter) return Variable::createError(-5, "Unknown parameter.");
-		BaseLib::Systems::RPCConfigurationParameter& parameter = parameterIterator->second;
+		BaseLib::Systems::RpcConfigurationParameter& parameter = parameterIterator->second;
 		std::shared_ptr<std::vector<std::string>> valueKeys(new std::vector<std::string>());
 		std::shared_ptr<std::vector<PVariable>> values(new std::vector<PVariable>());
 		if(rpcParameter->readable)
@@ -849,42 +862,46 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 		//}}}
 
 		bool fitsInFirstByte = false;
+		std::vector<uint8_t> parameterData;
 		if(!rpcParameter->casts.empty())
 		{
 			ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(rpcParameter->casts.at(0));
 			if(!cast) return Variable::createError(-7, "No DPT conversion defined.");
-			parameter.data = _dptConverter->getDpt(cast->type, value);
+			parameterData = _dptConverter->getDpt(cast->type, value);
+			parameter.setBinaryData(parameterData);
 			fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
 		}
 
 		if(rpcParameter->physical->operationType == IPhysical::OperationType::Enum::store)
 		{
-			if(parameter.databaseID > 0) saveParameter(parameter.databaseID, parameter.data);
-			else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameter.data);
-			if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameter.data) + ".");
+			if(parameter.databaseId > 0) saveParameter(parameter.databaseId, parameterData);
+			else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameterData);
+			if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
 			std::string::size_type pos = valueKey.find('.');
 			if(pos != std::string::npos)
 			{
 				std::string baseName = valueKey.substr(0, pos);
 				std::string rawParameterName = baseName + ".RAW";
-				std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator rawParameterIterator = channelIterator->second.find(rawParameterName);
+				std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator rawParameterIterator = channelIterator->second.find(rawParameterName);
 				if(rawParameterIterator == channelIterator->second.end()) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
 				PParameter rawRpcParameter = rawParameterIterator->second.rpcParameter;
 				if(!rawRpcParameter) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
-				BaseLib::Systems::RPCConfigurationParameter& rawParameter = rawParameterIterator->second;
+				BaseLib::Systems::RpcConfigurationParameter& rawParameter = rawParameterIterator->second;
 
 				if(rawRpcParameter->casts.empty()) return Variable::createError(-10, rawParameterName + " hast no cast defined.");
 				ParameterCast::PGeneric rawCast = std::dynamic_pointer_cast<ParameterCast::Generic>(rawRpcParameter->casts.at(0));
 				if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
 
-				BaseLib::BitReaderWriter::setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameter.data, parameter.data);
-				if(rawParameter.databaseID > 0) saveParameter(rawParameter.databaseID, rawParameter.data);
-				else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, rawParameterName, rawParameter.data);
-				if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + rawParameterName + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(rawParameter.data) + ".");
+				std::vector<uint8_t> rawParameterData;
+				BaseLib::BitReaderWriter::setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameterData, parameterData);
+				rawParameter.setBinaryData(rawParameterData);
+				if(rawParameter.databaseId > 0) saveParameter(rawParameter.databaseId, rawParameterData);
+				else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, rawParameterName, rawParameterData);
+				if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + rawParameterName + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(rawParameterData) + ".");
 
 				valueKeys->push_back(rawParameterName);
-				values->push_back(_dptConverter->getVariable(rawCast->type, rawParameter.data));
+				values->push_back(_dptConverter->getVariable(rawCast->type, rawParameterData));
 			}
 
 			if(!valueKeys->empty())
@@ -896,9 +913,9 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 		}
 		else if(rpcParameter->physical->operationType != IPhysical::OperationType::Enum::command) return Variable::createError(-6, "Parameter is not settable.");
 
-		if(parameter.databaseID > 0) saveParameter(parameter.databaseID, parameter.data);
-		else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameter.data);
-		if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameter.data) + ".");
+		if(parameter.databaseId > 0) saveParameter(parameter.databaseId, parameterData);
+		else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameterData);
+		if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
 		if(valueKey.size() > 4 && valueKey.compare(valueKey.size() - 4, 4, ".RAW") == 0)
 		{
@@ -910,25 +927,25 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 
 			for(std::vector<PParameter>::iterator i = groupedParametersIterator->second.parameters.begin(); i != groupedParametersIterator->second.parameters.end(); ++i)
 			{
-				std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator groupedParameterIterator = channelIterator->second.find((*i)->id);
+				std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator groupedParameterIterator = channelIterator->second.find((*i)->id);
 				if(groupedParameterIterator == channelIterator->second.end()) continue;
 				PParameter groupedRpcParameter = groupedParameterIterator->second.rpcParameter;
 				if(!groupedRpcParameter) continue;
-				BaseLib::Systems::RPCConfigurationParameter& groupedParameter = groupedParameterIterator->second;
+				BaseLib::Systems::RpcConfigurationParameter& groupedParameter = groupedParameterIterator->second;
 
 				if(groupedRpcParameter->casts.empty()) continue;
 				ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>(groupedRpcParameter->casts.at(0));
 				if(!groupedCast) continue;
 
-				std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(parameter.data, groupedRpcParameter->physical->address, groupedRpcParameter->physical->bitSize);
-				if(groupedParameter.data.size() == groupedParameterData.size() && std::equal(groupedParameterData.begin(), groupedParameterData.end(), groupedParameter.data.begin())) continue;
-				groupedParameter.data = groupedParameterData;
-				if(groupedParameter.databaseID > 0) saveParameter(groupedParameter.databaseID, groupedParameter.data);
-				else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, (*i)->id, groupedParameter.data);
-				if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameter.data) + ".");
+				std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(parameterData, groupedRpcParameter->physical->address, groupedRpcParameter->physical->bitSize);
+				if(groupedParameter.equals(groupedParameterData)) continue;
+				groupedParameter.setBinaryData(groupedParameterData);
+				if(groupedParameter.databaseId > 0) saveParameter(groupedParameter.databaseId, groupedParameterData);
+				else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, (*i)->id, groupedParameterData);
+				if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameterData) + ".");
 
 				valueKeys->push_back((*i)->id);
-				values->push_back(_dptConverter->getVariable(groupedCast->type, groupedParameter.data));
+				values->push_back(_dptConverter->getVariable(groupedCast->type, groupedParameterData));
 			}
 		}
 
@@ -937,18 +954,19 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 		{
 			std::string baseName = valueKey.substr(0, valueKey.size() - 7);
 			std::string rawParameterName = baseName + ".RAW";
-			std::unordered_map<std::string, BaseLib::Systems::RPCConfigurationParameter>::iterator rawParameterIterator = channelIterator->second.find(rawParameterName);
+			std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator rawParameterIterator = channelIterator->second.find(rawParameterName);
 			if(rawParameterIterator == channelIterator->second.end()) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
 			PParameter rawRpcParameter = rawParameterIterator->second.rpcParameter;
 			if(!rawRpcParameter) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
-			BaseLib::Systems::RPCConfigurationParameter& rawParameter = rawParameterIterator->second;
+			BaseLib::Systems::RpcConfigurationParameter& rawParameter = rawParameterIterator->second;
 			if(rawRpcParameter->casts.empty()) return Variable::createError(-10, rawParameterName + " hast no cast defined.");
 			ParameterCast::PGeneric rawCast = std::dynamic_pointer_cast<ParameterCast::Generic>(rawRpcParameter->casts.at(0));
 			if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
 
-			packet.reset(new MyPacket(MyPacket::Operation::write, 0, rpcParameter->physical->address, _dptConverter->fitsInFirstByte(rawCast->type), rawParameter.data));
+			std::vector<uint8_t> rawParameterData = rawParameter.getBinaryData();
+			packet.reset(new MyPacket(MyPacket::Operation::write, 0, rpcParameter->physical->address, _dptConverter->fitsInFirstByte(rawCast->type), rawParameterData));
 		}
-		else packet.reset(new MyPacket(MyPacket::Operation::write, 0, rpcParameter->physical->address, fitsInFirstByte, parameter.data));
+		else packet.reset(new MyPacket(MyPacket::Operation::write, 0, rpcParameter->physical->address, fitsInFirstByte, parameterData));
 
 		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
 		{
