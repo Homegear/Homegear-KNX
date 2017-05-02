@@ -468,7 +468,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		{
 			if(value.size() < 3)
 			{
-				_bl->out.printError("Error: DPT-10 vector is too small: " + _bl->hf.getHexString(value));
+				_bl->out.printError("Error: DPT-11 vector is too small: " + _bl->hf.getHexString(value));
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2)));
