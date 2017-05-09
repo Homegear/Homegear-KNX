@@ -871,6 +871,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			parameter.setBinaryData(parameterData);
 			fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
 		}
+		else parameterData = parameter.getBinaryData();
 
 		if(rpcParameter->physical->operationType == IPhysical::OperationType::Enum::store)
 		{
@@ -893,7 +894,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 				ParameterCast::PGeneric rawCast = std::dynamic_pointer_cast<ParameterCast::Generic>(rawRpcParameter->casts.at(0));
 				if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
 
-				std::vector<uint8_t> rawParameterData;
+				std::vector<uint8_t> rawParameterData = rawParameter.getBinaryData();
 				BaseLib::BitReaderWriter::setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameterData, parameterData);
 				rawParameter.setBinaryData(rawParameterData);
 				if(rawParameter.databaseId > 0) saveParameter(rawParameter.databaseId, rawParameterData);
