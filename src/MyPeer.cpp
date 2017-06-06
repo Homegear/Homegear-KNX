@@ -591,6 +591,7 @@ PVariable MyPeer::getValueFromDevice(PParameter& parameter, int32_t channel, boo
 		_getValueFromDeviceInfo.variableName = parameter->id;
 		_getValueFromDeviceInfo.requested = true;
 		std::unique_lock<std::mutex> lock(_getValueFromDeviceInfo.mutex);
+		_getValueFromDeviceInfo.mutexReady = false;
 
 		PMyPacket packet(new MyPacket(MyPacket::Operation::read, 0, valuesIterator->second.rpcParameter->physical->address));
 		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)

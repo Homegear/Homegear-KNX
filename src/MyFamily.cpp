@@ -53,7 +53,7 @@ MyFamily::~MyFamily()
 bool MyFamily::init()
 {
 	_bl->out.printInfo("Loading XML RPC devices...");
-	std::string xmlPath = _bl->settings.dataPath() + "families/" + std::to_string(GD::family->getFamily()) + "/desc/";
+	std::string xmlPath = _bl->settings.familyDataPath() + std::to_string(GD::family->getFamily()) + "/desc/";
 	if(BaseLib::Io::directoryExists(xmlPath)) _rpcDevices->load(xmlPath);
 	return true;
 }
@@ -69,7 +69,7 @@ void MyFamily::dispose()
 void MyFamily::reloadRpcDevices()
 {
 	_bl->out.printInfo("Reloading XML RPC devices...");
-	std::string xmlPath = _bl->settings.dataPath() + "families/" + std::to_string(GD::family->getFamily()) + "/desc/";
+	std::string xmlPath = _bl->settings.familyDataPath() + std::to_string(GD::family->getFamily()) + "/desc/";
 	if(BaseLib::Io::directoryExists(xmlPath)) _rpcDevices->load(xmlPath);
 }
 
