@@ -222,7 +222,7 @@ void Search::createDirectories()
 			localGroupId = _bl->groupId;
 		}
 
-		std::string path1 = _bl->settings.dataPath() + "families/";
+		std::string path1 = _bl->settings.familyDataPath();
 		std::string path2 = path1 + std::to_string(GD::family->getFamily()) + "/";
 		_xmlPath = path2 + "desc/";
 		if(!BaseLib::Io::directoryExists(path1)) BaseLib::Io::createDirectory(path1, GD::bl->settings.dataPathPermissions());
