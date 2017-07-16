@@ -300,8 +300,8 @@ void MainInterface::stopListening()
 		if(!_stopped)
 		{
 			std::vector<char> data{ 0x06, 0x10, 0x02, 0x09, 0x00, 0x10, _channelId, 0x00, 0x08, 0x01, _listenIpBytes[0], _listenIpBytes[1], _listenIpBytes[2], _listenIpBytes[3], _listenPortBytes[0], _listenPortBytes[1] };
-			std::vector<char> response;
-			getSystemResponse(0x020A, data, response);
+			_out.printInfo("Info: Sending packet " + BaseLib::HelperFunctions::getHexString(data));
+			_socket->proofwrite(data);
 			_initComplete = false;
 		}
 		// }}}
