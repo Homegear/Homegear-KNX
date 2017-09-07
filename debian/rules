@@ -12,7 +12,7 @@ override_dh_auto_install:
 	chmod 755 $(CURDIR)/debian/homegear-knx/etc/homegear/devices/14
 
 override_dh_strip:
-	dh_strip --dbg-package=homegear-knx
+	dh_strip
 
 %:
 	dh $@ --parallel
