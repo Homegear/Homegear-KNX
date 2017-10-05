@@ -119,16 +119,24 @@ std::vector<Search::PeerInfo> Search::search()
 					PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
 					supportedDevice->id = id;
 					supportedDevice->description = supportedDevice->id;
-					if(type == -1) type = 0;
-					supportedDevice->typeNumber = type + 65535;
+					if(type != -1) supportedDevice->typeNumber = type + 65535;
 					device->supportedDevices.push_back(supportedDevice);
 					rpcDevices[supportedDevice->id] = device;
 
 					createXmlMaintenanceChannel(device);
 				}
-				else device = deviceIterator->second;
-
-				if(type != -1) device->supportedDevices.at(0)->typeNumber = type + 65535;
+				else
+				{
+					device = deviceIterator->second;
+					if(type != -1)
+					{
+						if(device->supportedDevices.at(0)->typeNumber == 0) device->supportedDevices.at(0)->typeNumber = type + 65535;
+						else if((int32_t)device->supportedDevices.at(0)->typeNumber != type + 65535)
+						{
+							GD::out.printError("Error: Device with ID \"" + id + "\" has group variables with different type IDs specified (at least " + std::to_string(type) + " and " + std::to_string(device->supportedDevices.at(0)->typeNumber - 65535) + "). Please check the JSON defined in ETS. Only one unique type ID is allowed per device.");
+						}
+					}
+				}
 
 				PFunction function;
 				Functions::iterator functionIterator = device->functions.find(channel);
@@ -155,6 +163,7 @@ std::vector<Search::PeerInfo> Search::search()
 			}
 		}
 
+		std::map<int32_t, std::string> typeIds;
 		for(std::map<std::string, PHomegearDevice>::iterator i = rpcDevices.begin(); i != rpcDevices.end(); ++i)
 		{
 			std::string filename = _xmlPath + GD::bl->hf.stringReplace(i->second->supportedDevices.at(0)->id, "/", "_") + ".xml";
@@ -162,6 +171,17 @@ std::vector<Search::PeerInfo> Search::search()
 
 			PeerInfo info;
 			info.type = i->second->supportedDevices.at(0)->typeNumber;
+			if(info.type == 0)
+			{
+				GD::out.printError("Error: Not adding device \"" + i->second->supportedDevices.at(0)->id + "\" as no type ID was specified in the JSON defined in ETS. Please add a unique type ID there.");
+				continue;
+			}
+			if(typeIds.find(info.type) != typeIds.end())
+			{
+				GD::out.printError("Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + i->second->supportedDevices.at(0)->id + " and " + typeIds[info.type] + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
+				continue;
+			}
+			typeIds.emplace(info.type, i->second->supportedDevices.at(0)->id);
 			std::string paddedType = std::to_string(info.type);
 			if(paddedType.size() < 9) paddedType.insert(0, 9 - paddedType.size(), '0');
 			info.serialNumber = "KNX" + paddedType;
