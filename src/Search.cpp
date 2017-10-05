@@ -440,6 +440,7 @@ std::vector<Search::XmlData> Search::extractXmlData(std::vector<std::shared_ptr<
 												catch(const Exception& ex)
 												{
 													_bl->out.printError("Error decoding JSON of group variable \"" + element.groupVariableName + "\": " + ex.what());
+													continue;
 												}
 											}
 

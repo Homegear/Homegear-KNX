@@ -257,10 +257,6 @@ void MyCentral::deletePeer(uint64_t id)
 			channels->arrayValue->push_back(PVariable(new Variable(i->first)));
 		}
 
-		raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
-
-		peer->deleteFromDatabase();
-
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
@@ -272,6 +268,10 @@ void MyCentral::deletePeer(uint64_t id)
 				_peersByGroupAddress.erase(address);
 			}
 		}
+
+		peer->deleteFromDatabase();
+
+		raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
 
 		GD::out.printInfo("Info: Deleting XML file \"" + peer->getRpcDevice()->getPath() + "\"");
 		GD::bl->io.deleteFile(peer->getRpcDevice()->getPath());
