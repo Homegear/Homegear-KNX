@@ -26,12 +26,12 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, std::vector<PeerInfo>&
 		if(info.type == 0)
 		{
 			GD::out.printError("Error: Not adding device \"" + device->supportedDevices.at(0)->id + "\" as no type ID was specified in the JSON defined in ETS. Please add a unique type ID there.");
-			continue;
+			return;
 		}
 		if(usedTypes.find(info.type) != usedTypes.end())
 		{
 			GD::out.printError("Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + device->supportedDevices.at(0)->id + " and " + usedTypes[info.type] + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
-			continue;
+			return;
 		}
 		usedTypes.emplace(info.type, device->supportedDevices.at(0)->id);
 		std::string paddedType = std::to_string(info.type);
