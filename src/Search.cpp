@@ -14,6 +14,45 @@ Search::~Search()
 {
 }
 
+void Search::addDeviceToPeerInfo(PHomegearDevice& device, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes)
+{
+	try
+	{
+		std::string filename = _xmlPath + GD::bl->hf.stringReplace(device->supportedDevices.at(0)->id, "/", "_") + ".xml";
+		device->save(filename);
+
+		PeerInfo info;
+		info.type = device->supportedDevices.at(0)->typeNumber;
+		if(info.type == 0)
+		{
+			GD::out.printError("Error: Not adding device \"" + device->supportedDevices.at(0)->id + "\" as no type ID was specified in the JSON defined in ETS. Please add a unique type ID there.");
+			continue;
+		}
+		if(usedTypes.find(info.type) != usedTypes.end())
+		{
+			GD::out.printError("Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + device->supportedDevices.at(0)->id + " and " + usedTypes[info.type] + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
+			continue;
+		}
+		usedTypes.emplace(info.type, device->supportedDevices.at(0)->id);
+		std::string paddedType = std::to_string(info.type);
+		if(paddedType.size() < 9) paddedType.insert(0, 9 - paddedType.size(), '0');
+		info.serialNumber = "KNX" + paddedType;
+		peerInfo.push_back(info);
+	}
+	catch(const std::exception& ex)
+	{
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(BaseLib::Exception& ex)
+	{
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch(...)
+	{
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+}
+
 std::vector<Search::PeerInfo> Search::search()
 {
 	std::vector<Search::PeerInfo> peerInfo;
@@ -35,7 +74,8 @@ std::vector<Search::PeerInfo> Search::search()
 
 		createDirectories();
 
-		std::map<std::string, PHomegearDevice> rpcDevices;
+		std::map<std::string, PHomegearDevice> rpcDevicesPlain;
+		std::map<std::string, PHomegearDevice> rpcDevicesJson;
 		for(std::vector<XmlData>::iterator i = xmlData.begin(); i != xmlData.end(); ++i)
 		{
 			std::string id;
@@ -87,7 +127,7 @@ std::vector<Search::PeerInfo> Search::search()
 				supportedDevice->description = "KNX_" + std::to_string(i->address >> 11) + "/" + std::to_string((i->address >> 8) & 0x7) + "/" + std::to_string(i->address & 0xFF);
 				supportedDevice->typeNumber = i->address;
 				device->supportedDevices.push_back(supportedDevice);
-				rpcDevices[supportedDevice->id] = device;
+				rpcDevicesPlain[supportedDevice->id] = device;
 
 				createXmlMaintenanceChannel(device);
 
@@ -111,8 +151,8 @@ std::vector<Search::PeerInfo> Search::search()
 			else
 			{
 				std::shared_ptr<HomegearDevice> device;
-				std::map<std::string, PHomegearDevice>::iterator deviceIterator = rpcDevices.find(id);
-				if(deviceIterator == rpcDevices.end())
+				std::map<std::string, PHomegearDevice>::iterator deviceIterator = rpcDevicesJson.find(id);
+				if(deviceIterator == rpcDevicesJson.end())
 				{
 					device.reset(new HomegearDevice(_bl));
 					device->version = 1;
@@ -121,7 +161,7 @@ std::vector<Search::PeerInfo> Search::search()
 					supportedDevice->description = supportedDevice->id;
 					if(type != -1) supportedDevice->typeNumber = type + 65535;
 					device->supportedDevices.push_back(supportedDevice);
-					rpcDevices[supportedDevice->id] = device;
+					rpcDevicesJson[supportedDevice->id] = device;
 
 					createXmlMaintenanceChannel(device);
 				}
@@ -163,29 +203,18 @@ std::vector<Search::PeerInfo> Search::search()
 			}
 		}
 
-		std::map<int32_t, std::string> typeIds;
-		for(std::map<std::string, PHomegearDevice>::iterator i = rpcDevices.begin(); i != rpcDevices.end(); ++i)
+		std::map<int32_t, std::string> usedTypeIds;
+		if(rpcDevicesJson.empty()) //Only add group variables without JSON when no JSON exists
 		{
-			std::string filename = _xmlPath + GD::bl->hf.stringReplace(i->second->supportedDevices.at(0)->id, "/", "_") + ".xml";
-			i->second->save(filename);
+			for(std::map<std::string, PHomegearDevice>::iterator i = rpcDevicesPlain.begin(); i != rpcDevicesPlain.end(); ++i)
+			{
+				addDeviceToPeerInfo(i->second, peerInfo, usedTypeIds);
+			}
+		}
 
-			PeerInfo info;
-			info.type = i->second->supportedDevices.at(0)->typeNumber;
-			if(info.type == 0)
-			{
-				GD::out.printError("Error: Not adding device \"" + i->second->supportedDevices.at(0)->id + "\" as no type ID was specified in the JSON defined in ETS. Please add a unique type ID there.");
-				continue;
-			}
-			if(typeIds.find(info.type) != typeIds.end())
-			{
-				GD::out.printError("Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + i->second->supportedDevices.at(0)->id + " and " + typeIds[info.type] + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
-				continue;
-			}
-			typeIds.emplace(info.type, i->second->supportedDevices.at(0)->id);
-			std::string paddedType = std::to_string(info.type);
-			if(paddedType.size() < 9) paddedType.insert(0, 9 - paddedType.size(), '0');
-			info.serialNumber = "KNX" + paddedType;
-			peerInfo.push_back(info);
+		for(std::map<std::string, PHomegearDevice>::iterator i = rpcDevicesJson.begin(); i != rpcDevicesJson.end(); ++i)
+		{
+			addDeviceToPeerInfo(i->second, peerInfo, usedTypeIds);
 		}
 	}
 	catch(const std::exception& ex)

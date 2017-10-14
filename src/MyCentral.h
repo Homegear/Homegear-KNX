@@ -15,6 +15,8 @@
 namespace MyFamily
 {
 
+typedef std::shared_ptr<std::map<uint64_t, PMyPeer>> PGroupAddressPeers;
+
 class MyCentral : public BaseLib::Systems::ICentral
 {
 public:
@@ -27,9 +29,9 @@ public:
 	virtual bool onPacketReceived(std::string& senderId, std::shared_ptr<BaseLib::Systems::Packet> packet);
 
 	uint64_t getPeerIdFromSerial(std::string& serialNumber) { std::shared_ptr<MyPeer> peer = getPeer(serialNumber); if(peer) return peer->getID(); else return 0; }
-	std::shared_ptr<MyPeer> getPeer(uint64_t id);
-	std::shared_ptr<MyPeer> getPeer(std::string serialNumber);
-	std::shared_ptr<MyPeer> getPeer(uint16_t groupAddress);
+	PMyPeer getPeer(uint64_t id);
+	PMyPeer getPeer(std::string serialNumber);
+	PGroupAddressPeers getPeer(uint16_t groupAddress);
 
 	virtual PVariable deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::string serialNumber, int32_t flags);
 	virtual PVariable deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, int32_t flags);
@@ -41,15 +43,16 @@ public:
 protected:
 	std::unique_ptr<Search> _search;
 	std::mutex _searchMutex;
-	std::map<uint16_t, std::shared_ptr<MyPeer>> _peersByGroupAddress;
+	std::map<uint16_t, PGroupAddressPeers> _peersByGroupAddress;
 
 	virtual void init();
 	virtual void loadPeers();
 	virtual void savePeers(bool full);
 	virtual void loadVariables() {}
 	virtual void saveVariables() {}
-	std::shared_ptr<MyPeer> createPeer(uint32_t type, std::string serialNumber, bool save = true);
+	PMyPeer createPeer(uint32_t type, std::string serialNumber, bool save = true);
 	void deletePeer(uint64_t id);
+	void removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId);
 };
 
 }

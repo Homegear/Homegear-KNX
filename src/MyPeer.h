@@ -129,6 +129,8 @@ protected:
 	// }}}
 };
 
+typedef std::shared_ptr<MyPeer> PMyPeer;
+
 }
 
 #endif

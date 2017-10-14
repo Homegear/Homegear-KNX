@@ -47,6 +47,7 @@ protected:
 	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
 	std::vector<std::shared_ptr<std::vector<char>>> extractKnxProjectFiles();
 	std::vector<XmlData> extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles);
+	void addDeviceToPeerInfo(PHomegearDevice& device, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
 };
 
 }
