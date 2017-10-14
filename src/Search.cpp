@@ -2973,6 +2973,255 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 				additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
 			}
 		}
+		//DALI converter status
+		else if(datapointType == "DPT-244" || datapointType.compare(0, 9, "DPST-244-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			cast->type = "DPT-244";
+
+			if(datapointType == "DPST-244-600")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalEnumeration converterMode(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 4, converterMode));
+				converterMode->minimumValue = 0;
+				converterMode->maximumValue = 9;
+				converterMode->values.push_back(EnumerationValue("Unknown", 0));
+				converterMode->values.push_back(EnumerationValue("Normal mode active, all OK", 1));
+				converterMode->values.push_back(EnumerationValue("Inhibit mode active", 2));
+				converterMode->values.push_back(EnumerationValue("Hardwired inhibit mode active", 3));
+				converterMode->values.push_back(EnumerationValue("Rest mode active", 4));
+				converterMode->values.push_back(EnumerationValue("Emergency mode active", 5));
+				converterMode->values.push_back(EnumerationValue("Extended emergency mode active", 6));
+				converterMode->values.push_back(EnumerationValue("FT in progress", 7));
+				converterMode->values.push_back(EnumerationValue("DT in progress", 8));
+				converterMode->values.push_back(EnumerationValue("PDT in progress", 9));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".HARDWIRED_SWITCH_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".HARDWIRED_INHIBIT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				PLogicalEnumeration functionTestPending(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".FUNCTION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 2, functionTestPending));
+				functionTestPending->minimumValue = 0;
+				functionTestPending->maximumValue = 2;
+				functionTestPending->values.push_back(EnumerationValue("Unknown", 0));
+				functionTestPending->values.push_back(EnumerationValue("No test pending", 1));
+				functionTestPending->values.push_back(EnumerationValue("Test pending", 2));
+
+				PLogicalEnumeration durationTestPending(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".DURATION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 2, durationTestPending));
+				durationTestPending->minimumValue = 0;
+				durationTestPending->maximumValue = 2;
+				durationTestPending->values.push_back(EnumerationValue("Unknown", 0));
+				durationTestPending->values.push_back(EnumerationValue("No test pending", 1));
+				durationTestPending->values.push_back(EnumerationValue("Test pending", 2));
+
+				PLogicalEnumeration partialDurationTestPending(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".PARTIAL_DURATION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 2, partialDurationTestPending));
+				partialDurationTestPending->minimumValue = 0;
+				partialDurationTestPending->maximumValue = 2;
+				partialDurationTestPending->values.push_back(EnumerationValue("Unknown", 0));
+				partialDurationTestPending->values.push_back(EnumerationValue("No test pending", 1));
+				partialDurationTestPending->values.push_back(EnumerationValue("Test pending", 2));
+
+				PLogicalEnumeration converterFailure(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_FAILURE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 14, 2, converterFailure));
+				converterFailure->minimumValue = 0;
+				converterFailure->maximumValue = 2;
+				converterFailure->values.push_back(EnumerationValue("Unknown", 0));
+				converterFailure->values.push_back(EnumerationValue("No failure detected", 1));
+				converterFailure->values.push_back(EnumerationValue("Failure detected", 2));
+			}
+		}
+		//DALI converter test result
+		else if(datapointType == "DPT-245" || datapointType.compare(0, 9, "DPST-245-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			cast->type = "DPT-245";
+
+			if(datapointType == "DPST-245-600")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalEnumeration ltrf(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 4, ltrf));
+				ltrf->minimumValue = 0;
+				ltrf->maximumValue = 5;
+				ltrf->values.push_back(EnumerationValue("Unknown", 0));
+				ltrf->values.push_back(EnumerationValue("Passed in time", 1));
+				ltrf->values.push_back(EnumerationValue("Passed max delay exceeded", 2));
+				ltrf->values.push_back(EnumerationValue("Failed, test executed in time", 3));
+				ltrf->values.push_back(EnumerationValue("Failed, max delay exceeded", 4));
+				ltrf->values.push_back(EnumerationValue("Test manually stopped", 5));
+
+				PLogicalEnumeration ltrd(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 4, ltrd));
+				ltrd->minimumValue = 0;
+				ltrd->maximumValue = 5;
+				ltrd->values.push_back(EnumerationValue("Unknown", 0));
+				ltrd->values.push_back(EnumerationValue("Passed in time", 1));
+				ltrd->values.push_back(EnumerationValue("Passed max delay exceeded", 2));
+				ltrd->values.push_back(EnumerationValue("Failed, test executed in time", 3));
+				ltrd->values.push_back(EnumerationValue("Failed, max delay exceeded", 4));
+				ltrd->values.push_back(EnumerationValue("Test manually stopped", 5));
+
+				PLogicalEnumeration ltrp(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 4, ltrp));
+				ltrp->minimumValue = 0;
+				ltrp->maximumValue = 5;
+				ltrp->values.push_back(EnumerationValue("Unknown", 0));
+				ltrp->values.push_back(EnumerationValue("Passed in time", 1));
+				ltrp->values.push_back(EnumerationValue("Passed max delay exceeded", 2));
+				ltrp->values.push_back(EnumerationValue("Failed, test executed in time", 3));
+				ltrp->values.push_back(EnumerationValue("Failed, max delay exceeded", 4));
+				ltrp->values.push_back(EnumerationValue("Test manually stopped", 5));
+
+				PLogicalEnumeration sf(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 2, sf));
+				sf->minimumValue = 0;
+				sf->maximumValue = 2;
+				sf->values.push_back(EnumerationValue("Unknown", 0));
+				sf->values.push_back(EnumerationValue("Started automatically", 1));
+				sf->values.push_back(EnumerationValue("Started by gateway", 2));
+
+				PLogicalEnumeration sd(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 18, 2, sd));
+				sd->minimumValue = 0;
+				sd->maximumValue = 2;
+				sd->values.push_back(EnumerationValue("Unknown", 0));
+				sd->values.push_back(EnumerationValue("Started automatically", 1));
+				sd->values.push_back(EnumerationValue("Started by gateway", 2));
+
+				PLogicalEnumeration sp(new LogicalEnumeration(_bl));
+				additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 20, 2, sp));
+				sp->minimumValue = 0;
+				sp->maximumValue = 2;
+				sp->values.push_back(EnumerationValue("Unknown", 0));
+				sp->values.push_back(EnumerationValue("Started automatically", 1));
+				sp->values.push_back(EnumerationValue("Started by gateway", 2));
+
+				PLogicalInteger ldtr(new LogicalInteger(_bl));
+				ldtr->minimumValue = 0;
+				ldtr->maximumValue = 510;
+				additionalParameters.push_back(createParameter(function, baseName + ".LDTR", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 16, ldtr));
+
+				PLogicalInteger lpdtr(new LogicalInteger(_bl));
+				lpdtr->minimumValue = 0;
+				lpdtr->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".LPDTR", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 40, 8, lpdtr));
+			}
+		}
+		//Brightness color temperature transition
+		else if(datapointType == "DPT-249" || datapointType.compare(0, 9, "DPST-249-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			cast->type = "DPT-249";
+
+			if(datapointType == "DPST-249-600")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger duration(new LogicalInteger(_bl));
+				duration->minimumValue = 0;
+				duration->maximumValue = 65535;
+				additionalParameters.push_back(createParameter(function, baseName + ".DURATION", "DPST-7-4", "100 ms", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, duration));
+
+				PLogicalInteger temperature(new LogicalInteger(_bl));
+				temperature->minimumValue = 0;
+				temperature->maximumValue = 65535;
+				additionalParameters.push_back(createParameter(function, baseName + ".TEMPERATURE", "DPT-7", "K", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 16, temperature));
+
+				PLogicalInteger brightness(new LogicalInteger(_bl));
+				brightness->minimumValue = 0;
+				brightness->maximumValue = 100;
+				additionalParameters.push_back(createParameter(function, baseName + ".BRIGHTNESS", "DPST-5-1", "%", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 32, 8, brightness));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".DURATION_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 45, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".TEMPERATURE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 46, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".BRIGHTNESS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 47, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+		}
+		//Brightness color temperature control
+		else if(datapointType == "DPT-250" || datapointType.compare(0, 9, "DPST-250-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			cast->type = "DPT-250";
+
+			if(datapointType == "DPST-250-600")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".CCT_INCREASE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				PLogicalInteger cctStep(new LogicalInteger(_bl));
+				cctStep->minimumValue = 1;
+				cctStep->maximumValue = 7;
+				additionalParameters.push_back(createParameter(function, baseName + ".CCT_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 3, cctStep));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".CB_INCREASE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+				PLogicalInteger cbStep(new LogicalInteger(_bl));
+				cbStep->minimumValue = 1;
+				cbStep->maximumValue = 7;
+				additionalParameters.push_back(createParameter(function, baseName + ".CB_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 3, cbStep));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".CCT_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 22, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".CB_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 23, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+			}
+		}
+		//RGBW
+		else if(datapointType == "DPT-251" || datapointType.compare(0, 9, "DPST-251-") == 0)
+		{
+			PLogicalInteger logical(new LogicalInteger(_bl));
+			parameter->logical = logical;
+			cast->type = "DPT-251";
+
+			if(datapointType == "DPST-251-600")
+			{
+				std::string baseName = parameter->id;
+				parameter->id = baseName + ".RAW";
+				if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, PLogicalAction(new LogicalAction(_bl))));
+
+				PLogicalInteger red(new LogicalInteger(_bl));
+				red->minimumValue = 0;
+				red->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 8, red));
+
+				PLogicalInteger green(new LogicalInteger(_bl));
+				green->minimumValue = 0;
+				green->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 8, green));
+
+				PLogicalInteger blue(new LogicalInteger(_bl));
+				blue->minimumValue = 0;
+				blue->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 8, blue));
+
+				PLogicalInteger white(new LogicalInteger(_bl));
+				white->minimumValue = 0;
+				white->maximumValue = 255;
+				additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 32, 8, white));
+
+				additionalParameters.push_back(createParameter(function, baseName + ".RED_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 44, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".GREEN_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 45, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".BLUE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 46, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+				additionalParameters.push_back(createParameter(function, baseName + ".WHITE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 47, 1, PLogicalBoolean(new LogicalBoolean(_bl))));
+
+			}
+		}
 
 		for(std::vector<PParameter>::iterator i = additionalParameters.begin(); i != additionalParameters.end(); ++i)
 		{

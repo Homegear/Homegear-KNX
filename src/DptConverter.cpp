@@ -312,6 +312,44 @@ std::vector<uint8_t> DptConverter::getDpt(const std::string& type, const PVariab
 			dpt.push_back((value->integerValue >> 8) & 0xFF);
 			dpt.push_back(value->integerValue & 0xFF);
 		}
+		else if(type == "DPT-244" || type.compare(0, 9, "DPST-244-") == 0)
+		{
+			dpt.push_back((value->integerValue >> 8) & 0xFF);
+			dpt.push_back(value->integerValue & 0xFF);
+		}
+		else if(type == "DPT-245" || type.compare(0, 9, "DPST-245-") == 0)
+		{
+			dpt.push_back((value->integerValue64 >> 40) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 32) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 24) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 16) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 8) & 0xFF);
+			dpt.push_back(value->integerValue64 & 0xFF);
+		}
+		else if(type == "DPT-249" || type.compare(0, 9, "DPST-249-") == 0)
+		{
+			dpt.push_back((value->integerValue64 >> 40) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 32) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 24) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 16) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 8) & 0xFF);
+			dpt.push_back(value->integerValue64 & 0xFF);
+		}
+		else if(type == "DPT-250" || type.compare(0, 9, "DPST-250-") == 0)
+		{
+			dpt.push_back((value->integerValue >> 16) & 0xFF);
+			dpt.push_back((value->integerValue >> 8) & 0xFF);
+			dpt.push_back(value->integerValue & 0xFF);
+		}
+		else if(type == "DPT-251" || type.compare(0, 9, "DPST-251-") == 0)
+		{
+			dpt.push_back((value->integerValue64 >> 40) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 32) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 24) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 16) & 0xFF);
+			dpt.push_back((value->integerValue64 >> 8) & 0xFF);
+			dpt.push_back(value->integerValue64 & 0xFF);
+		}
 	}
 	catch(const std::exception& ex)
 	{
@@ -702,6 +740,51 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				return PVariable(new Variable((int32_t)0));
 			}
 			return PVariable(new Variable(((int32_t)value.at(0) << 24) | ((int32_t)value.at(1) << 16) | ((int32_t)value.at(2) << 8) | value.at(3)));
+		}
+		else if(type == "DPT-244" || type.compare(0, 9, "DPST-244-") == 0)
+		{
+			if(value.size() < 2)
+			{
+				_bl->out.printError("Error: DPT-244 vector is too small: " + _bl->hf.getHexString(value));
+				return PVariable(new Variable((int32_t)0));
+			}
+			return PVariable(new Variable((int32_t)value.at(0) << 8) | value.at(1));
+		}
+		else if(type == "DPT-245" || type.compare(0, 9, "DPST-245-") == 0)
+		{
+			if(value.size() < 6)
+			{
+				_bl->out.printError("Error: DPT-245 vector is too small: " + _bl->hf.getHexString(value));
+				return PVariable(new Variable((int32_t)0));
+			}
+			return PVariable(new Variable(((int64_t)value.at(0) << 40) | ((int64_t)value.at(1) << 32) | ((int64_t)value.at(2) << 24) | ((int64_t)value.at(3) << 16) | ((int64_t)value.at(4) << 8) | value.at(5)));
+		}
+		else if(type == "DPT-249" || type.compare(0, 9, "DPST-249-") == 0)
+		{
+			if(value.size() < 6)
+			{
+				_bl->out.printError("Error: DPT-249 vector is too small: " + _bl->hf.getHexString(value));
+				return PVariable(new Variable((int32_t)0));
+			}
+			return PVariable(new Variable(((int64_t)value.at(0) << 40) | ((int64_t)value.at(1) << 32) | ((int64_t)value.at(2) << 24) | ((int64_t)value.at(3) << 16) | ((int64_t)value.at(4) << 8) | value.at(5)));
+		}
+		else if(type == "DPT-250" || type.compare(0, 9, "DPST-250-") == 0)
+		{
+			if(value.size() < 3)
+			{
+				_bl->out.printError("Error: DPT-250 vector is too small: " + _bl->hf.getHexString(value));
+				return PVariable(new Variable((int32_t)0));
+			}
+			return PVariable(new Variable(((uint32_t)value.at(0) << 16) | ((uint32_t)value.at(1) << 8) | value.at(2)));
+		}
+		else if(type == "DPT-251" || type.compare(0, 9, "DPST-251-") == 0)
+		{
+			if(value.size() < 6)
+			{
+				_bl->out.printError("Error: DPT-251 vector is too small: " + _bl->hf.getHexString(value));
+				return PVariable(new Variable((int32_t)0));
+			}
+			return PVariable(new Variable(((int64_t)value.at(0) << 40) | ((int64_t)value.at(1) << 32) | ((int64_t)value.at(2) << 24) | ((int64_t)value.at(3) << 16) | ((int64_t)value.at(4) << 8) | value.at(5)));
 		}
 	}
 	catch(const std::exception& ex)
