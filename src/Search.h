@@ -28,7 +28,7 @@ public:
 
 	std::vector<PeerInfo> search();
 protected:
-	struct XmlData
+	struct GroupVariableXmlData
 	{
 		uint16_t address = 0;
 		std::string mainGroupName;
@@ -36,6 +36,14 @@ protected:
 		std::string groupVariableName;
 		std::string datapointType;
 		BaseLib::PVariable description;
+	};
+
+	struct DeviceXmlData
+	{
+		std::string id;
+		std::string name;
+		BaseLib::PVariable description;
+		std::set<std::shared_ptr<GroupVariableXmlData>> variables;
 	};
 
 	std::string _xmlPath;
@@ -46,7 +54,7 @@ protected:
 	void parseDatapointType(PFunction& function, std::string& datapointType, PParameter& parameter);
 	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
 	std::vector<std::shared_ptr<std::vector<char>>> extractKnxProjectFiles();
-	std::vector<XmlData> extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles);
+	std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std::shared_ptr<Search::DeviceXmlData>>> extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles);
 	void addDeviceToPeerInfo(PHomegearDevice& device, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
 };
 

@@ -65,7 +65,7 @@ std::vector<Search::PeerInfo> Search::search()
 			return peerInfo;
 		}
 
-		std::vector<XmlData> xmlData = extractXmlData(knxProjectFiles);
+		std::vector<GroupVariableXmlData> xmlData = extractXmlData(knxProjectFiles);
 		if(xmlData.empty())
 		{
 			GD::out.printError("Error: Could not search for KNX devices. No group addresses were found in KNX project file.");
@@ -76,7 +76,7 @@ std::vector<Search::PeerInfo> Search::search()
 
 		std::map<std::string, PHomegearDevice> rpcDevicesPlain;
 		std::map<std::string, PHomegearDevice> rpcDevicesJson;
-		for(std::vector<XmlData>::iterator i = xmlData.begin(); i != xmlData.end(); ++i)
+		for(std::vector<GroupVariableXmlData>::iterator i = xmlData.begin(); i != xmlData.end(); ++i)
 		{
 			std::string id;
 			int32_t type = -1;
@@ -404,9 +404,10 @@ std::vector<std::shared_ptr<std::vector<char>>> Search::extractKnxProjectFiles()
 	return contents;
 }
 
-std::vector<Search::XmlData> Search::extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles)
+std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std::shared_ptr<Search::DeviceXmlData>>> Search::extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles)
 {
-	std::vector<XmlData> xmlData;
+	std::set<std::shared_ptr<GroupVariableXmlData>> groupVariableXmlData;
+	std::set<std::shared_ptr<DeviceXmlData>> deviceXmlData;
 	BaseLib::Rpc::JsonDecoder jsonDecoder(_bl);
 	for(std::vector<std::shared_ptr<std::vector<char>>>::iterator i = knxProjectFiles.begin(); i != knxProjectFiles.end(); ++i)
 	{
@@ -427,6 +428,104 @@ std::vector<Search::XmlData> Search::extractXmlData(std::vector<std::shared_ptr<
 				_bl->out.printError("Error: KNX project XML does not start with \"KNX\".");
 				doc.clear();
 				continue;
+			}
+
+			std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>> deviceById;
+			std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>> deviceBySendGroupVariable;
+			std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>> deviceByReceiveGroupVariable;
+			for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
+			{
+				for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
+				{
+					for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
+					{
+						for(xml_node<>* topologyNode = topologyNode->first_node("Topology"); topologyNode; topologyNode = topologyNode->next_sibling("Topology"))
+						{
+							for(xml_node<>* areaNode = areaNode->first_node("Area"); areaNode; areaNode = areaNode->next_sibling("Area"))
+							{
+								for(xml_node<>* lineNode = lineNode->first_node("Line"); lineNode; lineNode = lineNode->next_sibling("Line"))
+								{
+									for(xml_node<>* deviceNode = deviceNode->first_node("DeviceInstance"); deviceNode; deviceNode = deviceNode->next_sibling("DeviceInstance"))
+									{
+										std::shared_ptr<DeviceXmlData> device = std::make_shared<DeviceXmlData>();
+
+										xml_attribute<>* attribute = deviceNode->first_attribute("Id");
+										if(!attribute) continue;
+										device->id = std::string(attribute->value());
+
+										attribute = deviceNode->first_attribute("Name");
+										if(attribute) device->name = std::string(attribute->value());
+
+										std::string attributeValue;
+										attribute = deviceNode->first_attribute("Description");
+										if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
+										std::string::size_type startPos = attributeValue.find("$${");
+										if(startPos != std::string::npos)
+										{
+											attributeValue = attributeValue.substr(startPos + 2);
+											std::string jsonString;
+											BaseLib::Html::unescapeHtmlEntities(attributeValue, jsonString);
+											try
+											{
+												BaseLib::PVariable json = jsonDecoder.decode(jsonString);
+												device->description = json;
+											}
+											catch(const Exception& ex)
+											{
+												_bl->out.printError("Error decoding JSON of device \"" + device->name + "\" with ID \"" + device->id + "\": " + ex.what());
+												continue;
+											}
+										}
+
+										for(xml_node<>* comInstanceRefsNode = comInstanceRefsNode->first_node("ComObjectInstanceRefs"); comInstanceRefsNode; comInstanceRefsNode = comInstanceRefsNode->next_sibling("ComObjectInstanceRefs"))
+										{
+											for(xml_node<>* comInstanceRefNode = comInstanceRefNode->first_node("ComObjectInstanceRef"); comInstanceRefNode; comInstanceRefNode = comInstanceRefNode->next_sibling("ComObjectInstanceRef"))
+											{
+												for(xml_node<>* connectorsNode = connectorsNode->first_node("Connectors"); connectorsNode; connectorsNode = connectorsNode->next_sibling("Connectors"))
+												{
+													for(xml_node<>* sendNode = sendNode->first_node("Send"); sendNode; sendNode = sendNode->next_sibling("Send"))
+													{
+														attribute = deviceNode->first_attribute("GroupAddressRefId");
+														if(!attribute) continue;
+														attributeValue = std::string(attribute->value());
+														if(attributeValue.empty()) continue;
+														deviceBySendGroupVariable.emplace(attributeValue, device);
+													}
+
+													for(xml_node<>* receiveNode = receiveNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
+													{
+														attribute = deviceNode->first_attribute("GroupAddressRefId");
+														if(!attribute) continue;
+														attributeValue = std::string(attribute->value());
+														if(attributeValue.empty()) continue;
+														deviceByReceiveGroupVariable.emplace(attributeValue, device);
+													}
+												}
+											}
+										}
+
+										deviceById.emplace(device->id, device);
+										deviceXmlData.emplace(device);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
+			{
+				for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
+				{
+					for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
+					{
+						for(xml_node<>* topologyNode = topologyNode->first_node("Buildings"); topologyNode; topologyNode = topologyNode->next_sibling("Buildings"))
+						{
+							//Rooms
+						}
+					}
+				}
 			}
 
 			for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
@@ -453,25 +552,25 @@ std::vector<Search::XmlData> Search::extractXmlData(std::vector<std::shared_ptr<
 
 										for(xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress"); groupAddressNode; groupAddressNode = groupAddressNode->next_sibling("GroupAddress"))
 										{
-											XmlData element;
-											element.mainGroupName = mainGroupName;
-											element.middleGroupName = middleGroupName;
+											std::shared_ptr<GroupVariableXmlData> element = std::make_shared<GroupVariableXmlData>();
+											element->mainGroupName = mainGroupName;
+											element->middleGroupName = middleGroupName;
 
 											attribute = groupAddressNode->first_attribute("Name");
-											if(attribute) element.groupVariableName = std::string(attribute->value());
+											if(attribute) element->groupVariableName = std::string(attribute->value());
 
 											attribute = groupAddressNode->first_attribute("Address");
 											if(!attribute) continue;
 											std::string attributeValue(attribute->value());
-											element.address = BaseLib::Math::getNumber(attributeValue);
+											element->address = BaseLib::Math::getNumber(attributeValue);
 
 											attribute = groupAddressNode->first_attribute("DatapointType");
 											if(!attribute)
 											{
-												GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element.address >> 11) + "/" + std::to_string((element.address >> 8) & 0x7) + "/" + std::to_string(element.address & 0xFF));
+												GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF));
 												continue;
 											}
-											element.datapointType = std::string(attribute->value());
+											element->datapointType = std::string(attribute->value());
 
 											attribute = groupAddressNode->first_attribute("Description");
 											if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
@@ -484,16 +583,16 @@ std::vector<Search::XmlData> Search::extractXmlData(std::vector<std::shared_ptr<
 												try
 												{
 													BaseLib::PVariable json = jsonDecoder.decode(jsonString);
-													element.description = json;
+													element->description = json;
 												}
 												catch(const Exception& ex)
 												{
-													_bl->out.printError("Error decoding JSON of group variable \"" + element.groupVariableName + "\": " + ex.what());
+													_bl->out.printError("Error decoding JSON of group variable \"" + element->groupVariableName + "\": " + ex.what());
 													continue;
 												}
 											}
 
-											xmlData.push_back(element);
+											groupVariableXmlData.emplace(element);
 										}
 									}
 								}
@@ -517,7 +616,7 @@ std::vector<Search::XmlData> Search::extractXmlData(std::vector<std::shared_ptr<
 		}
 		doc.clear();
 	}
-	return xmlData;
+	return std::make_pair(groupVariableXmlData, deviceXmlData);
 }
 
 PParameter Search::createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size, std::shared_ptr<ILogical> logical, bool noCast)
