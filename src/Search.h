@@ -21,12 +21,14 @@ public:
 	{
 		std::string serialNumber;
 		int32_t type = -1;
+		std::string name;
+		std::string room;
 	};
 
 	Search(BaseLib::SharedObjects* baseLib);
 	virtual ~Search();
 
-	std::vector<PeerInfo> search();
+	std::vector<PeerInfo> search(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap);
 protected:
 	struct GroupVariableXmlData
 	{
@@ -35,14 +37,26 @@ protected:
 		std::string middleGroupName;
 		std::string groupVariableName;
 		std::string datapointType;
+		int32_t index = -1;
+		bool writeFlag = true;
+		bool readFlag = true;
 		BaseLib::PVariable description;
+	};
+
+	struct GroupVariableInfo
+	{
+		int32_t index = -1;
+		bool writeFlag = true;
+		bool readFlag = true;
 	};
 
 	struct DeviceXmlData
 	{
 		std::string id;
 		std::string name;
+		std::string room;
 		BaseLib::PVariable description;
+		std::unordered_map<std::string, GroupVariableInfo> variableInfo;
 		std::set<std::shared_ptr<GroupVariableXmlData>> variables;
 	};
 
@@ -54,8 +68,9 @@ protected:
 	void parseDatapointType(PFunction& function, std::string& datapointType, PParameter& parameter);
 	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
 	std::vector<std::shared_ptr<std::vector<char>>> extractKnxProjectFiles();
+	void assignRoomsToDevices(xml_node<>* currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>>& devices);
 	std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std::shared_ptr<Search::DeviceXmlData>>> extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles);
-	void addDeviceToPeerInfo(PHomegearDevice& device, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
+	void addDeviceToPeerInfo(PHomegearDevice& device, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
 };
 
 }
