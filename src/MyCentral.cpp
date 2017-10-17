@@ -285,17 +285,20 @@ void MyCentral::deletePeer(uint64_t id)
 			channels->arrayValue->push_back(PVariable(new Variable(i->first)));
 		}
 
+		std::vector<uint16_t> groupAddresses;
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
 			if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
 
-			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
-			for(const uint16_t& address : groupAddresses)
-			{
-				removePeerFromGroupAddresses(address, id);
-			}
+			groupAddresses = peer->getGroupAddresses();
 		}
+
+		for(const uint16_t& address : groupAddresses)
+		{
+			removePeerFromGroupAddresses(address, id);
+		}
+
 
 		peer->deleteFromDatabase();
 
