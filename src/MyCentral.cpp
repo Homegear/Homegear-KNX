@@ -285,17 +285,20 @@ void MyCentral::deletePeer(uint64_t id)
 			channels->arrayValue->push_back(PVariable(new Variable(i->first)));
 		}
 
+		std::vector<uint16_t> groupAddresses;
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
 			if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
 
-			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
-			for(const uint16_t& address : groupAddresses)
-			{
-				removePeerFromGroupAddresses(address, id);
-			}
+			groupAddresses = peer->getGroupAddresses();
 		}
+
+		for(const uint16_t& address : groupAddresses)
+		{
+			removePeerFromGroupAddresses(address, id);
+		}
+
 
 		peer->deleteFromDatabase();
 
@@ -873,7 +876,10 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			_peersByGroupAddress.clear();
 		}
 
-		std::vector<Search::PeerInfo> peerInfo = _search->search();
+		std::unordered_set<uint32_t> usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
+		std::unordered_map<std::string, uint32_t> idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
+
+		std::vector<Search::PeerInfo> peerInfo = _search->search(usedTypeNumbers, idTypeNumberMap);
 		GD::out.printInfo("Info: Search completed. Found " + std::to_string(peerInfo.size()) + " devices.");
 
 		GD::family->reloadRpcDevices();
@@ -883,7 +889,17 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 		std::vector<std::shared_ptr<MyPeer>> newPeers;
 		for(std::vector<Search::PeerInfo>::iterator i = peerInfo.begin(); i != peerInfo.end(); ++i)
 		{
-			if(peers.find(i->serialNumber) != peers.end()) continue;
+			auto peersIterator = peers.find(i->serialNumber);
+			if(peersIterator != peers.end())
+			{
+				if(!i->room.empty())
+				{
+					uint64_t roomId = raiseGetRoomIdByName(i->room);
+					if(roomId > 0) peersIterator->second->setRoom(roomId);
+				}
+				if(!i->name.empty()) peersIterator->second->setName(i->name);
+				continue;
+			}
 			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->serialNumber, true);
 			if(!peer)
 			{
@@ -895,14 +911,20 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			peer->initParametersByGroupAddress();
 
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
+			peer->setName(i->name);
+			if(!i->room.empty())
+			{
+				uint64_t roomId = raiseGetRoomIdByName(i->room);
+				if(roomId > 0) peer->setRoom(roomId);
+			}
 			_peersBySerial[peer->getSerialNumber()] = peer;
 			_peersById[peer->getID()] = peer;
 			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
-			for(std::vector<uint16_t>::iterator i = groupAddresses.begin(); i != groupAddresses.end(); ++i)
+			for(std::vector<uint16_t>::iterator j = groupAddresses.begin(); j != groupAddresses.end(); ++j)
 			{
-				auto peersIterator = _peersByGroupAddress.find(*i);
-				if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(*i, std::make_shared<std::map<uint64_t, PMyPeer>>());
-				_peersByGroupAddress[*i]->emplace(peer->getID(), peer);
+				auto peersIterator = _peersByGroupAddress.find(*j);
+				if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(*j, std::make_shared<std::map<uint64_t, PMyPeer>>());
+				_peersByGroupAddress[*j]->emplace(peer->getID(), peer);
 			}
 			newPeers.push_back(peer);
 		}
