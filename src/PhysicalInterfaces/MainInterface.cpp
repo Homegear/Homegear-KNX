@@ -270,7 +270,7 @@ void MainInterface::stopListening()
 	try
 	{
 		// {{{ DISCONNECT_REQ (0x0209)
-		if(!_stopped)
+		if(!_stopped && _initComplete)
 		{
 			std::vector<char> data{ 0x06, 0x10, 0x02, 0x09, 0x00, 0x10, _channelId, 0x00, 0x08, 0x01, _listenIpBytes[0], _listenIpBytes[1], _listenIpBytes[2], _listenIpBytes[3], _listenPortBytes[0], _listenPortBytes[1] };
 			_out.printInfo("Info: Sending packet " + BaseLib::HelperFunctions::getHexString(data));
@@ -280,6 +280,7 @@ void MainInterface::stopListening()
 		// }}}
 
 		_stopCallbackThread = true;
+		GD::bl->threadManager.join(_initThread);
 		GD::bl->threadManager.join(_listenThread);
 		_stopCallbackThread = false;
 		_socket->close();
@@ -454,6 +455,7 @@ void MainInterface::listen()
         		if(_stopped) _out.printWarning("Warning: Connection to device closed. Trying to reconnect...");
         		_socket->close();
         		std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+        		if(_stopCallbackThread) return;
         		reconnect();
         		continue;
         	}
@@ -610,7 +612,7 @@ void MainInterface::getSystemResponse(uint16_t serviceType, const std::vector<ch
 			return;
 		}
 
-		if(!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(10000), [&] { return request->mutexReady; }))
+		if(!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(10000), [&] { return request->mutexReady || _stopCallbackThread; }))
 		{
 			_out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
 			_stopped = true; //Force reconnect

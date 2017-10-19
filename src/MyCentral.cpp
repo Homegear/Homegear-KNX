@@ -82,7 +82,7 @@ void MyCentral::loadPeers()
 		std::shared_ptr<BaseLib::Database::DataTable> rows = _bl->db->getPeers(_deviceId);
 		for(BaseLib::Database::DataTable::iterator row = rows->begin(); row != rows->end(); ++row)
 		{
-			int32_t peerID = row->second.at(0)->intValue;
+			uint64_t peerID = row->second.at(0)->intValue;
 			GD::out.printMessage("Loading KNX peer " + std::to_string(peerID));
 			std::shared_ptr<MyPeer> peer(new MyPeer(peerID, row->second.at(2)->intValue, row->second.at(3)->textValue, _deviceId, this));
 			if(!peer->load(this)) continue;
@@ -93,7 +93,9 @@ void MyCentral::loadPeers()
 			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
 			for(std::vector<uint16_t>::iterator i = groupAddresses.begin(); i != groupAddresses.end(); ++i)
 			{
-				_peersByGroupAddress[*i] = peer;
+				auto peersIterator = _peersByGroupAddress.find(*i);
+				if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(*i, std::make_shared<std::map<uint64_t, PMyPeer>>());
+				_peersByGroupAddress[*i]->emplace(peerID, peer);
 			}
 		}
 	}
@@ -157,12 +159,12 @@ std::shared_ptr<MyPeer> MyCentral::getPeer(std::string serialNumber)
     return std::shared_ptr<MyPeer>();
 }
 
-std::shared_ptr<MyPeer> MyCentral::getPeer(uint16_t groupAddress)
+PGroupAddressPeers MyCentral::getPeer(uint16_t groupAddress)
 {
 	try
 	{
 		std::lock_guard<std::mutex> peersGuard(_peersMutex);
-		std::map<uint16_t, std::shared_ptr<MyPeer>>::iterator peersIterator = _peersByGroupAddress.find(groupAddress);
+		auto peersIterator = _peersByGroupAddress.find(groupAddress);
 		if(peersIterator != _peersByGroupAddress.end()) return peersIterator->second;
 	}
 	catch(const std::exception& ex)
@@ -177,7 +179,7 @@ std::shared_ptr<MyPeer> MyCentral::getPeer(uint16_t groupAddress)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
-    return std::shared_ptr<MyPeer>();
+    return PGroupAddressPeers();
 }
 
 bool MyCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib::Systems::Packet> packet)
@@ -190,9 +192,12 @@ bool MyCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib:
 
 		if(_bl->debugLevel >= 4) GD::out.printInfo("Packet received from 0x" + BaseLib::HelperFunctions::getHexString(myPacket->getSourceAddress(), 4) + " to " + myPacket->getFormattedDestinationAddress() + ". Payload: " + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
 
-		std::shared_ptr<MyPeer> peer = getPeer(myPacket->getDestinationAddress());
-		if(!peer) return false;
-		peer->packetReceived(myPacket);
+		auto peers = getPeer(myPacket->getDestinationAddress());
+		if(!peers) return false;
+		for(auto& peer : *peers)
+		{
+			peer.second->packetReceived(myPacket);
+		}
 
 		return true;
 	}
@@ -236,6 +241,29 @@ void MyCentral::savePeers(bool full)
     }
 }
 
+void MyCentral::removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId)
+{
+	try
+	{
+		std::lock_guard<std::mutex> peersGuard(_peersMutex);
+		auto peersIterator = _peersByGroupAddress.find(groupAddress);
+		if(peersIterator == _peersByGroupAddress.end()) return;
+		peersIterator->second->erase(peerId);
+	}
+	catch(const std::exception& ex)
+    {
+    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
+}
+
 void MyCentral::deletePeer(uint64_t id)
 {
 	try
@@ -257,21 +285,24 @@ void MyCentral::deletePeer(uint64_t id)
 			channels->arrayValue->push_back(PVariable(new Variable(i->first)));
 		}
 
-		raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
-
-		peer->deleteFromDatabase();
-
+		std::vector<uint16_t> groupAddresses;
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
 			if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
 
-			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
-			for(const uint16_t& address : groupAddresses)
-			{
-				_peersByGroupAddress.erase(address);
-			}
+			groupAddresses = peer->getGroupAddresses();
 		}
+
+		for(const uint16_t& address : groupAddresses)
+		{
+			removePeerFromGroupAddresses(address, id);
+		}
+
+
+		peer->deleteFromDatabase();
+
+		raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
 
 		GD::out.printInfo("Info: Deleting XML file \"" + peer->getRpcDevice()->getPath() + "\"");
 		GD::bl->io.deleteFile(peer->getRpcDevice()->getPath());
@@ -845,7 +876,10 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			_peersByGroupAddress.clear();
 		}
 
-		std::vector<Search::PeerInfo> peerInfo = _search->search();
+		std::unordered_set<uint32_t> usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
+		std::unordered_map<std::string, uint32_t> idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
+
+		std::vector<Search::PeerInfo> peerInfo = _search->search(usedTypeNumbers, idTypeNumberMap);
 		GD::out.printInfo("Info: Search completed. Found " + std::to_string(peerInfo.size()) + " devices.");
 
 		GD::family->reloadRpcDevices();
@@ -855,7 +889,17 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 		std::vector<std::shared_ptr<MyPeer>> newPeers;
 		for(std::vector<Search::PeerInfo>::iterator i = peerInfo.begin(); i != peerInfo.end(); ++i)
 		{
-			if(peers.find(i->serialNumber) != peers.end()) continue;
+			auto peersIterator = peers.find(i->serialNumber);
+			if(peersIterator != peers.end())
+			{
+				if(!i->room.empty())
+				{
+					uint64_t roomId = raiseGetRoomIdByName(i->room);
+					if(roomId > 0) peersIterator->second->setRoom(roomId);
+				}
+				if(!i->name.empty()) peersIterator->second->setName(i->name);
+				continue;
+			}
 			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->serialNumber, true);
 			if(!peer)
 			{
@@ -867,12 +911,20 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			peer->initParametersByGroupAddress();
 
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
+			peer->setName(i->name);
+			if(!i->room.empty())
+			{
+				uint64_t roomId = raiseGetRoomIdByName(i->room);
+				if(roomId > 0) peer->setRoom(roomId);
+			}
 			_peersBySerial[peer->getSerialNumber()] = peer;
 			_peersById[peer->getID()] = peer;
 			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
-			for(std::vector<uint16_t>::iterator i = groupAddresses.begin(); i != groupAddresses.end(); ++i)
+			for(std::vector<uint16_t>::iterator j = groupAddresses.begin(); j != groupAddresses.end(); ++j)
 			{
-				_peersByGroupAddress[*i] = peer;
+				auto peersIterator = _peersByGroupAddress.find(*j);
+				if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(*j, std::make_shared<std::map<uint64_t, PMyPeer>>());
+				_peersByGroupAddress[*j]->emplace(peer->getID(), peer);
 			}
 			newPeers.push_back(peer);
 		}

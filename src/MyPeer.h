@@ -7,6 +7,7 @@
 #include "DptConverter.h"
 
 #include <homegear-base/BaseLib.h>
+#include <unordered_set>
 
 using namespace BaseLib;
 using namespace BaseLib::DeviceDescription;
@@ -75,7 +76,7 @@ protected:
 
 	bool _shuttingDown = false;
 	std::shared_ptr<DptConverter> _dptConverter;
-	std::map<uint16_t, ParametersByGroupAddressInfo> _parametersByGroupAddress;
+	std::map<uint16_t, std::vector<ParametersByGroupAddressInfo>> _parametersByGroupAddress;
 	std::map<int32_t, std::map<std::string, GroupedParametersInfo>> _groupedParameters;
 
 	//{{{ getValueFromDevice
@@ -128,6 +129,8 @@ protected:
 		virtual bool convertToPacketHook(PParameter parameter, PVariable data, std::vector<uint8_t>& result);
 	// }}}
 };
+
+typedef std::shared_ptr<MyPeer> PMyPeer;
 
 }
 
