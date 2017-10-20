@@ -20,6 +20,7 @@ public:
 	struct PeerInfo
 	{
 		std::string serialNumber;
+		int32_t address = -1;
 		int32_t type = -1;
 		std::string name;
 		std::string room;
@@ -55,9 +56,17 @@ protected:
 		std::string id;
 		std::string name;
 		std::string room;
+		int32_t address;
 		BaseLib::PVariable description;
 		std::unordered_map<std::string, GroupVariableInfo> variableInfo;
 		std::set<std::shared_ptr<GroupVariableXmlData>> variables;
+	};
+
+	struct XmlData
+	{
+		bool jsonExists = false;
+		std::set<std::shared_ptr<Search::GroupVariableXmlData>> groupVariableXmlData;
+		std::set<std::shared_ptr<Search::DeviceXmlData>> deviceXmlData;
 	};
 
 	std::string _xmlPath;
@@ -69,8 +78,8 @@ protected:
 	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
 	std::vector<std::shared_ptr<std::vector<char>>> extractKnxProjectFiles();
 	void assignRoomsToDevices(xml_node<>* currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>>& devices);
-	std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std::shared_ptr<Search::DeviceXmlData>>> extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles);
-	void addDeviceToPeerInfo(PHomegearDevice& device, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
+	XmlData extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles);
+	void addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
 };
 
 }

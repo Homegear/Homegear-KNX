@@ -436,6 +436,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 				std::string bar(" │ ");
 				const int32_t idWidth = 8;
 				const int32_t nameWidth = 25;
+				const int32_t addressWidth = 9;
 				const int32_t serialWidth = 13;
 				const int32_t typeWidth1 = 7;
 				const int32_t typeWidth2 = 25;
@@ -446,14 +447,16 @@ std::string MyCentral::handleCliCommand(std::string command)
 				stringStream << std::setfill(' ')
 					<< std::setw(idWidth) << "ID" << bar
 					<< nameHeader << bar
+					<< std::setw(addressWidth) << "Address" << bar
 					<< std::setw(serialWidth) << "Serial Number" << bar
 					<< std::setw(typeWidth1) << "Type" << bar
 					<< typeStringHeader
 					<< std::endl;
-				stringStream << "─────────┼───────────────────────────┼───────────────┼─────────┼───────────────────────────" << std::endl;
+				stringStream << "─────────┼───────────────────────────┼───────────┼───────────────┼─────────┼───────────────────────────" << std::endl;
 				stringStream << std::setfill(' ')
 					<< std::setw(idWidth) << " " << bar
 					<< std::setw(nameWidth) << " " << bar
+					<< std::setw(addressWidth) << " " << bar
 					<< std::setw(serialWidth) << " " << bar
 					<< std::setw(typeWidth1) << " " << bar
 					<< std::setw(typeWidth2)
@@ -491,6 +494,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 					}
 					else name.resize(nameWidth + (name.size() - nameSize), ' ');
 					stringStream << name << bar
+						<< std::setw(addressWidth) << MyPeer::getFormattedAddress(i->second->getAddress()) << bar
 						<< std::setw(serialWidth) << i->second->getSerialNumber() << bar
 						<< std::setw(typeWidth1) << BaseLib::HelperFunctions::getHexString(i->second->getDeviceType()) << bar;
 					if(i->second->getRpcDevice())
@@ -509,7 +513,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 					stringStream << std::endl << std::dec;
 				}
 				_peersMutex.unlock();
-				stringStream << "─────────┴───────────────────────────┴───────────────┴─────────┴───────────────────────────" << std::endl;
+				stringStream << "─────────┴───────────────────────────┴───────────┴───────────────┴─────────┴───────────────────────────" << std::endl;
 
 				return stringStream.str();
 			}
@@ -867,10 +871,8 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 	try
 	{
 		std::lock_guard<std::mutex> searchGuard(_searchMutex);
-		std::unordered_map<std::string, std::shared_ptr<Systems::Peer>> peers;
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
-			peers = _peersBySerial;
 			_peersBySerial.clear();
 			_peersById.clear();
 			_peersByGroupAddress.clear();
@@ -889,15 +891,17 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 		std::vector<std::shared_ptr<MyPeer>> newPeers;
 		for(std::vector<Search::PeerInfo>::iterator i = peerInfo.begin(); i != peerInfo.end(); ++i)
 		{
-			auto peersIterator = peers.find(i->serialNumber);
-			if(peersIterator != peers.end())
+			auto peersIterator = _peersBySerial.find(i->serialNumber);
+			if(peersIterator != _peersBySerial.end())
 			{
+				peersIterator->second->setAddress(i->address);
 				if(!i->room.empty())
 				{
 					uint64_t roomId = raiseGetRoomIdByName(i->room);
 					if(roomId > 0) peersIterator->second->setRoom(roomId);
 				}
 				if(!i->name.empty()) peersIterator->second->setName(i->name);
+				else peersIterator->second->setName(MyPeer::getFormattedAddress(i->address));
 				continue;
 			}
 			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->serialNumber, true);
@@ -911,7 +915,9 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			peer->initParametersByGroupAddress();
 
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
-			peer->setName(i->name);
+			if(!i->name.empty()) peer->setName(i->name);
+			else peer->setName(MyPeer::getFormattedAddress(i->address));
+			peer->setAddress(i->address);
 			if(!i->room.empty())
 			{
 				uint64_t roomId = raiseGetRoomIdByName(i->room);

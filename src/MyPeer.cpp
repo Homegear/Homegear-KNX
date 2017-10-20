@@ -128,6 +128,11 @@ void MyPeer::homegearShuttingDown()
 	}
 }
 
+std::string MyPeer::getFormattedAddress(int32_t address)
+{
+	return std::to_string(address >> 16) + '.' + std::to_string((address >> 8) & 0xFF) + '.' + std::to_string(address & 0xFF);
+}
+
 std::string MyPeer::handleCliCommand(std::string command)
 {
 	try
