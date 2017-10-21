@@ -256,7 +256,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					std::string variableName;
 					std::string unit;
 
-					auto variableIterator = deviceXml->description->structValue->find(std::to_string(groupVariable->index));
+					auto variableIterator = deviceXml->description->structValue->find(std::to_string(groupVariable.first));
 					if(variableIterator == deviceXml->description->structValue->end()) continue;
 
 					auto structIterator = variableIterator->second->structValue->find("channel");
@@ -280,10 +280,10 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					}
 					else function = functionIterator->second;
 
-					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable->datapointType, unit, IPhysical::OperationType::command, groupVariable->readFlag, groupVariable->writeFlag, groupVariable->address);
+					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, groupVariable.second->address);
 					if(!parameter) continue;
 
-					parseDatapointType(function, groupVariable->datapointType, parameter);
+					parseDatapointType(function, groupVariable.second->datapointType, parameter);
 
 					if(!parameter->casts.empty())
 					{
@@ -814,7 +814,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 															variableInfo->writeFlag = infoIterator->second.writeFlag;
 															variableInfo->index = infoIterator->second.index;
 														}
-														device->variables.emplace(variableInfo);
+														device->variables.emplace(variableInfo->index, variableInfo);
 													}
 												}
 											//}}}
