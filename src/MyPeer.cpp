@@ -806,9 +806,13 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			values->push_back(value);
 		}
 
-		//{{{ Boundary check
+		//{{{ Boundary check and variable conversion
 			if(rpcParameter->logical->type == ILogical::Type::tInteger)
 			{
+                if(value->type == BaseLib::VariableType::tInteger64) value->integerValue = value->integerValue64;
+                else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tBoolean)  value->integerValue = value->booleanValue;
+
 				PLogicalInteger logical = std::dynamic_pointer_cast<LogicalInteger>(rpcParameter->logical);
 				if(logical)
 				{
@@ -818,6 +822,10 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			}
 			else if(rpcParameter->logical->type == ILogical::Type::tInteger64)
 			{
+                if(value->type == BaseLib::VariableType::tInteger && value->integerValue64 == 0) value->integerValue64 = value->integerValue;
+                else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue64 = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tBoolean)  value->integerValue64 = value->booleanValue;
+
 				PLogicalInteger64 logical = std::dynamic_pointer_cast<LogicalInteger64>(rpcParameter->logical);
 				if(logical)
 				{
@@ -827,6 +835,10 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			}
 			else if(rpcParameter->logical->type == ILogical::Type::tFloat)
 			{
+                if(value->type == BaseLib::VariableType::tInteger) value->floatValue = value->integerValue;
+                else if(value->type == BaseLib::VariableType::tInteger64)  value->floatValue = value->integerValue64;
+                else if(value->type == BaseLib::VariableType::tBoolean)  value->floatValue = value->booleanValue;
+
 				PLogicalDecimal logical = std::dynamic_pointer_cast<LogicalDecimal>(rpcParameter->logical);
 				if(logical)
 				{
@@ -836,10 +848,16 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			}
 			else if(rpcParameter->logical->type == ILogical::Type::tEnum)
 			{
+                int32_t enumValue = 0;
+                if(value->type == BaseLib::VariableType::tInteger) enumValue = value->integerValue;
+                else if(value->type == BaseLib::VariableType::tInteger64)  enumValue = value->integerValue64;
+                else if(value->type == BaseLib::VariableType::tFloat)  enumValue = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tBoolean)  enumValue = value->booleanValue;
+
 				PLogicalEnumeration logical = std::dynamic_pointer_cast<LogicalEnumeration>(rpcParameter->logical);
 				if(logical)
 				{
-					int32_t index = std::abs(logical->minimumValue) + value->integerValue;
+					int32_t index = std::abs(logical->minimumValue) + enumValue;
 					if(index < 0 || index >= (signed)logical->values.size() || !logical->values.at(index).indexDefined) return Variable::createError(-11, "Unknown enumeration index.");
 				}
 			}
