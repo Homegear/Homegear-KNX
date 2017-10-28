@@ -85,7 +85,15 @@ void MyCentral::loadPeers()
 			uint64_t peerID = row->second.at(0)->intValue;
 			GD::out.printMessage("Loading KNX peer " + std::to_string(peerID));
 			std::shared_ptr<MyPeer> peer(new MyPeer(peerID, row->second.at(2)->intValue, row->second.at(3)->textValue, _deviceId, this));
-			if(!peer->load(this)) continue;
+			if(!peer->load(this))
+			{
+				if(peer->getDeviceType() == 0)
+                {
+                    GD::out.printError("Deleting peer " + std::to_string(peerID) + " with invalid device type.");
+                    peer->deleteFromDatabase();
+                }
+				continue;
+			}
 			if(!peer->getRpcDevice()) continue;
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(!peer->getSerialNumber().empty()) _peersBySerial[peer->getSerialNumber()] = peer;
