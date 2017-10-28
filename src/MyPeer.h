@@ -64,7 +64,7 @@ public:
 protected:
 	struct ParametersByGroupAddressInfo
 	{
-		int32_t channel;
+		int32_t channel = -1;
 		ParameterCast::PGeneric cast;
 		PParameter parameter;
 	};
@@ -84,12 +84,12 @@ protected:
 	//{{{ getValueFromDevice
 		struct GetValueFromDeviceInfo
 		{
-			bool requested;
+			bool requested = false;
 			std::mutex mutex;
 			std::condition_variable conditionVariable;
 			bool mutexReady = false;
 
-			int32_t channel;
+			int32_t channel = -1;
 			std::string variableName;
 			PVariable value;
 		};
