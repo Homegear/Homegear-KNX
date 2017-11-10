@@ -26,6 +26,11 @@ void MyCentral::dispose(bool wait)
 	{
 		if(_disposing) return;
 		_disposing = true;
+
+        _stopWorkerThread = true;
+        GD::out.printDebug("Debug: Waiting for worker thread of device " + std::to_string(_deviceId) + "...");
+        GD::bl->threadManager.join(_workerThread);
+
 		GD::out.printDebug("Removing device " + std::to_string(_deviceId) + " from physical device's event queue...");
 		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
 		{
@@ -50,22 +55,25 @@ void MyCentral::dispose(bool wait)
 void MyCentral::init()
 {
 	try
-	{
-		if(_initialized) return; //Prevent running init two times
-		_initialized = true;
+    {
+        if (_initialized) return; //Prevent running init two times
+        _initialized = true;
 
-		_search.reset(new Search(GD::bl));
+        _search.reset(new Search(GD::bl));
 
-		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
-		{
-			_physicalInterfaceEventhandlers[i->first] = i->second->addEventHandler((BaseLib::Systems::IPhysicalInterface::IPhysicalInterfaceEventSink*)this);
-		}
-	}
+        for (std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
+        {
+            _physicalInterfaceEventhandlers[i->first] = i->second->addEventHandler((BaseLib::Systems::IPhysicalInterface::IPhysicalInterfaceEventSink*) this);
+            i->second->setReconnected(std::function<void()>(std::bind(&MyCentral::interfaceReconnected, this)));
+        }
+
+        GD::bl->threadManager.start(_workerThread, true, _bl->settings.workerThreadPriority(), _bl->settings.workerThreadPolicy(), &MyCentral::worker, this);
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
 	catch(const std::exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(BaseLib::Exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
@@ -73,6 +81,112 @@ void MyCentral::init()
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
+}
+
+void MyCentral::interfaceReconnected()
+{
+    try
+    {
+        auto peers = getPeers();
+        for(auto& peer : peers)
+        {
+            auto myPeer = std::dynamic_pointer_cast<MyPeer>(peer);
+            myPeer->interfaceReconnected();
+        }
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
+}
+
+void MyCentral::worker()
+{
+    try
+    {
+        std::chrono::milliseconds sleepingTime(100);
+        uint32_t counter = 0;
+        uint64_t lastPeer;
+        lastPeer = 0;
+
+        while(!_stopWorkerThread && !GD::bl->shuttingDown)
+        {
+            try
+            {
+                std::this_thread::sleep_for(sleepingTime);
+                if(_stopWorkerThread || GD::bl->shuttingDown) return;
+                if(counter > 1000)
+                {
+                    counter = 0;
+
+                    {
+                        std::lock_guard<std::mutex> peersGuard(_peersMutex);
+                        if(_peersById.size() > 0)
+                        {
+                            int32_t windowTimePerPeer = _bl->settings.workerThreadWindow() / 8 / _peersById.size();
+                            sleepingTime = std::chrono::milliseconds(windowTimePerPeer);
+                        }
+                    }
+                }
+
+                std::shared_ptr<MyPeer> peer;
+
+                {
+                    std::lock_guard<std::mutex> peersGuard(_peersMutex);
+                    if(!_peersById.empty())
+                    {
+                        if(!_peersById.empty())
+                        {
+                            std::map<uint64_t, std::shared_ptr<BaseLib::Systems::Peer>>::iterator nextPeer = _peersById.find(lastPeer);
+                            if(nextPeer != _peersById.end())
+                            {
+                                nextPeer++;
+                                if(nextPeer == _peersById.end()) nextPeer = _peersById.begin();
+                            }
+                            else nextPeer = _peersById.begin();
+                            lastPeer = nextPeer->first;
+                            peer = std::dynamic_pointer_cast<MyPeer>(nextPeer->second);
+                        }
+                    }
+                }
+
+                if(peer && !peer->deleting) peer->worker();
+                counter++;
+            }
+            catch(const std::exception& ex)
+            {
+                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+            }
+            catch(BaseLib::Exception& ex)
+            {
+                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+            }
+            catch(...)
+            {
+                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+            }
+        }
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
 }
 
 void MyCentral::loadPeers()

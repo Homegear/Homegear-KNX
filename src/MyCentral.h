@@ -45,7 +45,11 @@ protected:
 	std::mutex _searchMutex;
 	std::map<uint16_t, PGroupAddressPeers> _peersByGroupAddress;
 
+	std::atomic_bool _stopWorkerThread;
+	std::thread _workerThread;
+
 	virtual void init();
+    virtual void worker();
 	virtual void loadPeers();
 	virtual void savePeers(bool full);
 	virtual void loadVariables() {}
@@ -53,6 +57,7 @@ protected:
 	PMyPeer createPeer(uint32_t type, std::string serialNumber, bool save = true);
 	void deletePeer(uint64_t id);
 	void removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId);
+    void interfaceReconnected();
 };
 
 }

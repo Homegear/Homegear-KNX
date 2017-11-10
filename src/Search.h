@@ -41,6 +41,7 @@ protected:
 		int32_t index = -1;
 		bool writeFlag = true;
 		bool readFlag = true;
+        bool transmitFlag = true;
 		BaseLib::PVariable description;
 	};
 
@@ -49,6 +50,7 @@ protected:
 		int32_t index = -1;
 		bool writeFlag = true;
 		bool readFlag = true;
+        bool transmitFlag = true;
 	};
 
 	struct DeviceXmlData

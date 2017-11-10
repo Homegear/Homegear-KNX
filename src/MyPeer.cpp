@@ -65,6 +65,7 @@ void MyPeer::init()
 {
 	try
 	{
+		_readVariables = false;
 		_dptConverter.reset(new DptConverter(GD::bl));
 	}
 	catch(const std::exception& ex)
@@ -85,6 +86,42 @@ void MyPeer::dispose()
 {
 	if(_disposing) return;
 	Peer::dispose();
+}
+
+void MyPeer::worker()
+{
+    try
+    {
+        if(_readVariables && GD::defaultPhysicalInterface->isOpen())
+        {
+            _readVariables = false;
+            for(Functions::iterator i = _rpcDevice->functions.begin(); i != _rpcDevice->functions.end(); ++i)
+            {
+                PParameterGroup parameterGroup = getParameterSet(i->first, ParameterGroup::Type::variables);
+                if(!parameterGroup) continue;
+
+                for(Parameters::iterator j = parameterGroup->parameters.begin(); j != parameterGroup->parameters.end(); ++j)
+                {
+                    if(!j->second->readable) continue;
+                    getValueFromDevice(j->second, i->first, false);
+                }
+            }
+        }
+
+        if(!serviceMessages->getUnreach()) serviceMessages->checkUnreach(_rpcDevice->timeout, getLastPacketReceived());
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
 }
 
 void MyPeer::homegearStarted()
@@ -111,7 +148,6 @@ void MyPeer::homegearShuttingDown()
 {
 	try
 	{
-		_shuttingDown = true;
 		Peer::homegearShuttingDown();
 	}
 	catch(const std::exception& ex)
@@ -365,6 +401,8 @@ bool MyPeer::load(BaseLib::Systems::ICentral* central)
 		serviceMessages->load();
 
 		initParametersByGroupAddress();
+
+        _readVariables = true;
 
 		return true;
 	}

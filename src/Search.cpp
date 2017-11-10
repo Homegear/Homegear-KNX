@@ -282,6 +282,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 
 					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, groupVariable.second->address);
 					if(!parameter) continue;
+                    parameter->transmitted = groupVariable.second->transmitFlag;
 
 					parseDatapointType(function, groupVariable.second->datapointType, parameter);
 
@@ -661,6 +662,13 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 													variableInfo.readFlag = attributeValue != "Disabled";
 												}
 
+                                                attribute = deviceNode->first_attribute("TransmitFlag");
+                                                if(attribute)
+                                                {
+                                                    attributeValue = std::string(attribute->value());
+                                                    variableInfo.transmitFlag = attributeValue != "Disabled";
+                                                }
+
 												attribute = comInstanceRefNode->first_attribute("RefId");
 												if(attribute)
 												{
@@ -812,6 +820,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 														{
 															variableInfo->readFlag = infoIterator->second.readFlag;
 															variableInfo->writeFlag = infoIterator->second.writeFlag;
+                                                            variableInfo->transmitFlag = infoIterator->second.transmitFlag;
 															variableInfo->index = infoIterator->second.index;
 														}
 														device->variables.emplace(variableInfo->index, variableInfo);

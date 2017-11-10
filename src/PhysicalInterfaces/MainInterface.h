@@ -14,12 +14,15 @@ public:
 	MainInterface(std::shared_ptr<BaseLib::Systems::PhysicalInterfaceSettings> settings);
 	virtual ~MainInterface();
 
+    void setReconnected(std::function<void()> value) { _reconnected.swap(value); }
+
 	void startListening();
 	void stopListening();
 
-	bool isOpen() { return _socket->isOpen(); }
+	bool isOpen() { return _socket->isOpen() && _initComplete; }
 
 	void sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet);
+
 protected:
 	std::map<char, std::string> _connectResponseStatusCodes;
 	std::map<char, std::string> _connectionStateResponseStatusCodes;
@@ -39,6 +42,7 @@ protected:
 	};
 
 	BaseLib::Output _out;
+    std::function<void()> _reconnected;
 	std::atomic_bool _initComplete;
 	std::string _port;
 	std::string _listenIp;

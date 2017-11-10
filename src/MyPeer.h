@@ -29,6 +29,8 @@ public:
 	virtual bool wireless() { return false; }
 	//End features
 
+    void worker();
+    void interfaceReconnected() { _readVariables = true; }
 	virtual std::string handleCliCommand(std::string command);
 	void packetReceived(PMyPacket& packet);
 
@@ -76,7 +78,7 @@ protected:
 		std::vector<PParameter> parameters;
 	};
 
-	bool _shuttingDown = false;
+	std::atomic_bool _readVariables;
 	std::shared_ptr<DptConverter> _dptConverter;
 	std::map<uint16_t, std::vector<ParametersByGroupAddressInfo>> _parametersByGroupAddress;
 	std::map<int32_t, std::map<std::string, GroupedParametersInfo>> _groupedParameters;
