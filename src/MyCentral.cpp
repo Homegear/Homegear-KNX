@@ -131,7 +131,7 @@ void MyCentral::worker()
                         std::lock_guard<std::mutex> peersGuard(_peersMutex);
                         if(_peersById.size() > 0)
                         {
-                            int32_t windowTimePerPeer = _bl->settings.workerThreadWindow() / 8 / _peersById.size();
+                            int32_t windowTimePerPeer = _bl->settings.workerThreadWindow() / _peersById.size();
                             sleepingTime = std::chrono::milliseconds(windowTimePerPeer);
                         }
                     }
