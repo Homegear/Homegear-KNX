@@ -28,6 +28,14 @@ void MyCentral::dispose(bool wait)
 		_disposing = true;
 
         _stopWorkerThread = true;
+
+		auto peers = getPeers();
+		for(auto& peer : peers)
+		{
+			auto myPeer = std::dynamic_pointer_cast<MyPeer>(peer);
+			myPeer->stopWorkerThread();
+		}
+
         GD::out.printDebug("Debug: Waiting for worker thread of device " + std::to_string(_deviceId) + "...");
         GD::bl->threadManager.join(_workerThread);
 

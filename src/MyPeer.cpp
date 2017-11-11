@@ -66,6 +66,7 @@ void MyPeer::init()
 	try
 	{
 		_readVariables = false;
+        _stopWorkerThread = false;
 		_dptConverter.reset(new DptConverter(GD::bl));
 	}
 	catch(const std::exception& ex)
@@ -102,12 +103,16 @@ void MyPeer::worker()
             _readVariables = false;
             for(Functions::iterator i = _rpcDevice->functions.begin(); i != _rpcDevice->functions.end(); ++i)
             {
+                if(i->first == 0) continue;
+
                 PParameterGroup parameterGroup = getParameterSet(i->first, ParameterGroup::Type::variables);
                 if(!parameterGroup) continue;
 
                 for(Parameters::iterator j = parameterGroup->parameters.begin(); j != parameterGroup->parameters.end(); ++j)
                 {
+                    if(_stopWorkerThread) return;
                     if(!j->second->readable) continue;
+                    if(GD::bl->debugLevel >= 5) GD::out.printDebug("Debug: Reading " + j->second->id + " of peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first));
                     getValueFromDevice(j->second, i->first, false);
                 }
             }
@@ -154,6 +159,7 @@ void MyPeer::homegearShuttingDown()
 	try
 	{
 		Peer::homegearShuttingDown();
+        _stopWorkerThread = true;
 	}
 	catch(const std::exception& ex)
 	{

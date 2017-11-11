@@ -24,6 +24,7 @@ public:
 	virtual ~MyPeer();
 	void init();
 	void dispose();
+	void stopWorkerThread() { _stopWorkerThread = true; }
 
 	//Features
 	virtual bool wireless() { return false; }
@@ -78,6 +79,7 @@ protected:
 		std::vector<PParameter> parameters;
 	};
 
+	std::atomic_bool _stopWorkerThread;
 	std::atomic_bool _readVariables;
 	std::shared_ptr<DptConverter> _dptConverter;
 	std::map<uint16_t, std::vector<ParametersByGroupAddressInfo>> _parametersByGroupAddress;
