@@ -92,7 +92,12 @@ void MyPeer::worker()
 {
     try
     {
-        if(_readVariables && GD::defaultPhysicalInterface->isOpen())
+		for(auto& interface : GD::physicalInterfaces)
+		{
+			if(!interface.second->isOpen()) return;
+		}
+
+        if(_readVariables)
         {
             _readVariables = false;
             for(Functions::iterator i = _rpcDevice->functions.begin(); i != _rpcDevice->functions.end(); ++i)
