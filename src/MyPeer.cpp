@@ -112,7 +112,7 @@ void MyPeer::worker()
                 {
                     if(_stopWorkerThread) return;
                     if(!j->second->readable) continue;
-                    if(GD::bl->debugLevel >= 5) GD::out.printDebug("Debug: Reading " + j->second->id + " of peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first));
+                    if(GD::bl->debugLevel >= 4) GD::out.printInfo("Info: Reading " + j->second->id + " of peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first));
                     getValueFromDevice(j->second, i->first, false);
                 }
             }
