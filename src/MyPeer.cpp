@@ -304,14 +304,40 @@ std::string MyPeer::printConfig()
 			stringStream << "\t{" << std::endl;
 			for(std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator j = i->second.begin(); j != i->second.end(); ++j)
 			{
-				stringStream << "\t\t[" << j->first << "]: ";
-				if(!j->second.rpcParameter) stringStream << "(No RPC parameter) ";
+				stringStream << "\t\t[" << j->first << (i->first == 0 ? "" : ", " + MyPacket::getFormattedGroupAddress(j->second.rpcParameter->physical->address)) + "]: ";
+				if(!j->second.rpcParameter)
+				{
+					stringStream << "(No RPC parameter)";
+					continue;
+				}
 				std::vector<uint8_t> parameterData = j->second.getBinaryData();
 				for(std::vector<uint8_t>::const_iterator k = parameterData.begin(); k != parameterData.end(); ++k)
 				{
 					stringStream << std::hex << std::setfill('0') << std::setw(2) << (int32_t)*k << " ";
 				}
-				stringStream << std::endl;
+
+				if(j->second.rpcParameter->casts.empty())
+                {
+                    stringStream << std::endl;
+                    continue;
+                }
+				ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second.rpcParameter->casts.at(0));
+				if(!groupedCast)
+                {
+                    stringStream << std::endl;
+                    continue;
+                }
+
+				std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(j->second.getBinaryData(), j->second.rpcParameter->physical->address, j->second.rpcParameter->physical->bitSize);
+
+				PVariable groupedVariable = _dptConverter->getVariable(groupedCast->type, groupedParameterData);
+				if(!groupedVariable)
+                {
+                    stringStream << std::endl;
+                    continue;
+                }
+
+				stringStream << "(" + groupedVariable->toString() + ")" << std::endl;
 			}
 			stringStream << "\t}" << std::endl;
 		}

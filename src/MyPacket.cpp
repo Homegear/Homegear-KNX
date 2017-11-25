@@ -120,4 +120,7 @@ std::vector<char> MyPacket::getBinary(char channelId, char sequenceCounter)
     return packet;
 }
 
+std::string MyPacket::getFormattedGroupAddress(int32_t address)
+{
+    return std::to_string(address >> 11) + "/" + std::to_string((address >> 8) & 0x7) + "/" + std::to_string(address & 0xFF); }
 }
