@@ -60,7 +60,7 @@ protected:
 		std::string room;
 		int32_t address;
 		BaseLib::PVariable description;
-		std::unordered_map<std::string, GroupVariableInfo> variableInfo;
+		std::unordered_map<std::string, std::list<GroupVariableInfo>> variableInfo;
 		std::unordered_map<uint32_t, std::shared_ptr<GroupVariableXmlData>> variables;
 	};
 

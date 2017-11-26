@@ -304,7 +304,10 @@ std::string MyPeer::printConfig()
 			stringStream << "\t{" << std::endl;
 			for(std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator j = i->second.begin(); j != i->second.end(); ++j)
 			{
-				stringStream << "\t\t[" << j->first << (i->first == 0 ? "" : ", " + MyPacket::getFormattedGroupAddress(j->second.rpcParameter->physical->address)) + "]: ";
+                ParameterCast::PGeneric parameterCast;
+                if(!j->second.rpcParameter->casts.empty()) parameterCast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second.rpcParameter->casts.at(0));
+
+				stringStream << "\t\t[" << j->first << (i->first == 0 || !j->second.rpcParameter ? "" : ", " + MyPacket::getFormattedGroupAddress(j->second.rpcParameter->physical->address)) + (parameterCast ? ", " + parameterCast->type : "") + "]: ";
 				if(!j->second.rpcParameter)
 				{
 					stringStream << "(No RPC parameter)";
@@ -316,28 +319,34 @@ std::string MyPeer::printConfig()
 					stringStream << std::hex << std::setfill('0') << std::setw(2) << (int32_t)*k << " ";
 				}
 
-				if(j->second.rpcParameter->casts.empty())
-                {
-                    stringStream << std::endl;
-                    continue;
-                }
-				ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second.rpcParameter->casts.at(0));
-				if(!groupedCast)
+                if(!parameterCast)
                 {
                     stringStream << std::endl;
                     continue;
                 }
 
-				std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(j->second.getBinaryData(), j->second.rpcParameter->physical->address, j->second.rpcParameter->physical->bitSize);
+                PVariable value;
+                std::string::size_type pos = j->first.find('.');
+                if(pos != std::string::npos)
+                {
+                    if(j->second.rpcParameter->physical->bitSize < 1)
+                    {
+                        stringStream << std::endl;
+                        continue;
+                    }
 
-				PVariable groupedVariable = _dptConverter->getVariable(groupedCast->type, groupedParameterData);
-				if(!groupedVariable)
+                    std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(parameterData, j->second.rpcParameter->physical->address, j->second.rpcParameter->physical->bitSize);
+                    value = _dptConverter->getVariable(parameterCast->type, groupedParameterData);
+                }
+                else value = _dptConverter->getVariable(parameterCast->type, parameterData);
+
+				if(!value)
                 {
                     stringStream << std::endl;
                     continue;
                 }
 
-				stringStream << "(" + groupedVariable->toString() + ")" << std::endl;
+				stringStream << "(" << (value->type == VariableType::tString ? "\"" : "") << value->toString() << (value->type == VariableType::tString ? "\"" : "") << ")" << std::endl;
 			}
 			stringStream << "\t}" << std::endl;
 		}
@@ -566,7 +575,7 @@ void MyPeer::packetReceived(PMyPacket& packet)
 								{
 									BaseLib::Systems::RpcConfigurationParameter& groupedParameter = groupedParameterIterator->second;
 
-									if((*i)->casts.empty()) continue;
+									if((*i)->casts.empty() || (*i)->physical->bitSize < 1) continue;
 									ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>((*i)->casts.at(0));
 									if(!groupedCast) continue;
 
@@ -967,9 +976,11 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 				if(!rawRpcParameter) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
 				BaseLib::Systems::RpcConfigurationParameter& rawParameter = rawParameterIterator->second;
 
-				if(rawRpcParameter->casts.empty()) return Variable::createError(-10, rawParameterName + " hast no cast defined.");
+				if(rawRpcParameter->casts.empty()) return Variable::createError(-10, rawParameterName + " has no cast defined.");
 				ParameterCast::PGeneric rawCast = std::dynamic_pointer_cast<ParameterCast::Generic>(rawRpcParameter->casts.at(0));
 				if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
+
+                if(rpcParameter->physical->bitSize < 1) return Variable::createError(-10, rawParameterName + " has no valid bit size defined.");
 
 				std::vector<uint8_t> rawParameterData = rawParameter.getBinaryData();
 				BaseLib::BitReaderWriter::setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameterData, parameterData);
@@ -1011,7 +1022,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 				if(!groupedRpcParameter) continue;
 				BaseLib::Systems::RpcConfigurationParameter& groupedParameter = groupedParameterIterator->second;
 
-				if(groupedRpcParameter->casts.empty()) continue;
+				if(groupedRpcParameter->casts.empty() || groupedRpcParameter->physical->bitSize < 1) continue;
 				ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>(groupedRpcParameter->casts.at(0));
 				if(!groupedCast) continue;
 

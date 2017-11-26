@@ -692,7 +692,8 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 														attributeValue = std::string(attribute->value());
 														if(attributeValue.empty()) continue;
 														deviceByGroupVariable[attributeValue].emplace(device);
-														device->variableInfo.emplace(attributeValue, variableInfo);
+                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
+														device->variableInfo[attributeValue].push_back(variableInfo);
 													}
 
 													for(xml_node<>* receiveNode = connectorsNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
@@ -704,7 +705,8 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 														deviceByGroupVariable[attributeValue].emplace(device);
 														GroupVariableInfo receiveVariableInfo = variableInfo;
 														receiveVariableInfo.writeFlag = false;
-														device->variableInfo.emplace(attributeValue, receiveVariableInfo);
+                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
+														device->variableInfo[attributeValue].push_back(receiveVariableInfo);
 													}
 												}
 											}
@@ -812,18 +814,28 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 												{
 													for(auto& device : variableIterator->second)
 													{
-														std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
-														*variableInfo = *element;
-
 														auto infoIterator = device->variableInfo.find(id);
 														if(infoIterator != device->variableInfo.end())
 														{
-															variableInfo->readFlag = infoIterator->second.readFlag;
-															variableInfo->writeFlag = infoIterator->second.writeFlag;
-                                                            variableInfo->transmitFlag = infoIterator->second.transmitFlag;
-															variableInfo->index = infoIterator->second.index;
+                                                            for(auto& variableInfoElement : infoIterator->second)
+                                                            {
+                                                                std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
+                                                                *variableInfo = *element;
+
+                                                                variableInfo->readFlag = variableInfoElement.readFlag;
+                                                                variableInfo->writeFlag = variableInfoElement.writeFlag;
+                                                                variableInfo->transmitFlag = variableInfoElement.transmitFlag;
+                                                                variableInfo->index = variableInfoElement.index;
+
+                                                                device->variables.emplace(variableInfo->index, variableInfo);
+                                                            }
 														}
-														device->variables.emplace(variableInfo->index, variableInfo);
+														else
+                                                        {
+                                                            std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
+                                                            *variableInfo = *element;
+                                                            device->variables.emplace(variableInfo->index, variableInfo);
+                                                        }
 													}
 												}
 											//}}}
