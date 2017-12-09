@@ -14,7 +14,7 @@ Search::~Search()
 {
 }
 
-void Search::addDeviceToPeerInfo(PHomegearDevice& device, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes)
+void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes)
 {
 	try
 	{
@@ -37,6 +37,7 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, std::string name, std:
 		std::string paddedType = std::to_string(info.type);
 		if(paddedType.size() < 9) paddedType.insert(0, 9 - paddedType.size(), '0');
 		info.serialNumber = "KNX" + paddedType;
+		info.address = address;
 		info.name = name;
 		info.room = room;
 		peerInfo.push_back(info);
@@ -68,7 +69,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 		}
 
 		auto xmlData = extractXmlData(knxProjectFiles);
-		if(xmlData.first.empty() && xmlData.second.empty())
+		if(xmlData.groupVariableXmlData.empty() && xmlData.deviceXmlData.empty())
 		{
 			GD::out.printError("Error: Could not search for KNX devices. No group addresses were found in KNX project file.");
 			return peerInfo;
@@ -79,7 +80,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 		//{{{ Group variables
 			std::map<std::string, PHomegearDevice> rpcDevicesPlain;
 			std::map<std::string, PHomegearDevice> rpcDevicesJson;
-			for(auto variableXml : xmlData.first)
+			for(auto variableXml : xmlData.groupVariableXmlData)
 			{
 				std::string id;
 				int32_t type = -1;
@@ -210,7 +211,8 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 		///{{{ Devices
 			std::unordered_map<std::string, PHomegearDevice> rpcDevicesDevice;
 			std::unordered_map<std::string, std::string> rooms;
-			for(auto deviceXml : xmlData.second)
+			std::unordered_map<std::string, int32_t> addresses;
+			for(auto deviceXml : xmlData.deviceXmlData)
 			{
 				std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
 				device->version = 1;
@@ -218,6 +220,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 				supportedDevice->id = deviceXml->id;
 				supportedDevice->description = deviceXml->name;
 				rooms[supportedDevice->id] = deviceXml->room;
+				addresses[supportedDevice->id] = deviceXml->address;
 				auto typeNumberIterator = idTypeNumberMap.find(supportedDevice->id);
 				if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
 				{
@@ -253,7 +256,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					std::string variableName;
 					std::string unit;
 
-					auto variableIterator = deviceXml->description->structValue->find(std::to_string(groupVariable->index));
+					auto variableIterator = deviceXml->description->structValue->find(std::to_string(groupVariable.first));
 					if(variableIterator == deviceXml->description->structValue->end()) continue;
 
 					auto structIterator = variableIterator->second->structValue->find("channel");
@@ -277,10 +280,11 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					}
 					else function = functionIterator->second;
 
-					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable->datapointType, unit, IPhysical::OperationType::command, groupVariable->readFlag, groupVariable->writeFlag, groupVariable->address);
+					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, groupVariable.second->address);
 					if(!parameter) continue;
+                    parameter->transmitted = groupVariable.second->transmitFlag;
 
-					parseDatapointType(function, groupVariable->datapointType, parameter);
+					parseDatapointType(function, groupVariable.second->datapointType, parameter);
 
 					if(!parameter->casts.empty())
 					{
@@ -292,23 +296,22 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 		//}}}
 
 		std::map<int32_t, std::string> usedTypeIds;
-		if(rpcDevicesJson.empty() && rpcDevicesDevice.empty()) //Only add group variables without JSON when no JSON exists
+		if(!xmlData.jsonExists) //Only add group variables without JSON when no JSON exists
 		{
 			for(std::map<std::string, PHomegearDevice>::iterator i = rpcDevicesPlain.begin(); i != rpcDevicesPlain.end(); ++i)
 			{
-				addDeviceToPeerInfo(i->second, "", "", peerInfo, usedTypeIds);
+				addDeviceToPeerInfo(i->second, -1, "", "", peerInfo, usedTypeIds);
 			}
 		}
 
 		for(std::map<std::string, PHomegearDevice>::iterator i = rpcDevicesJson.begin(); i != rpcDevicesJson.end(); ++i)
 		{
-			addDeviceToPeerInfo(i->second, "", "", peerInfo, usedTypeIds);
+			addDeviceToPeerInfo(i->second, -1, "", "", peerInfo, usedTypeIds);
 		}
 
 		for(auto& device : rpcDevicesDevice)
 		{
-
-			addDeviceToPeerInfo(device.second, device.second->supportedDevices.at(0)->description, rooms[device.first], peerInfo, usedTypeIds);
+			addDeviceToPeerInfo(device.second, addresses[device.first], device.second->supportedDevices.at(0)->description, rooms[device.first], peerInfo, usedTypeIds);
 		}
 	}
 	catch(const std::exception& ex)
@@ -548,10 +551,9 @@ void Search::assignRoomsToDevices(xml_node<>* currentNode, std::string currentRo
 	}
 }
 
-std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std::shared_ptr<Search::DeviceXmlData>>> Search::extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles)
+Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles)
 {
-	std::set<std::shared_ptr<GroupVariableXmlData>> groupVariableXmlData;
-	std::set<std::shared_ptr<DeviceXmlData>> deviceXmlData;
+	XmlData xmlData;
 	BaseLib::Rpc::JsonDecoder jsonDecoder(_bl);
 	for(std::vector<std::shared_ptr<std::vector<char>>>::iterator i = knxProjectFiles.begin(); i != knxProjectFiles.end(); ++i)
 	{
@@ -584,27 +586,47 @@ std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std:
 					{
 						for(xml_node<>* topologyNode = installationNode->first_node("Topology"); topologyNode; topologyNode = topologyNode->next_sibling("Topology"))
 						{
+							int32_t currentArea = -1;
+							int32_t currentLine = -1;
+							int32_t currentAddress = -1;
 							for(xml_node<>* areaNode = topologyNode->first_node("Area"); areaNode; areaNode = areaNode->next_sibling("Area"))
 							{
+								std::string attributeValue;
+								xml_attribute<>* attribute = areaNode->first_attribute("Address");
+								if(!attribute) continue;
+								attributeValue = std::string(attribute->value());
+								currentArea = Math::getNumber(attributeValue) & 0xFF;
+
 								for(xml_node<>* lineNode = areaNode->first_node("Line"); lineNode; lineNode = lineNode->next_sibling("Line"))
 								{
+									attribute = lineNode->first_attribute("Address");
+									if(!attribute) continue;
+									attributeValue = std::string(attribute->value());
+									currentLine = Math::getNumber(attributeValue) & 0xFF;
+
 									for(xml_node<>* deviceNode = lineNode->first_node("DeviceInstance"); deviceNode; deviceNode = deviceNode->next_sibling("DeviceInstance"))
 									{
 										std::shared_ptr<DeviceXmlData> device = std::make_shared<DeviceXmlData>();
 
-										xml_attribute<>* attribute = deviceNode->first_attribute("Id");
+										attribute = deviceNode->first_attribute("Address");
+										if(!attribute) continue;
+										attributeValue = std::string(attribute->value());
+										currentAddress = Math::getNumber(attributeValue) & 0xFF;
+										device->address = (currentArea << 16) | (currentLine << 8) | currentAddress;
+
+										attribute = deviceNode->first_attribute("Id");
 										if(!attribute) continue;
 										device->id = std::string(attribute->value());
 
 										attribute = deviceNode->first_attribute("Name");
 										if(attribute) device->name = std::string(attribute->value());
 
-										std::string attributeValue;
 										attribute = deviceNode->first_attribute("Description");
 										if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
 										std::string::size_type startPos = attributeValue.find("$${");
 										if(startPos != std::string::npos)
 										{
+											xmlData.jsonExists = true;
 											attributeValue = attributeValue.substr(startPos + 2);
 											std::string jsonString;
 											BaseLib::Html::unescapeHtmlEntities(attributeValue, jsonString);
@@ -640,6 +662,13 @@ std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std:
 													variableInfo.readFlag = attributeValue != "Disabled";
 												}
 
+                                                attribute = deviceNode->first_attribute("TransmitFlag");
+                                                if(attribute)
+                                                {
+                                                    attributeValue = std::string(attribute->value());
+                                                    variableInfo.transmitFlag = attributeValue != "Disabled";
+                                                }
+
 												attribute = comInstanceRefNode->first_attribute("RefId");
 												if(attribute)
 												{
@@ -663,7 +692,8 @@ std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std:
 														attributeValue = std::string(attribute->value());
 														if(attributeValue.empty()) continue;
 														deviceByGroupVariable[attributeValue].emplace(device);
-														device->variableInfo.emplace(attributeValue, variableInfo);
+                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
+														device->variableInfo[attributeValue].push_back(variableInfo);
 													}
 
 													for(xml_node<>* receiveNode = connectorsNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
@@ -675,14 +705,15 @@ std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std:
 														deviceByGroupVariable[attributeValue].emplace(device);
 														GroupVariableInfo receiveVariableInfo = variableInfo;
 														receiveVariableInfo.writeFlag = false;
-														device->variableInfo.emplace(attributeValue, receiveVariableInfo);
+                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
+														device->variableInfo[attributeValue].push_back(receiveVariableInfo);
 													}
 												}
 											}
 										}
 
 										deviceById.emplace(device->id, device);
-										deviceXmlData.emplace(device);
+										xmlData.deviceXmlData.emplace(device);
 									}
 								}
 							}
@@ -759,6 +790,7 @@ std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std:
 											std::string::size_type startPos = attributeValue.find("$${");
 											if(startPos != std::string::npos)
 											{
+												xmlData.jsonExists = true;
 												attributeValue = attributeValue.substr(startPos + 2);
 												std::string jsonString;
 												BaseLib::Html::unescapeHtmlEntities(attributeValue, jsonString);
@@ -774,7 +806,7 @@ std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std:
 												}
 											}
 
-											groupVariableXmlData.emplace(element);
+											xmlData.groupVariableXmlData.emplace(element);
 
 											//{{{ Assign group variable to device
 												auto variableIterator = deviceByGroupVariable.find(id);
@@ -782,17 +814,28 @@ std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std:
 												{
 													for(auto& device : variableIterator->second)
 													{
-														std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
-														*variableInfo = *element;
-
 														auto infoIterator = device->variableInfo.find(id);
 														if(infoIterator != device->variableInfo.end())
 														{
-															variableInfo->readFlag = infoIterator->second.readFlag;
-															variableInfo->writeFlag = infoIterator->second.writeFlag;
-															variableInfo->index = infoIterator->second.index;
+                                                            for(auto& variableInfoElement : infoIterator->second)
+                                                            {
+                                                                std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
+                                                                *variableInfo = *element;
+
+                                                                variableInfo->readFlag = variableInfoElement.readFlag;
+                                                                variableInfo->writeFlag = variableInfoElement.writeFlag;
+                                                                variableInfo->transmitFlag = variableInfoElement.transmitFlag;
+                                                                variableInfo->index = variableInfoElement.index;
+
+                                                                device->variables.emplace(variableInfo->index, variableInfo);
+                                                            }
 														}
-														device->variables.emplace(variableInfo);
+														else
+                                                        {
+                                                            std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
+                                                            *variableInfo = *element;
+                                                            device->variables.emplace(variableInfo->index, variableInfo);
+                                                        }
 													}
 												}
 											//}}}
@@ -819,7 +862,7 @@ std::pair<std::set<std::shared_ptr<Search::GroupVariableXmlData>>, std::set<std:
 		}
 		doc.clear();
 	}
-	return std::make_pair(groupVariableXmlData, deviceXmlData);
+	return xmlData;
 }
 
 PParameter Search::createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size, std::shared_ptr<ILogical> logical, bool noCast)

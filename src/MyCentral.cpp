@@ -26,6 +26,19 @@ void MyCentral::dispose(bool wait)
 	{
 		if(_disposing) return;
 		_disposing = true;
+
+        _stopWorkerThread = true;
+
+		auto peers = getPeers();
+		for(auto& peer : peers)
+		{
+			auto myPeer = std::dynamic_pointer_cast<MyPeer>(peer);
+			myPeer->stopWorkerThread();
+		}
+
+        GD::out.printDebug("Debug: Waiting for worker thread of device " + std::to_string(_deviceId) + "...");
+        GD::bl->threadManager.join(_workerThread);
+
 		GD::out.printDebug("Removing device " + std::to_string(_deviceId) + " from physical device's event queue...");
 		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
 		{
@@ -50,22 +63,25 @@ void MyCentral::dispose(bool wait)
 void MyCentral::init()
 {
 	try
-	{
-		if(_initialized) return; //Prevent running init two times
-		_initialized = true;
+    {
+        if (_initialized) return; //Prevent running init two times
+        _initialized = true;
 
-		_search.reset(new Search(GD::bl));
+        _search.reset(new Search(GD::bl));
 
-		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
-		{
-			_physicalInterfaceEventhandlers[i->first] = i->second->addEventHandler((BaseLib::Systems::IPhysicalInterface::IPhysicalInterfaceEventSink*)this);
-		}
-	}
+        for (std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
+        {
+            _physicalInterfaceEventhandlers[i->first] = i->second->addEventHandler((BaseLib::Systems::IPhysicalInterface::IPhysicalInterfaceEventSink*) this);
+            i->second->setReconnected(std::function<void()>(std::bind(&MyCentral::interfaceReconnected, this)));
+        }
+
+        GD::bl->threadManager.start(_workerThread, true, _bl->settings.workerThreadPriority(), _bl->settings.workerThreadPolicy(), &MyCentral::worker, this);
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
 	catch(const std::exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(BaseLib::Exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
@@ -73,6 +89,112 @@ void MyCentral::init()
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
+}
+
+void MyCentral::interfaceReconnected()
+{
+    try
+    {
+        auto peers = getPeers();
+        for(auto& peer : peers)
+        {
+            auto myPeer = std::dynamic_pointer_cast<MyPeer>(peer);
+            myPeer->interfaceReconnected();
+        }
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
+}
+
+void MyCentral::worker()
+{
+    try
+    {
+        std::chrono::milliseconds sleepingTime(100);
+        uint32_t counter = 0;
+        uint64_t lastPeer;
+        lastPeer = 0;
+
+        while(!_stopWorkerThread && !GD::bl->shuttingDown)
+        {
+            try
+            {
+                std::this_thread::sleep_for(sleepingTime);
+                if(_stopWorkerThread || GD::bl->shuttingDown) return;
+                if(counter > 1000)
+                {
+                    counter = 0;
+
+                    {
+                        std::lock_guard<std::mutex> peersGuard(_peersMutex);
+                        if(_peersById.size() > 0)
+                        {
+                            int32_t windowTimePerPeer = _bl->settings.workerThreadWindow() / _peersById.size();
+                            sleepingTime = std::chrono::milliseconds(windowTimePerPeer);
+                        }
+                    }
+                }
+
+                std::shared_ptr<MyPeer> peer;
+
+                {
+                    std::lock_guard<std::mutex> peersGuard(_peersMutex);
+                    if(!_peersById.empty())
+                    {
+                        if(!_peersById.empty())
+                        {
+                            std::map<uint64_t, std::shared_ptr<BaseLib::Systems::Peer>>::iterator nextPeer = _peersById.find(lastPeer);
+                            if(nextPeer != _peersById.end())
+                            {
+                                nextPeer++;
+                                if(nextPeer == _peersById.end()) nextPeer = _peersById.begin();
+                            }
+                            else nextPeer = _peersById.begin();
+                            lastPeer = nextPeer->first;
+                            peer = std::dynamic_pointer_cast<MyPeer>(nextPeer->second);
+                        }
+                    }
+                }
+
+                if(peer && !peer->deleting) peer->worker();
+                counter++;
+            }
+            catch(const std::exception& ex)
+            {
+                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+            }
+            catch(BaseLib::Exception& ex)
+            {
+                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+            }
+            catch(...)
+            {
+                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+            }
+        }
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
 }
 
 void MyCentral::loadPeers()
@@ -85,7 +207,15 @@ void MyCentral::loadPeers()
 			uint64_t peerID = row->second.at(0)->intValue;
 			GD::out.printMessage("Loading KNX peer " + std::to_string(peerID));
 			std::shared_ptr<MyPeer> peer(new MyPeer(peerID, row->second.at(2)->intValue, row->second.at(3)->textValue, _deviceId, this));
-			if(!peer->load(this)) continue;
+			if(!peer->load(this))
+			{
+				if(peer->getDeviceType() == 0)
+                {
+                    GD::out.printError("Deleting peer " + std::to_string(peerID) + " with invalid device type.");
+                    peer->deleteFromDatabase();
+                }
+				continue;
+			}
 			if(!peer->getRpcDevice()) continue;
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(!peer->getSerialNumber().empty()) _peersBySerial[peer->getSerialNumber()] = peer;
@@ -436,6 +566,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 				std::string bar(" │ ");
 				const int32_t idWidth = 8;
 				const int32_t nameWidth = 25;
+				const int32_t addressWidth = 9;
 				const int32_t serialWidth = 13;
 				const int32_t typeWidth1 = 7;
 				const int32_t typeWidth2 = 25;
@@ -446,14 +577,16 @@ std::string MyCentral::handleCliCommand(std::string command)
 				stringStream << std::setfill(' ')
 					<< std::setw(idWidth) << "ID" << bar
 					<< nameHeader << bar
+					<< std::setw(addressWidth) << "Address" << bar
 					<< std::setw(serialWidth) << "Serial Number" << bar
 					<< std::setw(typeWidth1) << "Type" << bar
 					<< typeStringHeader
 					<< std::endl;
-				stringStream << "─────────┼───────────────────────────┼───────────────┼─────────┼───────────────────────────" << std::endl;
+				stringStream << "─────────┼───────────────────────────┼───────────┼───────────────┼─────────┼───────────────────────────" << std::endl;
 				stringStream << std::setfill(' ')
 					<< std::setw(idWidth) << " " << bar
 					<< std::setw(nameWidth) << " " << bar
+					<< std::setw(addressWidth) << " " << bar
 					<< std::setw(serialWidth) << " " << bar
 					<< std::setw(typeWidth1) << " " << bar
 					<< std::setw(typeWidth2)
@@ -491,6 +624,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 					}
 					else name.resize(nameWidth + (name.size() - nameSize), ' ');
 					stringStream << name << bar
+						<< std::setw(addressWidth) << MyPeer::getFormattedAddress(i->second->getAddress()) << bar
 						<< std::setw(serialWidth) << i->second->getSerialNumber() << bar
 						<< std::setw(typeWidth1) << BaseLib::HelperFunctions::getHexString(i->second->getDeviceType()) << bar;
 					if(i->second->getRpcDevice())
@@ -503,13 +637,14 @@ std::string MyCentral::handleCliCommand(std::string command)
 							typeID.resize(typeWidth2 - 3);
 							typeID += "...";
 						}
-						stringStream << std::setw(typeWidth2) << typeID;
+						else typeID.resize(typeWidth2, ' ');
+						stringStream << typeID << bar;
 					}
 					else stringStream << std::setw(typeWidth2);
 					stringStream << std::endl << std::dec;
 				}
 				_peersMutex.unlock();
-				stringStream << "─────────┴───────────────────────────┴───────────────┴─────────┴───────────────────────────" << std::endl;
+				stringStream << "─────────┴───────────────────────────┴───────────┴───────────────┴─────────┴───────────────────────────" << std::endl;
 
 				return stringStream.str();
 			}
@@ -867,10 +1002,8 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 	try
 	{
 		std::lock_guard<std::mutex> searchGuard(_searchMutex);
-		std::unordered_map<std::string, std::shared_ptr<Systems::Peer>> peers;
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
-			peers = _peersBySerial;
 			_peersBySerial.clear();
 			_peersById.clear();
 			_peersByGroupAddress.clear();
@@ -889,15 +1022,17 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 		std::vector<std::shared_ptr<MyPeer>> newPeers;
 		for(std::vector<Search::PeerInfo>::iterator i = peerInfo.begin(); i != peerInfo.end(); ++i)
 		{
-			auto peersIterator = peers.find(i->serialNumber);
-			if(peersIterator != peers.end())
+			auto peersIterator = _peersBySerial.find(i->serialNumber);
+			if(peersIterator != _peersBySerial.end())
 			{
+				peersIterator->second->setAddress(i->address);
 				if(!i->room.empty())
 				{
 					uint64_t roomId = raiseGetRoomIdByName(i->room);
 					if(roomId > 0) peersIterator->second->setRoom(roomId);
 				}
 				if(!i->name.empty()) peersIterator->second->setName(i->name);
+				else peersIterator->second->setName(MyPeer::getFormattedAddress(i->address));
 				continue;
 			}
 			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->serialNumber, true);
@@ -911,7 +1046,9 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			peer->initParametersByGroupAddress();
 
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
-			peer->setName(i->name);
+			if(!i->name.empty()) peer->setName(i->name);
+			else peer->setName(MyPeer::getFormattedAddress(i->address));
+			peer->setAddress(i->address);
 			if(!i->room.empty())
 			{
 				uint64_t roomId = raiseGetRoomIdByName(i->room);

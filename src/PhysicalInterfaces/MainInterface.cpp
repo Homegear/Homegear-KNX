@@ -250,6 +250,7 @@ void MainInterface::init()
 
 		_initComplete = true;
 		_out.printInfo("Info: Init completed.");
+        if(_reconnected) _reconnected();
 	}
     catch(const std::exception& ex)
     {

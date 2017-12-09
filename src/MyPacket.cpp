@@ -37,8 +37,8 @@ MyPacket::MyPacket(Operation operation, uint16_t sourceAddress, uint16_t destina
 MyPacket::MyPacket(std::vector<char>& binaryPacket)
 {
 	if(binaryPacket.size() < 21) return;
-	_sourceAddress = ((uint16_t)(uint8_t)binaryPacket[14]) << 8 | binaryPacket[15];
-	_destinationAddress = ((uint16_t)(uint8_t)binaryPacket[16]) << 8 | binaryPacket[17];
+	_sourceAddress = (((uint16_t)(uint8_t)binaryPacket[14]) << 8) | (uint8_t)binaryPacket[15];
+	_destinationAddress = (((uint16_t)(uint8_t)binaryPacket[16]) << 8) | (uint8_t)binaryPacket[17];
 	if(binaryPacket.size() == 21) _payload.push_back(binaryPacket.at(20) & 0x3F);
 	else _payload.insert(_payload.end(), (char*)&binaryPacket.at(21), (char*)&binaryPacket.at(21) + binaryPacket.size() - 21);
 }
@@ -120,4 +120,7 @@ std::vector<char> MyPacket::getBinary(char channelId, char sequenceCounter)
     return packet;
 }
 
+std::string MyPacket::getFormattedGroupAddress(int32_t address)
+{
+    return std::to_string(address >> 11) + "/" + std::to_string((address >> 8) & 0x7) + "/" + std::to_string(address & 0xFF); }
 }

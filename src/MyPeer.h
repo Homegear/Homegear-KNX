@@ -24,11 +24,14 @@ public:
 	virtual ~MyPeer();
 	void init();
 	void dispose();
+	void stopWorkerThread() { _stopWorkerThread = true; }
 
 	//Features
 	virtual bool wireless() { return false; }
 	//End features
 
+    void worker();
+    void interfaceReconnected() { _readVariables = true; }
 	virtual std::string handleCliCommand(std::string command);
 	void packetReceived(PMyPacket& packet);
 
@@ -39,6 +42,8 @@ public:
 	virtual int32_t getNewFirmwareVersion() { return 0; }
 	virtual std::string getFirmwareVersionString(int32_t firmwareVersion) { return "1.0"; }
     virtual bool firmwareUpdateAvailable() { return false; }
+
+    static std::string getFormattedAddress(int32_t address);
 
     std::string printConfig();
 
@@ -62,7 +67,7 @@ public:
 protected:
 	struct ParametersByGroupAddressInfo
 	{
-		int32_t channel;
+		int32_t channel = -1;
 		ParameterCast::PGeneric cast;
 		PParameter parameter;
 	};
@@ -74,7 +79,8 @@ protected:
 		std::vector<PParameter> parameters;
 	};
 
-	bool _shuttingDown = false;
+	std::atomic_bool _stopWorkerThread;
+	std::atomic_bool _readVariables;
 	std::shared_ptr<DptConverter> _dptConverter;
 	std::map<uint16_t, std::vector<ParametersByGroupAddressInfo>> _parametersByGroupAddress;
 	std::map<int32_t, std::map<std::string, GroupedParametersInfo>> _groupedParameters;
@@ -82,12 +88,12 @@ protected:
 	//{{{ getValueFromDevice
 		struct GetValueFromDeviceInfo
 		{
-			bool requested;
+			bool requested = false;
 			std::mutex mutex;
 			std::condition_variable conditionVariable;
 			bool mutexReady = false;
 
-			int32_t channel;
+			int32_t channel = -1;
 			std::string variableName;
 			PVariable value;
 		};

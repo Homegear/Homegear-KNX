@@ -65,6 +65,8 @@ void MyPeer::init()
 {
 	try
 	{
+		_readVariables = false;
+        _stopWorkerThread = false;
 		_dptConverter.reset(new DptConverter(GD::bl));
 	}
 	catch(const std::exception& ex)
@@ -85,6 +87,51 @@ void MyPeer::dispose()
 {
 	if(_disposing) return;
 	Peer::dispose();
+}
+
+void MyPeer::worker()
+{
+    try
+    {
+		for(auto& interface : GD::physicalInterfaces)
+		{
+			if(!interface.second->isOpen()) return;
+		}
+
+        if(_readVariables)
+        {
+            _readVariables = false;
+            for(Functions::iterator i = _rpcDevice->functions.begin(); i != _rpcDevice->functions.end(); ++i)
+            {
+                if(i->first == 0) continue;
+
+                PParameterGroup parameterGroup = getParameterSet(i->first, ParameterGroup::Type::variables);
+                if(!parameterGroup) continue;
+
+                for(Parameters::iterator j = parameterGroup->parameters.begin(); j != parameterGroup->parameters.end(); ++j)
+                {
+                    if(_stopWorkerThread) return;
+                    if(!j->second->readable) continue;
+                    if(GD::bl->debugLevel >= 4) GD::out.printInfo("Info: Reading " + j->second->id + " of peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first));
+                    getValueFromDevice(j->second, i->first, false);
+                }
+            }
+        }
+
+        if(!serviceMessages->getUnreach()) serviceMessages->checkUnreach(_rpcDevice->timeout, getLastPacketReceived());
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
 }
 
 void MyPeer::homegearStarted()
@@ -111,8 +158,8 @@ void MyPeer::homegearShuttingDown()
 {
 	try
 	{
-		_shuttingDown = true;
 		Peer::homegearShuttingDown();
+        _stopWorkerThread = true;
 	}
 	catch(const std::exception& ex)
 	{
@@ -126,6 +173,12 @@ void MyPeer::homegearShuttingDown()
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
+}
+
+std::string MyPeer::getFormattedAddress(int32_t address)
+{
+	if(address < 0) return "";
+	return std::to_string(address >> 16) + '.' + std::to_string((address >> 8) & 0xFF) + '.' + std::to_string(address & 0xFF);
 }
 
 std::string MyPeer::handleCliCommand(std::string command)
@@ -251,14 +304,49 @@ std::string MyPeer::printConfig()
 			stringStream << "\t{" << std::endl;
 			for(std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator j = i->second.begin(); j != i->second.end(); ++j)
 			{
-				stringStream << "\t\t[" << j->first << "]: ";
-				if(!j->second.rpcParameter) stringStream << "(No RPC parameter) ";
+                ParameterCast::PGeneric parameterCast;
+                if(!j->second.rpcParameter->casts.empty()) parameterCast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second.rpcParameter->casts.at(0));
+
+				stringStream << "\t\t[" << j->first << (i->first == 0 || !j->second.rpcParameter ? "" : ", " + MyPacket::getFormattedGroupAddress(j->second.rpcParameter->physical->address)) + (parameterCast ? ", " + parameterCast->type : "") + "]: ";
+				if(!j->second.rpcParameter)
+				{
+					stringStream << "(No RPC parameter)";
+					continue;
+				}
 				std::vector<uint8_t> parameterData = j->second.getBinaryData();
 				for(std::vector<uint8_t>::const_iterator k = parameterData.begin(); k != parameterData.end(); ++k)
 				{
 					stringStream << std::hex << std::setfill('0') << std::setw(2) << (int32_t)*k << " ";
 				}
-				stringStream << std::endl;
+
+                if(!parameterCast)
+                {
+                    stringStream << std::endl;
+                    continue;
+                }
+
+                PVariable value;
+                std::string::size_type pos = j->first.find('.');
+                if(pos != std::string::npos)
+                {
+                    if(j->second.rpcParameter->physical->bitSize < 1)
+                    {
+                        stringStream << std::endl;
+                        continue;
+                    }
+
+                    std::vector<uint8_t> groupedParameterData = BaseLib::BitReaderWriter::getPosition(parameterData, j->second.rpcParameter->physical->address, j->second.rpcParameter->physical->bitSize);
+                    value = _dptConverter->getVariable(parameterCast->type, groupedParameterData);
+                }
+                else value = _dptConverter->getVariable(parameterCast->type, parameterData);
+
+				if(!value)
+                {
+                    stringStream << std::endl;
+                    continue;
+                }
+
+				stringStream << "(" << (value->type == VariableType::tString ? "\"" : "") << value->toString() << (value->type == VariableType::tString ? "\"" : "") << ")" << std::endl;
 			}
 			stringStream << "\t}" << std::endl;
 		}
@@ -359,6 +447,8 @@ bool MyPeer::load(BaseLib::Systems::ICentral* central)
 		serviceMessages->load();
 
 		initParametersByGroupAddress();
+
+        _readVariables = true;
 
 		return true;
 	}
@@ -485,7 +575,7 @@ void MyPeer::packetReceived(PMyPacket& packet)
 								{
 									BaseLib::Systems::RpcConfigurationParameter& groupedParameter = groupedParameterIterator->second;
 
-									if((*i)->casts.empty()) continue;
+									if((*i)->casts.empty() || (*i)->physical->bitSize < 1) continue;
 									ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>((*i)->casts.at(0));
 									if(!groupedCast) continue;
 
@@ -800,9 +890,13 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			values->push_back(value);
 		}
 
-		//{{{ Boundary check
+		//{{{ Boundary check and variable conversion
 			if(rpcParameter->logical->type == ILogical::Type::tInteger)
 			{
+                if(value->type == BaseLib::VariableType::tInteger64) value->integerValue = value->integerValue64;
+                else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tBoolean)  value->integerValue = value->booleanValue;
+
 				PLogicalInteger logical = std::dynamic_pointer_cast<LogicalInteger>(rpcParameter->logical);
 				if(logical)
 				{
@@ -812,6 +906,10 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			}
 			else if(rpcParameter->logical->type == ILogical::Type::tInteger64)
 			{
+                if(value->type == BaseLib::VariableType::tInteger && value->integerValue64 == 0) value->integerValue64 = value->integerValue;
+                else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue64 = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tBoolean)  value->integerValue64 = value->booleanValue;
+
 				PLogicalInteger64 logical = std::dynamic_pointer_cast<LogicalInteger64>(rpcParameter->logical);
 				if(logical)
 				{
@@ -821,6 +919,10 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			}
 			else if(rpcParameter->logical->type == ILogical::Type::tFloat)
 			{
+                if(value->type == BaseLib::VariableType::tInteger) value->floatValue = value->integerValue;
+                else if(value->type == BaseLib::VariableType::tInteger64)  value->floatValue = value->integerValue64;
+                else if(value->type == BaseLib::VariableType::tBoolean)  value->floatValue = value->booleanValue;
+
 				PLogicalDecimal logical = std::dynamic_pointer_cast<LogicalDecimal>(rpcParameter->logical);
 				if(logical)
 				{
@@ -830,10 +932,16 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			}
 			else if(rpcParameter->logical->type == ILogical::Type::tEnum)
 			{
+                int32_t enumValue = 0;
+                if(value->type == BaseLib::VariableType::tInteger) enumValue = value->integerValue;
+                else if(value->type == BaseLib::VariableType::tInteger64)  enumValue = value->integerValue64;
+                else if(value->type == BaseLib::VariableType::tFloat)  enumValue = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tBoolean)  enumValue = value->booleanValue;
+
 				PLogicalEnumeration logical = std::dynamic_pointer_cast<LogicalEnumeration>(rpcParameter->logical);
 				if(logical)
 				{
-					int32_t index = std::abs(logical->minimumValue) + value->integerValue;
+					int32_t index = std::abs(logical->minimumValue) + enumValue;
 					if(index < 0 || index >= (signed)logical->values.size() || !logical->values.at(index).indexDefined) return Variable::createError(-11, "Unknown enumeration index.");
 				}
 			}
@@ -868,9 +976,11 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 				if(!rawRpcParameter) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
 				BaseLib::Systems::RpcConfigurationParameter& rawParameter = rawParameterIterator->second;
 
-				if(rawRpcParameter->casts.empty()) return Variable::createError(-10, rawParameterName + " hast no cast defined.");
+				if(rawRpcParameter->casts.empty()) return Variable::createError(-10, rawParameterName + " has no cast defined.");
 				ParameterCast::PGeneric rawCast = std::dynamic_pointer_cast<ParameterCast::Generic>(rawRpcParameter->casts.at(0));
 				if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
+
+                if(rpcParameter->physical->bitSize < 1) return Variable::createError(-10, rawParameterName + " has no valid bit size defined.");
 
 				std::vector<uint8_t> rawParameterData = rawParameter.getBinaryData();
 				BaseLib::BitReaderWriter::setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameterData, parameterData);
@@ -912,7 +1022,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 				if(!groupedRpcParameter) continue;
 				BaseLib::Systems::RpcConfigurationParameter& groupedParameter = groupedParameterIterator->second;
 
-				if(groupedRpcParameter->casts.empty()) continue;
+				if(groupedRpcParameter->casts.empty() || groupedRpcParameter->physical->bitSize < 1) continue;
 				ParameterCast::PGeneric groupedCast = std::dynamic_pointer_cast<ParameterCast::Generic>(groupedRpcParameter->casts.at(0));
 				if(!groupedCast) continue;
 

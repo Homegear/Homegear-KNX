@@ -523,7 +523,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 		else if(type == "DPT-16" || type.compare(0, 8, "DPST-16-") == 0)
 		{
 			if(value.empty()) return PVariable(new Variable(std::string()));
-			return PVariable(new Variable(_ansi->toUtf8((char*)&value[0], value.size())));
+			return PVariable(new Variable(_ansi->toUtf8((char*)value.data(), value.size())));
 		}
 		else if(type == "DPT-17" || type.compare(0, 8, "DPST-17-") == 0)
 		{
