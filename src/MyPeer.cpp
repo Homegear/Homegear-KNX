@@ -891,7 +891,13 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 		}
 
 		//{{{ Boundary check and variable conversion
-			if(rpcParameter->logical->type == ILogical::Type::tInteger)
+            if(rpcParameter->logical->type == ILogical::Type::tBoolean)
+            {
+                if(value->type == BaseLib::VariableType::tInteger) value->booleanValue = (bool)value->integerValue;
+                else if(value->type == BaseLib::VariableType::tInteger64) value->booleanValue = (bool)value->integerValue64;
+                else if(value->type == BaseLib::VariableType::tFloat)  value->booleanValue = (bool)value->floatValue;
+            }
+			else if(rpcParameter->logical->type == ILogical::Type::tInteger)
 			{
                 if(value->type == BaseLib::VariableType::tInteger64) value->integerValue = value->integerValue64;
                 else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue = value->floatValue;
