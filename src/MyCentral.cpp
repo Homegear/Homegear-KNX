@@ -1021,20 +1021,23 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 
 		std::vector<std::shared_ptr<MyPeer>> newPeers;
 		for(std::vector<Search::PeerInfo>::iterator i = peerInfo.begin(); i != peerInfo.end(); ++i)
-		{
-			auto peersIterator = _peersBySerial.find(i->serialNumber);
-			if(peersIterator != _peersBySerial.end())
-			{
-				peersIterator->second->setAddress(i->address);
-				if(!i->room.empty())
-				{
-					uint64_t roomId = raiseGetRoomIdByName(i->room);
-					if(roomId > 0) peersIterator->second->setRoom(roomId);
-				}
-				if(!i->name.empty()) peersIterator->second->setName(i->name);
-				else peersIterator->second->setName(MyPeer::getFormattedAddress(i->address));
-				continue;
-			}
+        {
+            {
+                std::lock_guard<std::mutex> peersGuard(_peersMutex);
+                auto peersIterator = _peersBySerial.find(i->serialNumber);
+                if(peersIterator != _peersBySerial.end())
+                {
+                    peersIterator->second->setAddress(i->address);
+                    if(!i->room.empty())
+                    {
+                        uint64_t roomId = raiseGetRoomIdByName(i->room);
+                        if(roomId > 0) peersIterator->second->setRoom(roomId);
+                    }
+                    if(!i->name.empty()) peersIterator->second->setName(i->name);
+                    else peersIterator->second->setName(MyPeer::getFormattedAddress(i->address));
+                    continue;
+                }
+            }
 			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->serialNumber, true);
 			if(!peer)
 			{
