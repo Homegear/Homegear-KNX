@@ -429,6 +429,14 @@ void MyCentral::deletePeer(uint64_t id)
 			removePeerFromGroupAddresses(address, id);
 		}
 
+        int32_t i = 0;
+        while(peer.use_count() > 1 && i < 600)
+        {
+            if(_currentPeer && _currentPeer->getID() == id) _currentPeer.reset();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            i++;
+        }
+        if(i == 600) GD::out.printError("Error: Peer deletion took too long.");
 
 		peer->deleteFromDatabase();
 
@@ -871,6 +879,7 @@ PVariable MyCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t p
 		std::shared_ptr<MyPeer> peer = getPeer(peerID);
 		if(!peer) return PVariable(new Variable(VariableType::tVoid));
 		uint64_t id = peer->getID();
+        peer.reset();
 
 		deletePeer(id);
 
