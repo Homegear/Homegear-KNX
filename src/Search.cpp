@@ -780,7 +780,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 											attribute = groupAddressNode->first_attribute("DatapointType");
 											if(!attribute)
 											{
-												GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF));
+												GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
 												continue;
 											}
 											element->datapointType = std::string(attribute->value());

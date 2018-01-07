@@ -429,6 +429,14 @@ void MyCentral::deletePeer(uint64_t id)
 			removePeerFromGroupAddresses(address, id);
 		}
 
+        int32_t i = 0;
+        while(peer.use_count() > 1 && i < 600)
+        {
+            if(_currentPeer && _currentPeer->getID() == id) _currentPeer.reset();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            i++;
+        }
+        if(i == 600) GD::out.printError("Error: Peer deletion took too long.");
 
 		peer->deleteFromDatabase();
 
@@ -871,6 +879,7 @@ PVariable MyCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t p
 		std::shared_ptr<MyPeer> peer = getPeer(peerID);
 		if(!peer) return PVariable(new Variable(VariableType::tVoid));
 		uint64_t id = peer->getID();
+        peer.reset();
 
 		deletePeer(id);
 
@@ -1021,20 +1030,23 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 
 		std::vector<std::shared_ptr<MyPeer>> newPeers;
 		for(std::vector<Search::PeerInfo>::iterator i = peerInfo.begin(); i != peerInfo.end(); ++i)
-		{
-			auto peersIterator = _peersBySerial.find(i->serialNumber);
-			if(peersIterator != _peersBySerial.end())
-			{
-				peersIterator->second->setAddress(i->address);
-				if(!i->room.empty())
-				{
-					uint64_t roomId = raiseGetRoomIdByName(i->room);
-					if(roomId > 0) peersIterator->second->setRoom(roomId);
-				}
-				if(!i->name.empty()) peersIterator->second->setName(i->name);
-				else peersIterator->second->setName(MyPeer::getFormattedAddress(i->address));
-				continue;
-			}
+        {
+            {
+                std::lock_guard<std::mutex> peersGuard(_peersMutex);
+                auto peersIterator = _peersBySerial.find(i->serialNumber);
+                if(peersIterator != _peersBySerial.end())
+                {
+                    peersIterator->second->setAddress(i->address);
+                    if(!i->room.empty())
+                    {
+                        uint64_t roomId = raiseGetRoomIdByName(i->room);
+                        if(roomId > 0) peersIterator->second->setRoom(roomId);
+                    }
+                    if(!i->name.empty()) peersIterator->second->setName(i->name);
+                    else peersIterator->second->setName(MyPeer::getFormattedAddress(i->address));
+                    continue;
+                }
+            }
 			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->serialNumber, true);
 			if(!peer)
 			{
