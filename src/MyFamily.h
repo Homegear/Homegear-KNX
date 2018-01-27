@@ -20,7 +20,7 @@ public:
 	virtual void dispose();
 
 	virtual bool hasPhysicalInterface() { return true; }
-	virtual PVariable getPairingMethods();
+	virtual PVariable getPairingInfo();
 	void reloadRpcDevices();
 protected:
 	virtual std::shared_ptr<BaseLib::Systems::ICentral> initializeCentral(uint32_t deviceId, int32_t address, std::string serialNumber);
