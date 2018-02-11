@@ -86,19 +86,21 @@ std::vector<uint8_t> DptConverter::getDpt(const std::string& type, const PVariab
 			dpt.reserve(2);
 
 			double floatValue = value->floatValue * 100;
-			uint16_t sign = 0;
-			if(floatValue < 0)
-			{
-				sign = 0x8000;
-				floatValue = -floatValue;
-			}
+            uint16_t exponent = 0;
 
-			uint16_t exponent = 0;
-
-			while(floatValue > 2048)
+			while(floatValue > 2047 || floatValue < -2048)
 			{
 				exponent++;
 				floatValue /= 2;
+			}
+
+			int16_t mantisse = std::lround(floatValue);
+
+			uint16_t sign = 0;
+			if(mantisse < 0)
+			{
+				sign = 0x8000;
+				mantisse &= 0x7FF;
 			}
 
 			if(exponent > 15)
@@ -109,7 +111,7 @@ std::vector<uint8_t> DptConverter::getDpt(const std::string& type, const PVariab
 				return dpt;
 			}
 
-			uint16_t result = sign | (exponent << 11) | std::lround(floatValue);
+			uint16_t result = sign | (exponent << 11) | mantisse;
 			dpt.push_back(result >> 8);
 			dpt.push_back(result & 0xFF);
 		}
@@ -455,8 +457,8 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 			uint16_t dptValue = (value.at(0) << 8) | value.at(1);
 
 			uint16_t exponent = (dptValue >> 11) & 0xF;
-			int16_t sign = (dptValue & 0x8000) ? -1 : 1;
 			int32_t mantisse = dptValue & 0x7FF;
+            if(dptValue & 0x8000) mantisse = (2048 - mantisse) * -1;
 
 			while(exponent > 0)
 			{
@@ -464,7 +466,7 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				exponent--;
 			}
 
-			return std::make_shared<Variable>(((double)mantisse) / 100.0 * (double)sign);
+			return std::make_shared<Variable>(((double)mantisse) / 100.0);
 		}
 		else if(type == "DPT-10" || type.compare(0, 8, "DPST-10-") == 0)
 		{
