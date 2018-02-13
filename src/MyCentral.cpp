@@ -429,6 +429,8 @@ void MyCentral::deletePeer(uint64_t id)
 			removePeerFromGroupAddresses(address, id);
 		}
 
+        if(_currentPeer && _currentPeer->getID() == id) _currentPeer.reset();
+
         int32_t i = 0;
         while(peer.use_count() > 1 && i < 600)
         {
