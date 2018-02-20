@@ -415,6 +415,8 @@ void MyCentral::deletePeer(uint64_t id)
 			channels->arrayValue->push_back(PVariable(new Variable(i->first)));
 		}
 
+        raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
+
 		std::vector<uint16_t> groupAddresses;
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
@@ -429,6 +431,8 @@ void MyCentral::deletePeer(uint64_t id)
 			removePeerFromGroupAddresses(address, id);
 		}
 
+        if(_currentPeer && _currentPeer->getID() == id) _currentPeer.reset();
+
         int32_t i = 0;
         while(peer.use_count() > 1 && i < 600)
         {
@@ -440,25 +444,20 @@ void MyCentral::deletePeer(uint64_t id)
 
 		peer->deleteFromDatabase();
 
-		raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
-
 		GD::out.printInfo("Info: Deleting XML file \"" + peer->getRpcDevice()->getPath() + "\"");
 		GD::bl->io.deleteFile(peer->getRpcDevice()->getPath());
 		GD::out.printMessage("Removed KNX peer " + std::to_string(peer->getID()));
 	}
 	catch(const std::exception& ex)
     {
-		_peersMutex.unlock();
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
     catch(BaseLib::Exception& ex)
     {
-    	_peersMutex.unlock();
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
     catch(...)
     {
-    	_peersMutex.unlock();
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
 }
