@@ -416,7 +416,8 @@ void MyCentral::deletePeer(uint64_t id)
 			channels->arrayValue->push_back(PVariable(new Variable(i->first)));
 		}
 
-        raiseRPCDeleteDevices(deviceAddresses, deviceInfo);
+        std::vector<uint64_t> deletedIds{ id };
+        raiseRPCDeleteDevices(deletedIds, deviceAddresses, deviceInfo);
 
 		std::vector<uint16_t> groupAddresses;
 		{
@@ -978,17 +979,20 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 
 		if(newPeers.size() > 0)
 		{
+            std::vector<uint64_t> newIds;
+            newIds.reserve(newPeers.size());
 			PVariable deviceDescriptions(new Variable(VariableType::tArray));
 			for(std::vector<std::shared_ptr<MyPeer>>::iterator i = newPeers.begin(); i != newPeers.end(); ++i)
 			{
 				std::shared_ptr<std::vector<PVariable>> descriptions = (*i)->getDeviceDescriptions(clientInfo, true, std::map<std::string, bool>());
 				if(!descriptions) continue;
+                newIds.push_back((*i)->getID());
 				for(std::vector<PVariable>::iterator j = descriptions->begin(); j != descriptions->end(); ++j)
 				{
 					deviceDescriptions->arrayValue->push_back(*j);
 				}
 			}
-			raiseRPCNewDevices(deviceDescriptions);
+			raiseRPCNewDevices(newIds, deviceDescriptions);
 		}
 
 		return PVariable(new Variable((uint32_t)newPeers.size()));
