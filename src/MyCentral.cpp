@@ -937,7 +937,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
                     if(!i->room.empty())
                     {
                         uint64_t roomId = raiseGetRoomIdByName(i->room);
-                        if(roomId > 0) peersIterator->second->setRoom(roomId);
+                        if(roomId > 0) peersIterator->second->setRoom(roomId, -1);
                     }
                     if(!i->name.empty()) peersIterator->second->setName(i->name);
                     else peersIterator->second->setName(MyPeer::getFormattedAddress(i->address));
@@ -961,7 +961,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			if(!i->room.empty())
 			{
 				uint64_t roomId = raiseGetRoomIdByName(i->room);
-				if(roomId > 0) peer->setRoom(roomId);
+				if(roomId > 0) peer->setRoom(roomId, -1);
 			}
 			_peersBySerial[peer->getSerialNumber()] = peer;
 			_peersById[peer->getID()] = peer;
