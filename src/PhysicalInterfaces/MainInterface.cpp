@@ -563,7 +563,7 @@ void MainInterface::processPacket(std::vector<char>& data)
 				if(	data.size() >= 21 && //21 bytes is minimum length
 					data[10] == 0x29) //DATA_IND (0x29)
 				{
-					PMyPacket packet(new MyPacket(data));
+					auto packet = std::make_shared<MyPacket>(data);
 					raisePacketReceived(packet);
 				}
 			}

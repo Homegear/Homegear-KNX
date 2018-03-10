@@ -39,8 +39,9 @@ MyPacket::MyPacket(std::vector<char>& binaryPacket)
 	if(binaryPacket.size() < 21) return;
 	_sourceAddress = (((uint16_t)(uint8_t)binaryPacket[14]) << 8) | (uint8_t)binaryPacket[15];
 	_destinationAddress = (((uint16_t)(uint8_t)binaryPacket[16]) << 8) | (uint8_t)binaryPacket[17];
-	if(binaryPacket.size() == 21) _payload.push_back(binaryPacket.at(20) & 0x3F);
-	else _payload.insert(_payload.end(), (char*)&binaryPacket.at(21), (char*)&binaryPacket.at(21) + binaryPacket.size() - 21);
+    _operation = (Operation)(((binaryPacket[19] & 0x03) << 2) | ((binaryPacket[20] & 0xC0) >> 6));
+	if(binaryPacket.size() == 21) _payload.push_back((uint8_t)(binaryPacket.at(20) & 0x3F));
+	else _payload.insert(_payload.end(), (char*)(binaryPacket.data() + 21), (char*)(binaryPacket.data() + binaryPacket.size()));
 }
 
 MyPacket::~MyPacket()
@@ -48,12 +49,53 @@ MyPacket::~MyPacket()
 	_payload.clear();
 }
 
+std::string MyPacket::getOperationString()
+{
+    switch(_operation)
+    {
+        case Operation::groupValueRead:
+            return "GroupValueRead";
+        case Operation::groupValueResponse:
+            return "GroupValueResponse";
+        case Operation::groupValueWrite:
+            return "GroupValueWrite";
+        case Operation::individualAddressWrite:
+            return "IndividualAddressWrite";
+        case Operation::individualAddressRequest:
+            return "IndividualAddressRequest";
+        case Operation::individualAddressResponse:
+            return "IndividualAddressResponse";
+        case Operation::adcRead:
+            return "AdcRead";
+        case Operation::adcResponse:
+            return "AdcResponse";
+        case Operation::memoryRead:
+            return "MemoryRead";
+        case Operation::memoryResponse:
+            return "MemoryResponse";
+        case Operation::memoryWrite:
+            return "MemoryWrite";
+        case Operation::userMessage:
+            return "UserMessage";
+        case Operation::maskVersionRead:
+            return "MaskVersionRead";
+        case Operation::maskVersionResponse:
+            return "MaskVersionResponse";
+        case Operation::restart:
+            return "Restart";
+        case Operation::escape:
+            return "Escape";
+    }
+
+	return "";
+}
+
 std::vector<char> MyPacket::getBinary(char channelId, char sequenceCounter)
 {
 	std::vector<char> packet;
 	try
 	{
-		uint32_t size = 21 + (_payloadFitsInFirstByte ? 0 : _payload.size());
+		uint32_t size = 21 + (_payloadFitsInFirstByte ? 0 : (uint32_t)_payload.size());
 		packet.reserve(21 + _payload.size());
 
 		//{{{ Header
@@ -61,8 +103,8 @@ std::vector<char> MyPacket::getBinary(char channelId, char sequenceCounter)
 			packet.push_back(0x10); //Protocol version
 			packet.push_back(0x04); //TUNNELING_REQUEST
 			packet.push_back(0x20); //TUNNELING_REQUEST
-			packet.push_back(size >> 8);
-			packet.push_back(size & 0xFF);
+			packet.push_back((char)(uint8_t)(size >> 8));
+			packet.push_back((char)(uint8_t)(size & 0xFF));
 		//}}}
 
 		//{{{ Body
@@ -88,18 +130,18 @@ std::vector<char> MyPacket::getBinary(char channelId, char sequenceCounter)
 
 				packet.push_back(0x11); //Message code (L_Data.req)
 				packet.push_back(0); //Add information length
-				packet.push_back(0xBC); //Controlfield 1
-				packet.push_back(0xE0); //Controlfiled 2
-				packet.push_back(_sourceAddress >> 8);
-				packet.push_back(_sourceAddress & 0xFF);
-				packet.push_back(_destinationAddress >> 8);
-				packet.push_back(_destinationAddress & 0xFF);
-				packet.push_back(_payloadFitsInFirstByte ? 1 : 1 + _payload.size());
-				packet.push_back(_numbered ? 0x40 | ((_tpduSequenceNumber & 0xF) << 2) : 0); //TPCI: UDP or NDP
-				if(_payloadFitsInFirstByte) packet.push_back(((char)(uint8_t)_operation) | _payload.at(0));
+				packet.push_back((char)(uint8_t)0xBC); //Controlfield 1
+				packet.push_back((char)(uint8_t)0xE0); //Controlfiled 2
+				packet.push_back((char)(uint8_t)(_sourceAddress >> 8));
+				packet.push_back((char)(uint8_t)(_sourceAddress & 0xFF));
+				packet.push_back((char)(uint8_t)(_destinationAddress >> 8));
+				packet.push_back((char)(uint8_t)(_destinationAddress & 0xFF));
+				packet.push_back((char)(uint8_t)(_payloadFitsInFirstByte ? 1 : 1 + _payload.size()));
+				packet.push_back(((char)(uint8_t)(_numbered ? 0x40 | ((_tpduSequenceNumber & 0xF) << 2) : 0)) | (((char)(uint8_t)(_operation)) >> 2)); //TPCI: UDP or NDP
+				if(_payloadFitsInFirstByte) packet.push_back(((char)(((uint8_t)_operation) & 0x03) << 6) | _payload.at(0));
 				else
 				{
-					packet.push_back((char)(uint8_t)_operation);
+					packet.push_back((char)(((uint8_t)_operation) & 0x03) << 6);
 					if(!_payload.empty()) packet.insert(packet.end(), _payload.begin(), _payload.end());
 				}
 			//}}}
@@ -122,5 +164,7 @@ std::vector<char> MyPacket::getBinary(char channelId, char sequenceCounter)
 
 std::string MyPacket::getFormattedGroupAddress(int32_t address)
 {
-    return std::to_string(address >> 11) + "/" + std::to_string((address >> 8) & 0x7) + "/" + std::to_string(address & 0xFF); }
+    return std::to_string(address >> 11) + "/" + std::to_string((address >> 8) & 0x7) + "/" + std::to_string(address & 0xFF);
+}
+
 }
