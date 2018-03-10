@@ -89,6 +89,7 @@ PVariable MyFamily::getPairingInfo()
 		//{{{ Pairing methods
 		PVariable pairingMethods = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
 		pairingMethods->structValue->emplace("searchDevices", std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct));
+        info->structValue->emplace("pairingMethods", pairingMethods);
 		//}}}
 
 		//{{{ interfaces
