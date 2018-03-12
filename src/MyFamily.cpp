@@ -84,6 +84,7 @@ PVariable MyFamily::getPairingInfo()
 		//{{{ General
 		info->structValue->emplace("searchInterfaces", std::make_shared<BaseLib::Variable>(false));
 		info->structValue->emplace("deviceInfoFileUpload", std::make_shared<BaseLib::Variable>(true));
+        info->structValue->emplace("deviceInfoFileSuffix", std::make_shared<BaseLib::Variable>(std::string(".knxproj")));
 		//}}}
 
 		//{{{ Pairing methods
