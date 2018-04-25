@@ -321,7 +321,7 @@ bool MyCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib:
 		std::shared_ptr<MyPacket> myPacket(std::dynamic_pointer_cast<MyPacket>(packet));
 		if(!myPacket) return false;
 
-		if(_bl->debugLevel >= 4) GD::out.printInfo("Packet received from 0x" + BaseLib::HelperFunctions::getHexString(myPacket->getSourceAddress(), 4) + " to " + myPacket->getFormattedDestinationAddress() + ". Operation: " + myPacket->getOperationString() + ". Payload: " + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
+		if(_bl->debugLevel >= 4) GD::out.printInfo("Packet received from " + MyPacket::getFormattedPhysicalAddress() + " to " + myPacket->getFormattedDestinationAddress() + ". Operation: " + myPacket->getOperationString() + ". Payload: " + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
 
 		auto peers = getPeer(myPacket->getDestinationAddress());
 		if(!peers) return false;
@@ -633,7 +633,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 					}
 					else name.resize(nameWidth + (name.size() - nameSize), ' ');
 					stringStream << name << bar
-						<< std::setw(addressWidth) << MyPeer::getFormattedAddress(i->second->getAddress()) << bar
+						<< std::setw(addressWidth) << MyPacket::getFormattedPhysicalAddress(i->second->getAddress()) << bar
 						<< std::setw(serialWidth) << i->second->getSerialNumber() << bar
 						<< std::setw(typeWidth1) << BaseLib::HelperFunctions::getHexString(i->second->getDeviceType()) << bar;
 					if(i->second->getRpcDevice())
@@ -940,7 +940,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
                         if(roomId > 0) peersIterator->second->setRoom(roomId, -1);
                     }
                     if(!i->name.empty()) peersIterator->second->setName(i->name);
-                    else peersIterator->second->setName(MyPeer::getFormattedAddress(i->address));
+                    else peersIterator->second->setName(MyPacket::getFormattedPhysicalAddress(i->address));
                     continue;
                 }
             }
@@ -956,7 +956,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(!i->name.empty()) peer->setName(i->name);
-			else peer->setName(MyPeer::getFormattedAddress(i->address));
+			else peer->setName(MyPacket::getFormattedPhysicalAddress(i->address));
 			peer->setAddress(i->address);
 			if(!i->room.empty())
 			{

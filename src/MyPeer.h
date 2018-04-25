@@ -43,8 +43,6 @@ public:
 	virtual std::string getFirmwareVersionString(int32_t firmwareVersion) { return "1.0"; }
     virtual bool firmwareUpdateAvailable() { return false; }
 
-    static std::string getFormattedAddress(int32_t address);
-
     std::string printConfig();
 
     void initParametersByGroupAddress();

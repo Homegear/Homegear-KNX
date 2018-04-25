@@ -43,6 +43,8 @@ class MyPacket : public BaseLib::Systems::Packet
         uint16_t getDestinationAddress() { return _destinationAddress; }
         Operation getOperation() { return _operation; }
         std::string getOperationString();
+        static std::string getFormattedPhysicalAddress(int32_t address);
+        std::string getFormattedSourceAddress() { return getFormattedPhysicalAddress(_sourceAddress); }
 	    static std::string getFormattedGroupAddress(int32_t address);
         std::string getFormattedDestinationAddress() { return getFormattedGroupAddress(_destinationAddress); }
         std::vector<uint8_t>& getPayload() { return _payload; }
