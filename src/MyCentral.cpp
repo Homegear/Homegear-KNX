@@ -321,7 +321,7 @@ bool MyCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib:
 		std::shared_ptr<MyPacket> myPacket(std::dynamic_pointer_cast<MyPacket>(packet));
 		if(!myPacket) return false;
 
-		if(_bl->debugLevel >= 4) GD::out.printInfo("Packet received from " + MyPacket::getFormattedPhysicalAddress() + " to " + myPacket->getFormattedDestinationAddress() + ". Operation: " + myPacket->getOperationString() + ". Payload: " + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
+		if(_bl->debugLevel >= 4) GD::out.printInfo("Packet received from " + myPacket->getFormattedSourceAddress() + " to " + myPacket->getFormattedDestinationAddress() + ". Operation: " + myPacket->getOperationString() + ". Payload: " + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
 
 		auto peers = getPeer(myPacket->getDestinationAddress());
 		if(!peers) return false;
