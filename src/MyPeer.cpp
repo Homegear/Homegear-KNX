@@ -175,6 +175,12 @@ void MyPeer::homegearShuttingDown()
 	}
 }
 
+std::string MyPeer::getFormattedAddress()
+{
+    if(_address < 0) return "";
+    return std::to_string(_address >> 12) + '.' + std::to_string((_address >> 8) & 0x0F) + '.' + std::to_string(_address & 0xFF);
+}
+
 std::string MyPeer::handleCliCommand(std::string command)
 {
 	try

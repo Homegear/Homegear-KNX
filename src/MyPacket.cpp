@@ -165,7 +165,7 @@ std::vector<char> MyPacket::getBinary(char channelId, char sequenceCounter)
 std::string MyPacket::getFormattedPhysicalAddress(int32_t address)
 {
 	if(address == -1) return "";
-	return std::to_string(address >> 16) + '.' + std::to_string((address >> 8) & 0xFF) + '.' + std::to_string(address & 0xFF);
+	return std::to_string(address >> 12) + '.' + std::to_string((address >> 8) & 0x0F) + '.' + std::to_string(address & 0xFF);
 }
 
 std::string MyPacket::getFormattedGroupAddress(int32_t address)

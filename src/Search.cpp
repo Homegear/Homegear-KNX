@@ -595,14 +595,14 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 								xml_attribute<>* attribute = areaNode->first_attribute("Address");
 								if(!attribute) continue;
 								attributeValue = std::string(attribute->value());
-								currentArea = Math::getNumber(attributeValue) & 0xFF;
+								currentArea = Math::getNumber(attributeValue) & 0x0F;
 
 								for(xml_node<>* lineNode = areaNode->first_node("Line"); lineNode; lineNode = lineNode->next_sibling("Line"))
 								{
 									attribute = lineNode->first_attribute("Address");
 									if(!attribute) continue;
 									attributeValue = std::string(attribute->value());
-									currentLine = Math::getNumber(attributeValue) & 0xFF;
+									currentLine = Math::getNumber(attributeValue) & 0x0F;
 
 									for(xml_node<>* deviceNode = lineNode->first_node("DeviceInstance"); deviceNode; deviceNode = deviceNode->next_sibling("DeviceInstance"))
 									{
@@ -612,7 +612,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 										if(!attribute) continue;
 										attributeValue = std::string(attribute->value());
 										currentAddress = Math::getNumber(attributeValue) & 0xFF;
-										device->address = (currentArea << 16) | (currentLine << 8) | currentAddress;
+										device->address = (currentArea << 12) | (currentLine << 8) | currentAddress;
 
 										attribute = deviceNode->first_attribute("Id");
 										if(!attribute) continue;
