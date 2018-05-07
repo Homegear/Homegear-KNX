@@ -175,10 +175,10 @@ void MyPeer::homegearShuttingDown()
 	}
 }
 
-std::string MyPeer::getFormattedAddress(int32_t address)
+std::string MyPeer::getFormattedAddress()
 {
-	if(address < 0) return "";
-	return std::to_string(address >> 16) + '.' + std::to_string((address >> 8) & 0xFF) + '.' + std::to_string(address & 0xFF);
+    if(_address < 0) return "";
+    return std::to_string(_address >> 12) + '.' + std::to_string((_address >> 8) & 0x0F) + '.' + std::to_string(_address & 0xFF);
 }
 
 std::string MyPeer::handleCliCommand(std::string command)
@@ -1045,6 +1045,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			return PVariable(new Variable(VariableType::tVoid));
 		}
 		else if(rpcParameter->physical->operationType != IPhysical::OperationType::Enum::command) return Variable::createError(-6, "Parameter is not settable.");
+        if(rpcParameter->setPackets.empty() && !rpcParameter->writeable) return Variable::createError(-6, "parameter is read only");
 
 		if(parameter.databaseId > 0) saveParameter(parameter.databaseId, parameterData);
 		else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameterData);
