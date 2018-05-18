@@ -466,7 +466,7 @@ void MainInterface::listen()
 				do
 				{
 					receivedBytes = _socket->proofread(&buffer[0], bufferMax, ipAddress);
-					if(ipAddress != _socket->getClientIp()) continue;
+					if(ipAddress != _socket->getClientIp() && ipAddress != "224.0.23.12") continue;
 					if(receivedBytes > 0)
 					{
 						data.insert(data.end(), &buffer.at(0), &buffer.at(0) + receivedBytes);
