@@ -819,6 +819,20 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 														{
                                                             for(auto& variableInfoElement : infoIterator->second)
                                                             {
+                                                                {
+                                                                    //Delete old element if necessary
+
+                                                                    auto deviceVariableElement = device->variables.find(variableInfoElement.index);
+                                                                    if(deviceVariableElement != device->variables.end())
+                                                                    {
+                                                                        if(!deviceVariableElement->second->autocreated && !variableInfoElement.writeFlag) continue; //Ignore
+
+                                                                        //If current element has write flag (= sending variable) delete old variable to be able to insert the sending variable.
+                                                                        //Also delete an autocreated variable to overwrite it with the current one.
+                                                                        device->variables.erase(deviceVariableElement);
+                                                                    }
+                                                                }
+
                                                                 std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
                                                                 *variableInfo = *element;
 
@@ -834,6 +848,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                         {
                                                             std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
                                                             *variableInfo = *element;
+                                                            variableInfo->autocreated = true;
                                                             device->variables.emplace(variableInfo->index, variableInfo);
                                                         }
 													}
