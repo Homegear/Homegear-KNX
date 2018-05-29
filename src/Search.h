@@ -42,6 +42,7 @@ protected:
 		bool writeFlag = true;
 		bool readFlag = true;
         bool transmitFlag = true;
+		bool autocreated = false;
 		BaseLib::PVariable description;
 	};
 
