@@ -183,14 +183,14 @@ void MainInterface::reconnect()
 	{
 		_socket->close();
 		_initComplete = false;
-		_out.printDebug("Connecting to device with hostname " + _settings->host + " on port " + _settings->port + "...");
+		_out.printDebug("Debug: Connecting to device with hostname " + _settings->host + " on port " + _settings->port + "...");
 		_socket->open();
 		_listenPortBytes[0] = (char)(uint8_t)((_socket->getListenPort() >> 8) & 0xFF);
 		_listenPortBytes[1] = (char)(uint8_t)(_socket->getListenPort() & 0xFF);
 		_hostname = _settings->host;
 		_ipAddress = _socket->getClientIp();
 		_stopped = false;
-		_out.printInfo("Connected to device with hostname " + _settings->host + " on port " + _settings->port + ".");
+		_out.printInfo("Info: Connected to device with hostname " + _settings->host + " on port " + _settings->port + ".");
 		GD::bl->threadManager.join(_initThread);
 		_bl->threadManager.start(_initThread, true, &MainInterface::init, this);
 	}
