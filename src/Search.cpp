@@ -59,13 +59,8 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
         device->version = 1;
         PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl, device.get());
-        std::string typeId = (deviceInfo.address != -1) ? MyPacket::getFormattedPhysicalAddress(deviceInfo.address) : deviceInfo.id;
-        supportedDevice->id = typeId;
-        supportedDevice->description = deviceInfo.name;
-        rooms[supportedDevice->id] = deviceInfo.room;
-        addresses[supportedDevice->id] = deviceInfo.address;
         bool newDevice = true;
-        auto typeNumberIterator = idTypeNumberMap.find(supportedDevice->id); //Backwards compatability
+        auto typeNumberIterator = idTypeNumberMap.find(deviceInfo.id); //Backwards compatability
         if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
         {
             supportedDevice->typeNumber = typeNumberIterator->second;
@@ -100,6 +95,11 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
             GD::out.printError("Error: Can't add KNX device. No free type number could be found. The maximum number of KNX devices is 65535.");
             return PHomegearDevice();
         }
+
+        supportedDevice->id = (deviceInfo.address != -1) ? MyPacket::getFormattedPhysicalAddress(deviceInfo.address) : deviceInfo.id;
+        supportedDevice->description = deviceInfo.name;
+        rooms[supportedDevice->id] = deviceInfo.room;
+        addresses[supportedDevice->id] = deviceInfo.address;
         device->supportedDevices.push_back(supportedDevice);
 
         createXmlMaintenanceChannel(device);
@@ -148,6 +148,8 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
                 function->variables->parameters[parameter->id] = parameter;
             }
         }
+
+        return device;
     }
     catch(const std::exception& ex)
     {
