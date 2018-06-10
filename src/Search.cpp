@@ -52,6 +52,118 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::
 	}
 }
 
+std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::DeviceXmlData& deviceInfo, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap, std::unordered_map<std::string, std::string> rooms, std::unordered_map<std::string, int32_t> addresses)
+{
+    try
+    {
+        std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
+        device->version = 1;
+        PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl, device.get());
+        std::string typeId = (deviceInfo.address != -1) ? MyPacket::getFormattedPhysicalAddress(deviceInfo.address) : deviceInfo.id;
+        supportedDevice->id = typeId;
+        supportedDevice->description = deviceInfo.name;
+        rooms[supportedDevice->id] = deviceInfo.room;
+        addresses[supportedDevice->id] = deviceInfo.address;
+        bool newDevice = true;
+        auto typeNumberIterator = idTypeNumberMap.find(supportedDevice->id); //Backwards compatability
+        if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
+        {
+            supportedDevice->typeNumber = typeNumberIterator->second;
+            newDevice = false;
+        }
+        else
+        {
+            if(deviceInfo.address != -1)
+            {
+                typeNumberIterator = idTypeNumberMap.find(MyPacket::getFormattedPhysicalAddress(deviceInfo.address));
+                if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
+                {
+                    supportedDevice->typeNumber = typeNumberIterator->second;
+                    newDevice = false;
+                }
+            }
+        }
+        if(newDevice)
+        {
+            for(uint32_t i = 1; i <= 65535; i++)
+            {
+                if(usedTypeNumbers.find(i) == usedTypeNumbers.end())
+                {
+                    supportedDevice->typeNumber = i;
+                    usedTypeNumbers.emplace(i);
+                    break;
+                }
+            }
+        }
+        if(supportedDevice->typeNumber == 0)
+        {
+            GD::out.printError("Error: Can't add KNX device. No free type number could be found. The maximum number of KNX devices is 65535.");
+            return PHomegearDevice();
+        }
+        device->supportedDevices.push_back(supportedDevice);
+
+        createXmlMaintenanceChannel(device);
+
+        for(auto groupVariable : deviceInfo.variables)
+        {
+            if(deviceInfo.description->structValue->empty()) continue;
+
+            int32_t channel = 1;
+            std::string variableName;
+            std::string unit;
+
+            auto variableIterator = deviceInfo.description->structValue->find(std::to_string(groupVariable.first));
+            if(variableIterator == deviceInfo.description->structValue->end()) continue;
+
+            auto structIterator = variableIterator->second->structValue->find("channel");
+            if(structIterator != variableIterator->second->structValue->end()) channel = structIterator->second->integerValue;
+
+            structIterator = variableIterator->second->structValue->find("variable");
+            if(structIterator != variableIterator->second->structValue->end()) variableName = _bl->hf.stringReplace(structIterator->second->stringValue, ".", "_");;
+
+            structIterator = variableIterator->second->structValue->find("unit");
+            if(structIterator != variableIterator->second->structValue->end()) unit = structIterator->second->stringValue;
+
+            PFunction function;
+            auto functionIterator = device->functions.find((uint32_t)channel);
+            if(functionIterator == device->functions.end())
+            {
+                function.reset(new Function(_bl));
+                function->channel = (uint32_t)channel;
+                function->type = "KNX_CHANNEL_" + std::to_string(channel);
+                function->variablesId = "knx_values_" + std::to_string(channel);
+                device->functions[function->channel] = function;
+            }
+            else function = functionIterator->second;
+
+            PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, groupVariable.second->address);
+            if(!parameter) continue;
+            parameter->transmitted = groupVariable.second->transmitFlag;
+
+            parseDatapointType(function, groupVariable.second->datapointType, parameter);
+
+            if(!parameter->casts.empty())
+            {
+                function->variables->parametersOrdered.push_back(parameter);
+                function->variables->parameters[parameter->id] = parameter;
+            }
+        }
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
+    return PHomegearDevice();
+}
+
 std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap)
 {
 	std::vector<Search::PeerInfo> peerInfo;
@@ -210,99 +322,8 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 			std::unordered_map<std::string, int32_t> addresses;
 			for(auto& deviceXml : xmlData.deviceXmlData)
 			{
-				std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
-				device->version = 1;
-				PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl, device.get());
-                std::string typeId = (deviceXml->address != -1) ? MyPacket::getFormattedPhysicalAddress(deviceXml->address) : deviceXml->id;
-				supportedDevice->id = typeId;
-				supportedDevice->description = deviceXml->name;
-				rooms[supportedDevice->id] = deviceXml->room;
-				addresses[supportedDevice->id] = deviceXml->address;
-                bool newDevice = true;
-				auto typeNumberIterator = idTypeNumberMap.find(supportedDevice->id); //Backwards compatability
-				if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
-				{
-					supportedDevice->typeNumber = typeNumberIterator->second;
-                    newDevice = false;
-				}
-				else
-				{
-                    if(deviceXml->address != -1)
-                    {
-                        typeNumberIterator = idTypeNumberMap.find(MyPacket::getFormattedPhysicalAddress(deviceXml->address));
-                        if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
-                        {
-                            supportedDevice->typeNumber = typeNumberIterator->second;
-                            newDevice = false;
-                        }
-                    }
-				}
-                if(newDevice)
-                {
-                    for(uint32_t i = 1; i <= 65535; i++)
-                    {
-                        if(usedTypeNumbers.find(i) == usedTypeNumbers.end())
-                        {
-                            supportedDevice->typeNumber = i;
-                            usedTypeNumbers.emplace(i);
-                            break;
-                        }
-                    }
-                }
-				if(supportedDevice->typeNumber == 0)
-				{
-					GD::out.printError("Error: Can't add KNX device. No free type number could be found. The maximum number of KNX devices is 65535.");
-					continue;
-				}
-				device->supportedDevices.push_back(supportedDevice);
-				rpcDevicesDevice[supportedDevice->id] = device;
-
-				createXmlMaintenanceChannel(device);
-
-				for(auto groupVariable : deviceXml->variables)
-				{
-					if(deviceXml->description->structValue->empty()) continue;
-
-					int32_t channel = 1;
-					std::string variableName;
-					std::string unit;
-
-					auto variableIterator = deviceXml->description->structValue->find(std::to_string(groupVariable.first));
-					if(variableIterator == deviceXml->description->structValue->end()) continue;
-
-					auto structIterator = variableIterator->second->structValue->find("channel");
-					if(structIterator != variableIterator->second->structValue->end()) channel = structIterator->second->integerValue;
-
-					structIterator = variableIterator->second->structValue->find("variable");
-					if(structIterator != variableIterator->second->structValue->end()) variableName = _bl->hf.stringReplace(structIterator->second->stringValue, ".", "_");;
-
-					structIterator = variableIterator->second->structValue->find("unit");
-					if(structIterator != variableIterator->second->structValue->end()) unit = structIterator->second->stringValue;
-
-					PFunction function;
-					auto functionIterator = device->functions.find((uint32_t)channel);
-					if(functionIterator == device->functions.end())
-					{
-						function.reset(new Function(_bl));
-						function->channel = (uint32_t)channel;
-						function->type = "KNX_CHANNEL_" + std::to_string(channel);
-						function->variablesId = "knx_values_" + std::to_string(channel);
-						device->functions[function->channel] = function;
-					}
-					else function = functionIterator->second;
-
-					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, groupVariable.second->address);
-					if(!parameter) continue;
-                    parameter->transmitted = groupVariable.second->transmitFlag;
-
-					parseDatapointType(function, groupVariable.second->datapointType, parameter);
-
-					if(!parameter->casts.empty())
-					{
-						function->variables->parametersOrdered.push_back(parameter);
-						function->variables->parameters[parameter->id] = parameter;
-					}
-				}
+                auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap, rooms, addresses);
+                if(device) rpcDevicesDevice[(*device->supportedDevices.begin())->id] = device;
 			}
 		//}}}
 
@@ -340,14 +361,140 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 	return peerInfo;
 }
 
-Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap, BaseLib::PVariable deviceInfo)
+Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap, BaseLib::PVariable deviceInfo)
 {
     try
     {
         createDirectories();
 
         DeviceXmlData deviceXml;
-        //Todo process device info struct...
+
+        auto structIterator = deviceInfo->structValue->find("id");
+        if(structIterator == deviceInfo->structValue->end())
+        {
+            GD::out.printError("Error: Could not create KNX device information: Field \"id\" is missing.");
+            return PeerInfo();
+        }
+        deviceXml.id = structIterator->second->stringValue;
+
+        structIterator = deviceInfo->structValue->find("name");
+        if(structIterator == deviceInfo->structValue->end())
+        {
+            GD::out.printError("Error: Could not create KNX device information: Field \"name\" is missing.");
+            return PeerInfo();
+        }
+        deviceXml.name = structIterator->second->stringValue;
+
+        structIterator = deviceInfo->structValue->find("room");
+        if(structIterator == deviceInfo->structValue->end())
+        {
+            GD::out.printError("Error: Could not create KNX device information: Field \"room\" is missing.");
+            return PeerInfo();
+        }
+        deviceXml.room = structIterator->second->stringValue;
+
+        structIterator = deviceInfo->structValue->find("address");
+        if(structIterator == deviceInfo->structValue->end())
+        {
+            GD::out.printError("Error: Could not create KNX device information: Field \"address\" is missing.");
+            return PeerInfo();
+        }
+        deviceXml.address = structIterator->second->integerValue;
+
+        structIterator = deviceInfo->structValue->find("description");
+        if(structIterator == deviceInfo->structValue->end())
+        {
+            GD::out.printError("Error: Could not create KNX device information: Field \"description\" is missing.");
+            return PeerInfo();
+        }
+        std::string description = structIterator->second->stringValue;
+        std::string::size_type jsonStartPos = description.find("$${");
+        if(jsonStartPos != std::string::npos)
+        {
+            description = description.substr(jsonStartPos + 2);
+            std::string jsonString;
+            BaseLib::Html::unescapeHtmlEntities(description, jsonString);
+            try
+            {
+                BaseLib::Rpc::JsonDecoder jsonDecoder(_bl);
+                deviceXml.description = jsonDecoder.decode(jsonString);
+            }
+            catch(const Exception& ex)
+            {
+                _bl->out.printError("Error decoding JSON in KNX device information: " + ex.what());
+                return PeerInfo();
+            }
+        }
+
+        structIterator = deviceInfo->structValue->find("variables");
+        if(structIterator == deviceInfo->structValue->end())
+        {
+            GD::out.printError("Error: Could not create KNX device information: Field \"variables\" is missing.");
+            return PeerInfo();
+        }
+
+        for(auto& variableElement : *structIterator->second->structValue)
+        {
+            if(!BaseLib::Math::isNumber(variableElement.first))
+            {
+                GD::out.printError("Error: key within Struct \"variables\" is no number.");
+                return PeerInfo();
+            }
+
+            auto variable = std::make_shared<GroupVariableXmlData>();
+
+            auto variableIterator = variableElement.second->structValue->find("datapointType");
+            if(variableIterator == variableElement.second->structValue->end())
+            {
+                GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"datapointType\".");
+                return PeerInfo();
+            }
+            variable->datapointType = variableIterator->second->stringValue;
+
+            variableIterator = variableElement.second->structValue->find("readFlag");
+            if(variableIterator == variableElement.second->structValue->end())
+            {
+                GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"readFlag\".");
+                return PeerInfo();
+            }
+            variable->readFlag = variableIterator->second->booleanValue;
+
+            variableIterator = variableElement.second->structValue->find("writeFlag");
+            if(variableIterator == variableElement.second->structValue->end())
+            {
+                GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"writeFlag\".");
+                return PeerInfo();
+            }
+            variable->writeFlag = variableIterator->second->booleanValue;
+
+            variableIterator = variableElement.second->structValue->find("transmitFlag");
+            if(variableIterator == variableElement.second->structValue->end())
+            {
+                GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"transmitFlag\".");
+                return PeerInfo();
+            }
+            variable->transmitFlag = variableIterator->second->booleanValue;
+
+            variable->index = BaseLib::Math::getNumber(variableElement.first);
+
+            deviceXml.variables.emplace(variable->index, std::move(variable));
+        }
+
+        std::unordered_map<std::string, std::string> rooms;
+        std::unordered_map<std::string, int32_t> addresses;
+        auto device = createHomegearDevice(deviceXml, usedTypeNumbers, idTypeNumberMap, rooms, addresses);
+        if(!device)
+        {
+            GD::out.printError("Error: Could not create KNX device information: Could not generate device info.");
+            return PeerInfo();
+        }
+        auto typeId = (*device->supportedDevices.begin())->id;
+
+        std::vector<PeerInfo> peerInfo;
+        std::map<int32_t, std::string> usedTypeIds;
+        addDeviceToPeerInfo(device, addresses.begin()->second, (*device->supportedDevices.begin())->description, rooms.begin()->second, peerInfo, usedTypeIds);
+
+        if(!peerInfo.empty()) return *peerInfo.begin();
     }
     catch(const std::exception& ex)
     {
