@@ -26,10 +26,11 @@ public:
 		std::string room;
 	};
 
-	Search(BaseLib::SharedObjects* baseLib);
-	virtual ~Search();
+	explicit Search(BaseLib::SharedObjects* baseLib);
+	virtual ~Search() = default;
 
 	std::vector<PeerInfo> search(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap);
+	PeerInfo updateDevice(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap, BaseLib::PVariable deviceInfo);
 protected:
 	struct GroupVariableXmlData
 	{
