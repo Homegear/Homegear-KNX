@@ -1209,7 +1209,7 @@ PVariable MyCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t p
             }
             else
             {
-                GD::out.printInfo("Info: Peer " + std::to_string(peer->getID()) + "with address " + MyPacket::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully updated.");
+                GD::out.printInfo("Info: Peer " + std::to_string(peer->getID()) + " with address " + MyPacket::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully updated.");
 
                 raiseRPCUpdateDevice(peer->getID(), 0, peer->getSerialNumber() + ":" + std::to_string(0), 0);
             }

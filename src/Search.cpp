@@ -52,7 +52,7 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::
 	}
 }
 
-std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::DeviceXmlData& deviceInfo, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap, std::unordered_map<std::string, std::string> rooms, std::unordered_map<std::string, int32_t> addresses)
+std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::DeviceXmlData& deviceInfo, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap)
 {
     try
     {
@@ -98,8 +98,6 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
 
         supportedDevice->id = (deviceInfo.address != -1) ? MyPacket::getFormattedPhysicalAddress(deviceInfo.address) : deviceInfo.id;
         supportedDevice->description = deviceInfo.name;
-        rooms[supportedDevice->id] = deviceInfo.room;
-        addresses[supportedDevice->id] = deviceInfo.address;
         device->supportedDevices.push_back(supportedDevice);
 
         createXmlMaintenanceChannel(device);
@@ -324,8 +322,14 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 			std::unordered_map<std::string, int32_t> addresses;
 			for(auto& deviceXml : xmlData.deviceXmlData)
 			{
-                auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap, rooms, addresses);
-                if(device) rpcDevicesDevice[(*device->supportedDevices.begin())->id] = device;
+                auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap);
+                if(device)
+				{
+					auto typeId = (*device->supportedDevices.begin())->id;
+					rooms[typeId] = deviceXml->room;
+					addresses[typeId] = deviceXml->address;
+					rpcDevicesDevice[typeId] = device;
+				}
 			}
 		//}}}
 
@@ -445,7 +449,15 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
 
             auto variable = std::make_shared<GroupVariableXmlData>();
 
-            auto variableIterator = variableElement.second->structValue->find("datapointType");
+            auto variableIterator = variableElement.second->structValue->find("address");
+            if(variableIterator == variableElement.second->structValue->end())
+            {
+                GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"address\".");
+                return PeerInfo();
+            }
+            variable->address = variableIterator->second->integerValue;
+
+            variableIterator = variableElement.second->structValue->find("datapointType");
             if(variableIterator == variableElement.second->structValue->end())
             {
                 GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"datapointType\".");
@@ -482,9 +494,7 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
             deviceXml.variables.emplace(variable->index, std::move(variable));
         }
 
-        std::unordered_map<std::string, std::string> rooms;
-        std::unordered_map<std::string, int32_t> addresses;
-        auto device = createHomegearDevice(deviceXml, usedTypeNumbers, idTypeNumberMap, rooms, addresses);
+        auto device = createHomegearDevice(deviceXml, usedTypeNumbers, idTypeNumberMap);
         if(!device)
         {
             GD::out.printError("Error: Could not create KNX device information: Could not generate device info.");
@@ -494,7 +504,8 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
 
         std::vector<PeerInfo> peerInfo;
         std::map<int32_t, std::string> usedTypeIds;
-        addDeviceToPeerInfo(device, addresses.begin()->second, (*device->supportedDevices.begin())->description, rooms.begin()->second, peerInfo, usedTypeIds);
+
+        addDeviceToPeerInfo(device, deviceXml.address, (*device->supportedDevices.begin())->description, deviceXml.room, peerInfo, usedTypeIds);
 
         if(!peerInfo.empty()) return *peerInfo.begin();
     }
