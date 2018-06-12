@@ -56,26 +56,26 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
 {
     try
     {
+        if(deviceInfo.address == -1) return PHomegearDevice();
         std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
         device->version = 1;
         PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl, device.get());
         bool newDevice = true;
+        bool oldFormat = false;
         auto typeNumberIterator = idTypeNumberMap.find(deviceInfo.id); //Backwards compatability
         if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
         {
             supportedDevice->typeNumber = typeNumberIterator->second;
             newDevice = false;
+            BaseLib::Io::deleteFile(_xmlPath + GD::bl->hf.stringReplace(device->supportedDevices.at(0)->id, "/", "_") + ".xml");
         }
         else
         {
-            if(deviceInfo.address != -1)
+            typeNumberIterator = idTypeNumberMap.find(MyPacket::getFormattedPhysicalAddress(deviceInfo.address));
+            if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
             {
-                typeNumberIterator = idTypeNumberMap.find(MyPacket::getFormattedPhysicalAddress(deviceInfo.address));
-                if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
-                {
-                    supportedDevice->typeNumber = typeNumberIterator->second;
-                    newDevice = false;
-                }
+                supportedDevice->typeNumber = typeNumberIterator->second;
+                newDevice = false;
             }
         }
         if(newDevice)
@@ -96,7 +96,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
             return PHomegearDevice();
         }
 
-        supportedDevice->id = (deviceInfo.address != -1) ? MyPacket::getFormattedPhysicalAddress(deviceInfo.address) : deviceInfo.id;
+        supportedDevice->id = MyPacket::getFormattedPhysicalAddress(deviceInfo.address);
         supportedDevice->description = deviceInfo.name;
         device->supportedDevices.push_back(supportedDevice);
 
@@ -322,6 +322,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 			std::unordered_map<std::string, int32_t> addresses;
 			for(auto& deviceXml : xmlData.deviceXmlData)
 			{
+			    if(deviceXml->address == -1) GD::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", because it has no physical address.");
                 auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap);
                 if(device)
 				{
@@ -450,9 +451,9 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
             auto variable = std::make_shared<GroupVariableXmlData>();
 
             auto variableIterator = variableElement.second->structValue->find("address");
-            if(variableIterator == variableElement.second->structValue->end())
+            if(variableIterator == variableElement.second->structValue->end() || variableIterator->second->integerValue == -1)
             {
-                GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"address\".");
+                GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"address\" or the address is invalid.");
                 return PeerInfo();
             }
             variable->address = variableIterator->second->integerValue;
