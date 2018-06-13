@@ -322,7 +322,11 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 			std::unordered_map<std::string, int32_t> addresses;
 			for(auto& deviceXml : xmlData.deviceXmlData)
 			{
-			    if(deviceXml->address == -1) GD::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", because it has no physical address.");
+			    if(deviceXml->address == -1)
+                {
+                    GD::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", because it has no physical address.");
+                    continue;
+                }
                 auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap);
                 if(device)
 				{
@@ -401,9 +405,9 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
         deviceXml.room = structIterator->second->stringValue;
 
         structIterator = deviceInfo->structValue->find("address");
-        if(structIterator == deviceInfo->structValue->end())
+        if(structIterator == deviceInfo->structValue->end() || structIterator->second->integerValue == -1)
         {
-            GD::out.printError("Error: Could not create KNX device information: Field \"address\" is missing.");
+            GD::out.printError("Error: Could not create KNX device information: Field \"address\" is missing or the address invalid.");
             return PeerInfo();
         }
         deviceXml.address = structIterator->second->integerValue;

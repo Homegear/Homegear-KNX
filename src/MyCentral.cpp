@@ -992,7 +992,6 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
                 if(peersIterator != _peersBySerial.end())
                 {
                     auto myPeer = std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
-                    peersIterator->second->setAddress(i->address);
                     if(!i->room.empty())
                     {
                         uint64_t roomId = raiseGetRoomIdByName(i->room);
@@ -1013,7 +1012,6 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			peer->initializeCentralConfig();
 			peer->initParametersByGroupAddress();
 
-			peer->setAddress(i->address);
             if(!i->name.empty()) peer->setName(i->name);
             else peer->setName(peer->getFormattedAddress());
 			if(!i->room.empty())
