@@ -61,7 +61,6 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         device->version = 1;
         PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl, device.get());
         bool newDevice = true;
-        bool oldFormat = false;
         auto typeNumberIterator = idTypeNumberMap.find(deviceInfo.id); //Backwards compatability
         if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
         {
