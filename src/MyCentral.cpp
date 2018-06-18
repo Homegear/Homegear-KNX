@@ -68,6 +68,8 @@ void MyCentral::init()
         if (_initialized) return; //Prevent running init two times
         _initialized = true;
 
+		_localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PRpcClientInfo& clientInfo, BaseLib::PArray& parameters)>>("updateDevice", std::bind(&MyCentral::updateDevice, this, std::placeholders::_1, std::placeholders::_2)));
+
         _search.reset(new Search(GD::bl));
 
         for (std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
@@ -221,6 +223,7 @@ void MyCentral::loadPeers()
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(!peer->getSerialNumber().empty()) _peersBySerial[peer->getSerialNumber()] = peer;
 			_peersById[peerID] = peer;
+            if(peer->getAddress() != -1) _peers[peer->getAddress()] = peer;
 			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
 			for(std::vector<uint16_t>::iterator i = groupAddresses.begin(); i != groupAddresses.end(); ++i)
 			{
@@ -249,10 +252,33 @@ std::shared_ptr<MyPeer> MyCentral::getPeer(uint64_t id)
 	try
 	{
 		std::lock_guard<std::mutex> peersGuard(_peersMutex);
-		std::map<uint64_t, std::shared_ptr<BaseLib::Systems::Peer>>::iterator peersIterator = _peersById.find(id);
+		auto peersIterator = _peersById.find(id);
 		if(peersIterator != _peersById.end()) return std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
 	}
 	catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
+    return std::shared_ptr<MyPeer>();
+}
+
+std::shared_ptr<MyPeer> MyCentral::getPeer(int32_t address)
+{
+    try
+    {
+        std::lock_guard<std::mutex> peersGuard(_peersMutex);
+        auto peersIterator = _peers.find(address);
+        if(peersIterator != _peers.end()) return std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
+    }
+    catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
@@ -272,7 +298,7 @@ std::shared_ptr<MyPeer> MyCentral::getPeer(std::string serialNumber)
 	try
 	{
 		std::lock_guard<std::mutex> peersGuard(_peersMutex);
-		std::unordered_map<std::string, std::shared_ptr<BaseLib::Systems::Peer>>::iterator peersIterator = _peersBySerial.find(serialNumber);
+		auto peersIterator = _peersBySerial.find(serialNumber);
 		if(peersIterator != _peersBySerial.end()) return std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
 	}
 	catch(const std::exception& ex)
@@ -423,6 +449,7 @@ void MyCentral::deletePeer(uint64_t id)
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
 			if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
+            if(peer->getAddress() != -1 && _peers.find(peer->getAddress()) != _peers.end()) _peers.erase(peer->getAddress());
 			if(_peersById.find(id) != _peersById.end()) _peersById.erase(id);
 
 			groupAddresses = peer->getGroupAddresses();
@@ -822,12 +849,13 @@ std::string MyCentral::handleCliCommand(std::string command)
     return "Error executing command. See log file for more details.\n";
 }
 
-std::shared_ptr<MyPeer> MyCentral::createPeer(uint32_t deviceType, std::string serialNumber, bool save)
+std::shared_ptr<MyPeer> MyCentral::createPeer(uint32_t deviceType, int32_t address, std::string serialNumber, bool save)
 {
 	try
 	{
 		std::shared_ptr<MyPeer> peer(new MyPeer(_deviceId, this));
 		peer->setDeviceType(deviceType);
+        peer->setAddress(address);
 		peer->setSerialNumber(serialNumber);
 		peer->setRpcDevice(GD::family->getRpcDevices()->find(deviceType, 0x10, -1));
 		if(!peer->getRpcDevice()) return std::shared_ptr<MyPeer>();
@@ -905,13 +933,41 @@ PVariable MyCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t p
     return Variable::createError(-32500, "Unknown application error.");
 }
 
+PVariable MyCentral::invokeFamilyMethod(BaseLib::PRpcClientInfo clientInfo, std::string& method, PArray parameters)
+{
+    try
+    {
+		auto localMethodIterator = _localRpcMethods.find(method);
+		if(localMethodIterator != _localRpcMethods.end())
+		{
+			return localMethodIterator->second(clientInfo, parameters);
+		}
+		else return BaseLib::Variable::createError(-32601, ": Requested method not found.");
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
+    return Variable::createError(-32502, "Unknown application error.");
+}
+
 PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 {
 	try
 	{
 		std::lock_guard<std::mutex> searchGuard(_searchMutex);
+
 		{
 			std::lock_guard<std::mutex> peersGuard(_peersMutex);
+            _peers.clear();
 			_peersBySerial.clear();
 			_peersById.clear();
 			_peersByGroupAddress.clear();
@@ -936,7 +992,6 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
                 if(peersIterator != _peersBySerial.end())
                 {
                     auto myPeer = std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
-                    peersIterator->second->setAddress(i->address);
                     if(!i->room.empty())
                     {
                         uint64_t roomId = raiseGetRoomIdByName(i->room);
@@ -947,7 +1002,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
                     continue;
                 }
             }
-			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->serialNumber, true);
+			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->address, i->serialNumber, true);
 			if(!peer)
 			{
 				GD::out.printError("Error: Could not add device with type " + BaseLib::HelperFunctions::getHexString(i->type) + ". No matching XML file was found.");
@@ -957,8 +1012,6 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 			peer->initializeCentralConfig();
 			peer->initParametersByGroupAddress();
 
-			std::lock_guard<std::mutex> peersGuard(_peersMutex);
-			peer->setAddress(i->address);
             if(!i->name.empty()) peer->setName(i->name);
             else peer->setName(peer->getFormattedAddress());
 			if(!i->room.empty())
@@ -966,6 +1019,9 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 				uint64_t roomId = raiseGetRoomIdByName(i->room);
 				if(roomId > 0) peer->setRoom(roomId, -1);
 			}
+
+            std::lock_guard<std::mutex> peersGuard(_peersMutex);
+            if(peer->getAddress() != -1) _peers[peer->getAddress()] = peer;
 			_peersBySerial[peer->getSerialNumber()] = peer;
 			_peersById[peer->getID()] = peer;
 			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
@@ -1037,5 +1093,139 @@ PVariable MyCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t p
     }
     return Variable::createError(-32500, "Unknown application error.");
 }
+
+//{{{ Family RPC methods
+	BaseLib::PVariable MyCentral::updateDevice(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters)
+	{
+		try
+		{
+            if(parameters->empty()) return BaseLib::Variable::createError(-1, "Wrong parameter count.");
+            if(parameters->at(0)->type != BaseLib::VariableType::tStruct) return BaseLib::Variable::createError(-1, "Parameter is not of type Struct.");
+
+            std::lock_guard<std::mutex> searchGuard(_searchMutex);
+
+            std::unordered_set<uint32_t> usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
+            std::unordered_map<std::string, uint32_t> idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
+
+            auto peerInfo = _search->updateDevice(usedTypeNumbers, idTypeNumberMap, parameters->at(0));
+            if(peerInfo.address == -1 || peerInfo.type == -1)
+            {
+                GD::out.printError("Could not create peer. Probably there is an error in the provided data structure. Check previous log messages for more details.");
+                return BaseLib::Variable::createError(-2, "Could not create peer. Probably there is an error in the provided data structure. Check the Homegear log for more details.");
+            }
+
+            GD::out.printInfo("Info: Successfully created peer structure for peer with physical address " + MyPacket::getFormattedPhysicalAddress(peerInfo.address) + " and name " + peerInfo.name + ". Type number is 0x" + BaseLib::HelperFunctions::getHexString(peerInfo.type, 4));
+
+            bool newPeer = true;
+            auto peer = getPeer(peerInfo.address);
+            std::unique_lock<std::mutex> lockGuard(_peersMutex);
+            if(peer)
+            {
+                newPeer = false;
+                if(_peers.find(peer->getAddress()) != _peers.end()) _peers.erase(peer->getAddress());
+                if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
+                if(_peersById.find(peer->getID()) != _peersById.end()) _peersById.erase(peer->getID());
+                auto groupAddresses = peer->getGroupAddresses();
+                lockGuard.unlock();
+
+                for(const uint16_t& address : groupAddresses)
+                {
+                    removePeerFromGroupAddresses(address, peer->getID());
+                }
+
+                int32_t i = 0;
+                while(peer.use_count() > 1 && i < 600)
+                {
+                    if(_currentPeer && _currentPeer->getID() == peer->getID()) _currentPeer.reset();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    i++;
+                }
+                if(i == 600) GD::out.printError("Error: Peer deletion took too long.");
+            }
+            else lockGuard.unlock();
+
+            GD::family->reloadRpcDevices();
+
+            if(!peer)
+            {
+                peer = createPeer((uint32_t)peerInfo.type, peerInfo.address, peerInfo.serialNumber, true);
+                if(!peer)
+                {
+                    GD::out.printError("Error: Could not add device with type " + BaseLib::HelperFunctions::getHexString(peerInfo.type) + ". No matching XML file was found.");
+                    return BaseLib::Variable::createError(-2, "Error: Could not add device with type " + BaseLib::HelperFunctions::getHexString(peerInfo.type) + ". No matching XML file was found.");
+                }
+            }
+            else
+            {
+                peer->setRpcDevice(GD::family->getRpcDevices()->find((uint32_t)peerInfo.type, 0x10, -1));
+                if(!peer->getRpcDevice())
+                {
+                    GD::out.printError("Error: RPC device could not be found anymore.");
+                    return BaseLib::Variable::createError(-2, "Error: RPC device could not be found anymore.");
+                }
+            }
+
+            peer->initializeCentralConfig();
+            peer->initParametersByGroupAddress();
+
+            if(!peerInfo.name.empty()) peer->setName(peerInfo.name);
+            else peer->setName(peer->getFormattedAddress());
+            if(!peerInfo.room.empty())
+            {
+                uint64_t roomId = raiseGetRoomIdByName(peerInfo.room);
+                if(roomId > 0) peer->setRoom(roomId, -1);
+            }
+
+            lockGuard.lock();
+            if(peer->getAddress() != -1) _peers[peer->getAddress()] = peer;
+            _peersBySerial[peer->getSerialNumber()] = peer;
+            _peersById[peer->getID()] = peer;
+            std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
+            for(std::vector<uint16_t>::iterator j = groupAddresses.begin(); j != groupAddresses.end(); ++j)
+            {
+                auto peersIterator = _peersByGroupAddress.find(*j);
+                if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(*j, std::make_shared<std::map<uint64_t, PMyPeer>>());
+                _peersByGroupAddress[*j]->emplace(peer->getID(), peer);
+            }
+            lockGuard.unlock();
+
+            if(newPeer)
+            {
+                GD::out.printInfo("Info: Device with address " + MyPacket::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully added. Peer ID is: " + std::to_string(peer->getID()));
+
+                PVariable deviceDescriptions(new Variable(VariableType::tArray));
+                std::shared_ptr<std::vector<PVariable>> descriptions = peer->getDeviceDescriptions(nullptr, true, std::map<std::string, bool>());
+                if(descriptions)
+                {
+                    for(std::vector<PVariable>::iterator j = descriptions->begin(); j != descriptions->end(); ++j)
+                    {
+                        deviceDescriptions->arrayValue->push_back(*j);
+                    }
+                    std::vector<uint64_t> newIds{peer->getID()};
+                    raiseRPCNewDevices(newIds, deviceDescriptions);
+                }
+            }
+            else
+            {
+                GD::out.printInfo("Info: Peer " + std::to_string(peer->getID()) + " with address " + MyPacket::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully updated.");
+
+                raiseRPCUpdateDevice(peer->getID(), 0, peer->getSerialNumber() + ":" + std::to_string(0), 0);
+            }
+		}
+		catch(const std::exception& ex)
+		{
+			GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+		}
+		catch(BaseLib::Exception& ex)
+		{
+			GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+		}
+		catch(...)
+		{
+			GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+		}
+		return Variable::createError(-32500, "Unknown application error.");
+	}
+//}}}
 
 }

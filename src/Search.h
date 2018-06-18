@@ -26,10 +26,11 @@ public:
 		std::string room;
 	};
 
-	Search(BaseLib::SharedObjects* baseLib);
-	virtual ~Search();
+	explicit Search(BaseLib::SharedObjects* baseLib);
+	virtual ~Search() = default;
 
-	std::vector<PeerInfo> search(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap);
+	std::vector<PeerInfo> search(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap);
+	PeerInfo updateDevice(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap, BaseLib::PVariable deviceInfo);
 protected:
 	struct GroupVariableXmlData
 	{
@@ -82,6 +83,7 @@ protected:
 	std::vector<std::shared_ptr<std::vector<char>>> extractKnxProjectFiles();
 	void assignRoomsToDevices(xml_node<>* currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>>& devices);
 	XmlData extractXmlData(std::vector<std::shared_ptr<std::vector<char>>>& knxProjectFiles);
+    std::shared_ptr<HomegearDevice> createHomegearDevice(const DeviceXmlData& deviceXml, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap);
 	void addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
 };
 
