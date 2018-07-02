@@ -622,8 +622,10 @@ void MyPeer::packetReceived(PMyPacket& packet)
                     _getValueFromDeviceInfo.conditionVariable.notify_one();
                 }
 
-                raiseEvent(_peerID, parameterIterator.channel, valueKeys, values);
-                raiseRPCEvent(_peerID, parameterIterator.channel, _serialNumber + ":" + std::to_string(parameterIterator.channel), valueKeys, values);
+                std::string eventSource = "device-" + std::to_string(_peerID);
+                std::string address(_serialNumber + ":" + std::to_string(parameterIterator.channel));
+                raiseEvent(eventSource, _peerID, parameterIterator.channel, valueKeys, values);
+                raiseRPCEvent(eventSource, _peerID, parameterIterator.channel, address, valueKeys, values);
             }
         }
         else if(packet->getOperation() == MyPacket::Operation::groupValueRead)
@@ -1039,8 +1041,9 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 
 			if(!valueKeys->empty())
 			{
-				raiseEvent(_peerID, channel, valueKeys, values);
-				raiseRPCEvent(_peerID, channel, _serialNumber + ":" + std::to_string(channel), valueKeys, values);
+                std::string address(_serialNumber + ":" + std::to_string(channel));
+                raiseEvent(clientInfo->initInterfaceId, _peerID, channel, valueKeys, values);
+                raiseRPCEvent(clientInfo->initInterfaceId, _peerID, channel, address, valueKeys, values);
 			}
 			return PVariable(new Variable(VariableType::tVoid));
 		}
@@ -1109,8 +1112,9 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 
 		if(!valueKeys->empty())
 		{
-			raiseEvent(_peerID, channel, valueKeys, values);
-			raiseRPCEvent(_peerID, channel, _serialNumber + ":" + std::to_string(channel), valueKeys, values);
+            std::string address(_serialNumber + ":" + std::to_string(channel));
+            raiseEvent(clientInfo->initInterfaceId, _peerID, channel, valueKeys, values);
+            raiseRPCEvent(clientInfo->initInterfaceId, _peerID, channel, address, valueKeys, values);
 		}
 
 		return PVariable(new Variable(VariableType::tVoid));
