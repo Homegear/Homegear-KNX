@@ -78,6 +78,7 @@ void MyCentral::init()
             i->second->setReconnected(std::function<void()>(std::bind(&MyCentral::interfaceReconnected, this)));
         }
 
+        _stopWorkerThread = false;
         GD::bl->threadManager.start(_workerThread, true, _bl->settings.workerThreadPriority(), _bl->settings.workerThreadPolicy(), &MyCentral::worker, this);
     }
     catch(BaseLib::Exception& ex)
