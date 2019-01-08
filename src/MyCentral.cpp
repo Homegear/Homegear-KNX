@@ -952,7 +952,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
                         if(roomId > 0) peersIterator->second->setRoom(roomId, -1);
                     }
                     if(!i->name.empty()) peersIterator->second->setName(i->name);
-                    else peersIterator->second->setName(myPeer->getFormattedAddress());
+                    else if(myPeer->getName().empty()) peersIterator->second->setName(myPeer->getFormattedAddress());
                     continue;
                 }
             }
