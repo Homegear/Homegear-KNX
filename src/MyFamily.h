@@ -1,4 +1,4 @@
-/* Copyright 2013-2017 Homegear UG (haftungsbeschränkt) */
+/* Copyright 2013-2019 Homegear GmbH */
 
 #ifndef MYFAMILY_H_
 #define MYFAMILY_H_
