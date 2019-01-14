@@ -1,4 +1,4 @@
-/* Copyright 2013-2017 Homegear UG (haftungsbeschränkt) */
+/* Copyright 2013-2019 Homegear GmbH */
 
 #ifndef DPTCONVERTER_H_
 #define DPTCONVERTER_H_

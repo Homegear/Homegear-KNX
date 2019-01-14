@@ -1,4 +1,4 @@
-/* Copyright 2013-2017 Homegear UG (haftungsbeschränkt) */
+/* Copyright 2013-2019 Homegear GmbH */
 
 #include "GD.h"
 #include "Interfaces.h"
@@ -8,7 +8,7 @@
 namespace MyFamily
 {
 
-MyFamily::MyFamily(BaseLib::SharedObjects* bl, BaseLib::Systems::DeviceFamily::IFamilyEventSink* eventHandler) : BaseLib::Systems::DeviceFamily(bl, eventHandler, MY_FAMILY_ID, MY_FAMILY_NAME)
+MyFamily::MyFamily(BaseLib::SharedObjects* bl, BaseLib::Systems::IFamilyEventSink* eventHandler) : BaseLib::Systems::DeviceFamily(bl, eventHandler, MY_FAMILY_ID, MY_FAMILY_NAME)
 {
 	GD::bl = bl;
 	GD::family = this;
