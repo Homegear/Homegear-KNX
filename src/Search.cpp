@@ -883,32 +883,56 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 
 												if(variableInfo.index == -1) continue;
 
-												for(xml_node<>* connectorsNode = comInstanceRefNode->first_node("Connectors"); connectorsNode; connectorsNode = connectorsNode->next_sibling("Connectors"))
-												{
-													for(xml_node<>* sendNode = connectorsNode->first_node("Send"); sendNode; sendNode = sendNode->next_sibling("Send"))
-													{
-														attribute = sendNode->first_attribute("GroupAddressRefId");
-														if(!attribute) continue;
-														attributeValue = std::string(attribute->value());
-														if(attributeValue.empty()) continue;
-														deviceByGroupVariable[attributeValue].emplace(device);
-                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
-														device->variableInfo[attributeValue].push_back(variableInfo);
-													}
+                                                attribute = comInstanceRefNode->first_attribute("Links");
+                                                if(attribute) //>= ETS5.7
+                                                {
+                                                    attributeValue = std::string(attribute->value());
+                                                    std::vector<std::string> groupAddresses = BaseLib::HelperFunctions::splitAll(attributeValue, ' ');
+                                                    for(int32_t i = 0; i < groupAddresses.size(); i++)
+                                                    {
+                                                        auto& groupAddress = groupAddresses[i];
+                                                        deviceByGroupVariable[groupAddress].emplace(device);
 
-													for(xml_node<>* receiveNode = connectorsNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
-													{
-														attribute = receiveNode->first_attribute("GroupAddressRefId");
-														if(!attribute) continue;
-														attributeValue = std::string(attribute->value());
-														if(attributeValue.empty()) continue;
-														deviceByGroupVariable[attributeValue].emplace(device);
-														GroupVariableInfo receiveVariableInfo = variableInfo;
-														receiveVariableInfo.writeFlag = false;
+                                                        if(i > 0)
+                                                        {
+                                                            //Only first entry is writeable
+                                                            GroupVariableInfo receiveVariableInfo = variableInfo;
+                                                            receiveVariableInfo.writeFlag = false;
+                                                        }
+
                                                         //Needs to be a list, because the same group variable might be assigned to one device more than once
-														device->variableInfo[attributeValue].push_back(receiveVariableInfo);
-													}
-												}
+                                                        device->variableInfo[groupAddress].push_back(variableInfo);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    for(xml_node<>* connectorsNode = comInstanceRefNode->first_node("Connectors"); connectorsNode; connectorsNode = connectorsNode->next_sibling("Connectors"))
+                                                    {
+                                                        for(xml_node<>* sendNode = connectorsNode->first_node("Send"); sendNode; sendNode = sendNode->next_sibling("Send"))
+                                                        {
+                                                            attribute = sendNode->first_attribute("GroupAddressRefId");
+                                                            if(!attribute) continue;
+                                                            attributeValue = std::string(attribute->value());
+                                                            if(attributeValue.empty()) continue;
+                                                            deviceByGroupVariable[attributeValue].emplace(device);
+                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                            device->variableInfo[attributeValue].push_back(variableInfo);
+                                                        }
+
+                                                        for(xml_node<>* receiveNode = connectorsNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
+                                                        {
+                                                            attribute = receiveNode->first_attribute("GroupAddressRefId");
+                                                            if(!attribute) continue;
+                                                            attributeValue = std::string(attribute->value());
+                                                            if(attributeValue.empty()) continue;
+                                                            deviceByGroupVariable[attributeValue].emplace(device);
+                                                            GroupVariableInfo receiveVariableInfo = variableInfo;
+                                                            receiveVariableInfo.writeFlag = false;
+                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                            device->variableInfo[attributeValue].push_back(receiveVariableInfo);
+                                                        }
+                                                    }
+                                                }
 											}
 										}
 
@@ -968,6 +992,8 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 											if(!attribute) continue;
 											std::string id = std::string(attribute->value());
 											if(id.empty()) continue;
+											std::string shortId = BaseLib::HelperFunctions::splitLast(id, '_').second;
+											if(shortId.empty()) continue;
 
 											attribute = groupAddressNode->first_attribute("Name");
 											if(attribute) element->groupVariableName = std::string(attribute->value());
@@ -1010,11 +1036,13 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 
 											//{{{ Assign group variable to device
 												auto variableIterator = deviceByGroupVariable.find(id);
+												if(variableIterator == deviceByGroupVariable.end()) variableIterator = deviceByGroupVariable.find(shortId);
 												if(variableIterator != deviceByGroupVariable.end())
 												{
 													for(auto& device : variableIterator->second)
 													{
 														auto infoIterator = device->variableInfo.find(id);
+														if(infoIterator == device->variableInfo.end()) infoIterator = device->variableInfo.find(shortId);
 														if(infoIterator != device->variableInfo.end())
 														{
                                                             for(auto& variableInfoElement : infoIterator->second)
