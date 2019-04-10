@@ -42,10 +42,6 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
 	catch(...)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
@@ -150,10 +146,6 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         return device;
     }
     catch(const std::exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(BaseLib::Exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
@@ -361,10 +353,6 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
 	catch(...)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
@@ -430,9 +418,9 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
                 BaseLib::Rpc::JsonDecoder jsonDecoder(_bl);
                 deviceXml.description = jsonDecoder.decode(jsonString);
             }
-            catch(const Exception& ex)
+            catch(const std::exception& ex)
             {
-                _bl->out.printError("Error decoding JSON in KNX device information: " + ex.what());
+                _bl->out.printError("Error decoding JSON in KNX device information: " + std::string(ex.what()));
                 return PeerInfo();
             }
         }
@@ -518,10 +506,6 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
     catch(...)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
@@ -564,10 +548,6 @@ void Search::createDirectories()
 		}
 	}
 	catch(const std::exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(BaseLib::Exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
@@ -690,10 +670,6 @@ std::vector<std::shared_ptr<std::vector<char>>> Search::extractKnxProjectFiles()
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
 	catch(...)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
@@ -738,10 +714,6 @@ void Search::assignRoomsToDevices(xml_node<>* currentNode, std::string currentRo
 		}
 	}
 	catch(const std::exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(BaseLib::Exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
@@ -835,7 +807,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 												BaseLib::PVariable json = jsonDecoder.decode(jsonString);
 												device->description = json;
 											}
-											catch(const Exception& ex)
+											catch(const std::exception& ex)
 											{
 												_bl->out.printError("Error decoding JSON of device \"" + device->name + "\" with ID \"" + device->id + "\": " + ex.what());
 												continue;
@@ -888,9 +860,10 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                 {
                                                     attributeValue = std::string(attribute->value());
                                                     std::vector<std::string> groupAddresses = BaseLib::HelperFunctions::splitAll(attributeValue, ' ');
-                                                    for(int32_t i = 0; i < groupAddresses.size(); i++)
+                                                    for(int32_t i = 0; i < (signed)groupAddresses.size(); i++)
                                                     {
                                                         auto& groupAddress = groupAddresses[i];
+                                                        if(groupAddress.empty()) continue;
                                                         deviceByGroupVariable[groupAddress].emplace(device);
 
                                                         if(i > 0)
@@ -898,10 +871,13 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                             //Only first entry is writeable
                                                             GroupVariableInfo receiveVariableInfo = variableInfo;
                                                             receiveVariableInfo.writeFlag = false;
+                                                            device->variableInfo[groupAddress].push_back(receiveVariableInfo);
                                                         }
-
-                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
-                                                        device->variableInfo[groupAddress].push_back(variableInfo);
+                                                        else
+                                                        {
+                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                            device->variableInfo[groupAddress].push_back(variableInfo);
+                                                        }
                                                     }
                                                 }
                                                 else
@@ -1025,7 +1001,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 													BaseLib::PVariable json = jsonDecoder.decode(jsonString);
 													element->description = json;
 												}
-												catch(const Exception& ex)
+												catch(const std::exception& ex)
 												{
 													_bl->out.printError("Error decoding JSON of group variable \"" + element->groupVariableName + "\": " + ex.what());
 													continue;
@@ -1095,10 +1071,6 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 		{
 			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 		}
-		catch(const Exception& ex)
-		{
-			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-		}
 		catch(...)
 		{
 			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
@@ -1132,10 +1104,6 @@ PParameter Search::createParameter(PFunction& function, std::string name, std::s
 		return parameter;
 	}
 	catch(const std::exception& ex)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(const Exception& ex)
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
@@ -3819,10 +3787,6 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 		}
 	}
 	catch(const std::exception& ex)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(const Exception& ex)
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}

@@ -494,14 +494,14 @@ void MainInterface::listen()
 			catch(const BaseLib::SocketClosedException& ex)
 			{
 				_stopped = true;
-				_out.printWarning("Warning: " + ex.what());
+				_out.printWarning("Warning: " + std::string(ex.what()));
 				std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 				continue;
 			}
 			catch(const BaseLib::SocketOperationException& ex)
 			{
 				_stopped = true;
-				_out.printError("Error: " + ex.what());
+				_out.printError("Error: " + std::string(ex.what()));
 				std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 				continue;
 			}
@@ -609,7 +609,7 @@ void MainInterface::getSystemResponse(uint16_t serviceType, const std::vector<ch
 		}
 		catch(BaseLib::SocketOperationException ex)
 		{
-			_out.printError("Error sending packet to gateway: " + ex.what());
+			_out.printError("Error sending packet to gateway: " + std::string(ex.what()));
 			return;
 		}
 
