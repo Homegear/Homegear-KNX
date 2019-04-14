@@ -75,12 +75,7 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
 		}
 		if(!isOpen() || _stopped)
 		{
-			_out.printWarning(std::string("Warning: !!!Not!!! sending packet, because device is not connected or opened: ") + packet->hexString());
-			return;
-		}
-		if(packet->payload()->size() > 50)
-		{
-			if(_bl->debugLevel >= 2) _out.printError("Error: Tried to send packet larger than 50 bytes. That is not supported.");
+			_out.printWarning(std::string("Warning: !!!Not!!! sending packet, because device is not connected or opened."));
 			return;
 		}
 		std::lock_guard<std::mutex> sendPacketGuard(_sendPacketMutex);
@@ -96,6 +91,11 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
 
 		PMyPacket myPacket = std::dynamic_pointer_cast<MyPacket>(packet);
 		std::vector<char> data = myPacket->getBinary(_channelId, _sequenceCounter++);
+        if(data.size() > 200)
+        {
+            if(_bl->debugLevel >= 2) _out.printError("Error: Tried to send packet larger than 200 bytes. That is not supported.");
+            return;
+        }
 		std::vector<char> response;
 		getSystemResponse(0x0421, data, response);
 		if(response.size() < 10)
