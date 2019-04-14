@@ -3,6 +3,8 @@
 #include "MyCentral.h"
 #include "GD.h"
 
+#include <iomanip>
+
 namespace MyFamily
 {
 

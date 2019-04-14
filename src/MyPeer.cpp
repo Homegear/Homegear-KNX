@@ -6,6 +6,8 @@
 #include "MyPacket.h"
 #include "MyCentral.h"
 
+#include <iomanip>
+
 namespace MyFamily
 {
 std::shared_ptr<BaseLib::Systems::ICentral> MyPeer::getCentral()
