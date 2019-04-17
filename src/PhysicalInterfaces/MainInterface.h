@@ -48,7 +48,7 @@ protected:
 	std::string _listenIp;
 	char _listenIpBytes[4];
 	char _listenPortBytes[2];
-	std::atomic_int32_t _knxAddress;
+	std::atomic_int _knxAddress;
 	std::atomic_char _channelId;
 	std::unique_ptr<BaseLib::UdpSocket> _socket;
 

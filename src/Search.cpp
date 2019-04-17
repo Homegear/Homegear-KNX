@@ -840,7 +840,6 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                 attribute = comInstanceRefNode->first_attribute("Links");
                                                 if(attribute) //>= ETS5.7
                                                 {
-                                                    GD::bl->out.printError("Moin ETS5.7");
                                                     attributeValue = std::string(attribute->value());
                                                     std::vector<std::string> groupAddresses = BaseLib::HelperFunctions::splitAll(attributeValue, ' ');
                                                     for(int32_t i = 0; i < (signed)groupAddresses.size(); i++)
