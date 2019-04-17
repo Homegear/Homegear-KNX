@@ -6,9 +6,6 @@
 #include "../config.h"
 #include <homegear-base/BaseLib.h>
 
-#include <sys/stat.h>
-#include <zip.h>
-
 using namespace BaseLib;
 using namespace BaseLib::DeviceDescription;
 

@@ -54,14 +54,6 @@ MainInterface::~MainInterface()
     {
     	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-    	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-    	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
 void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
@@ -130,14 +122,6 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
     {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
 void MainInterface::startListening()
@@ -167,14 +151,6 @@ void MainInterface::startListening()
     {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
 void MainInterface::reconnect()
@@ -197,14 +173,6 @@ void MainInterface::reconnect()
     catch(const std::exception& ex)
     {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(BaseLib::Exception& ex)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
 }
 
@@ -239,10 +207,10 @@ void MainInterface::init()
 				_stopped = true;
 				return;
 			}
-			_knxAddress = (((uint16_t)(uint8_t)response.at(18)) << 8) + (uint8_t)response.at(19);
+			_knxAddress = (((int32_t)(uint8_t)response.at(18)) << 8) | (uint8_t)response.at(19);
 			_myAddress = _knxAddress;
 			_channelId = response.at(6);
-			_out.printInfo("Info: Connected. Gateway's KNX address is: " + std::to_string(_knxAddress >> 12) + '.' + std::to_string((_knxAddress >> 8) & 0xf) + '.' + std::to_string(_knxAddress & 0xFF));
+			_out.printInfo("Info: Connected. Gateway's KNX address is: " + MyPacket::getFormattedPhysicalAddress(_knxAddress));
 		// }}}
 
 		_lastConnectionState = BaseLib::HelperFunctions::getTime();
@@ -255,14 +223,6 @@ void MainInterface::init()
     catch(const std::exception& ex)
     {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(BaseLib::Exception& ex)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
 }
 
@@ -291,14 +251,6 @@ void MainInterface::stopListening()
 	catch(const std::exception& ex)
     {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(BaseLib::Exception& ex)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
 }
 
@@ -344,14 +296,6 @@ void MainInterface::setListenAddress()
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 }
 
 bool MainInterface::getConnectionState()
@@ -383,14 +327,6 @@ bool MainInterface::getConnectionState()
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 	_stopped = true;
 	return false;
 }
@@ -407,14 +343,6 @@ void MainInterface::sendAck(char sequenceCounter, char error)
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 }
 
 void MainInterface::sendDisconnectResponse(char sequenceCounter, char error)
@@ -428,14 +356,6 @@ void MainInterface::sendDisconnectResponse(char sequenceCounter, char error)
 	catch(const std::exception& ex)
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(BaseLib::Exception& ex)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 
@@ -518,14 +438,6 @@ void MainInterface::listen()
     {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
 void MainInterface::processPacket(std::vector<char>& data)
@@ -578,14 +490,6 @@ void MainInterface::processPacket(std::vector<char>& data)
     {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
 void MainInterface::getSystemResponse(uint16_t serviceType, const std::vector<char>& requestPacket, std::vector<char>& responsePacket)
@@ -627,16 +531,6 @@ void MainInterface::getSystemResponse(uint16_t serviceType, const std::vector<ch
 	catch(const std::exception& ex)
     {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-        _requestsMutex.unlock();
-    }
-    catch(BaseLib::Exception& ex)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-        _requestsMutex.unlock();
-    }
-    catch(...)
-    {
-        _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
         _requestsMutex.unlock();
     }
 }

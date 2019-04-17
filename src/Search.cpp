@@ -5,6 +5,9 @@
 
 #include <iomanip>
 
+#include <sys/stat.h>
+#include <zip.h>
+
 namespace MyFamily
 {
 
@@ -43,10 +46,6 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::
 	catch(const std::exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 
@@ -150,10 +149,6 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
     catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
     return PHomegearDevice();
 }
@@ -355,10 +350,6 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 	return peerInfo;
 }
 
@@ -508,10 +499,6 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return PeerInfo();
 }
 
@@ -552,10 +539,6 @@ void Search::createDirectories()
 	catch(const std::exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 
@@ -672,10 +655,6 @@ std::vector<std::shared_ptr<std::vector<char>>> Search::extractKnxProjectFiles()
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 	return contents;
 }
 
@@ -718,10 +697,6 @@ void Search::assignRoomsToDevices(xml_node<>* currentNode, std::string currentRo
 	catch(const std::exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 
@@ -853,6 +828,11 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 														auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(2), '-');
 														variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
 													}
+                                                    else if(parts.size() == 2) //>= ETS5.7
+                                                    {
+                                                        auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(0), '-');
+                                                        variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
+                                                    }
 												}
 
 												if(variableInfo.index == -1) continue;
@@ -860,6 +840,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                 attribute = comInstanceRefNode->first_attribute("Links");
                                                 if(attribute) //>= ETS5.7
                                                 {
+                                                    GD::bl->out.printError("Moin ETS5.7");
                                                     attributeValue = std::string(attribute->value());
                                                     std::vector<std::string> groupAddresses = BaseLib::HelperFunctions::splitAll(attributeValue, ' ');
                                                     for(int32_t i = 0; i < (signed)groupAddresses.size(); i++)
@@ -1073,10 +1054,6 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 		{
 			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 		}
-		catch(...)
-		{
-			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-		}
 		doc.clear();
 	}
 	return xmlData;
@@ -1108,10 +1085,6 @@ PParameter Search::createParameter(PFunction& function, std::string name, std::s
 	catch(const std::exception& ex)
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 	return PParameter();
 }
@@ -3791,10 +3764,6 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 	catch(const std::exception& ex)
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 

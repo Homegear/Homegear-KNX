@@ -48,7 +48,7 @@ protected:
 	std::string _listenIp;
 	char _listenIpBytes[4];
 	char _listenPortBytes[2];
-	std::atomic_char _knxAddress;
+	std::atomic_int32_t _knxAddress;
 	std::atomic_char _channelId;
 	std::unique_ptr<BaseLib::UdpSocket> _socket;
 
@@ -58,7 +58,7 @@ protected:
 	std::mutex _requestsMutex;
 	std::map<uint32_t, std::shared_ptr<Request>> _requests;
 
-	std::atomic_char _sequenceCounter;
+	std::atomic_uchar _sequenceCounter;
 	int64_t _lastConnectionState = 0;
 	std::thread _keepAliveThread;
 	std::thread _initThread;
