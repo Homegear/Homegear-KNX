@@ -2,13 +2,13 @@
 
 #include "GD.h"
 #include "Interfaces.h"
-#include "MyFamily.h"
-#include "MyCentral.h"
+#include "Knx.h"
+#include "KnxCentral.h"
 
-namespace MyFamily
+namespace Knx
 {
 
-MyFamily::MyFamily(BaseLib::SharedObjects* bl, BaseLib::Systems::IFamilyEventSink* eventHandler) : BaseLib::Systems::DeviceFamily(bl, eventHandler, MY_FAMILY_ID, MY_FAMILY_NAME)
+Knx::Knx(BaseLib::SharedObjects* bl, BaseLib::Systems::IFamilyEventSink* eventHandler) : BaseLib::Systems::DeviceFamily(bl, eventHandler, MY_FAMILY_ID, MY_FAMILY_NAME)
 {
 	GD::bl = bl;
 	GD::family = this;
@@ -18,12 +18,12 @@ MyFamily::MyFamily(BaseLib::SharedObjects* bl, BaseLib::Systems::IFamilyEventSin
 	_physicalInterfaces.reset(new Interfaces(bl, _settings->getPhysicalInterfaceSettings()));
 }
 
-MyFamily::~MyFamily()
+Knx::~Knx()
 {
 
 }
 
-bool MyFamily::init()
+bool Knx::init()
 {
 	_bl->out.printInfo("Loading XML RPC devices...");
 	std::string xmlPath = _bl->settings.familyDataPath() + std::to_string(GD::family->getFamily()) + "/desc/";
@@ -33,7 +33,7 @@ bool MyFamily::init()
 	return true;
 }
 
-void MyFamily::dispose()
+void Knx::dispose()
 {
 	if(_disposed) return;
 	DeviceFamily::dispose();
@@ -41,18 +41,18 @@ void MyFamily::dispose()
 	_central.reset();
 }
 
-void MyFamily::reloadRpcDevices()
+void Knx::reloadRpcDevices()
 {
 	_bl->out.printInfo("Reloading XML RPC devices...");
 	std::string xmlPath = _bl->settings.familyDataPath() + std::to_string(GD::family->getFamily()) + "/desc/";
 	if(BaseLib::Io::directoryExists(xmlPath)) _rpcDevices->load(xmlPath);
 }
 
-void MyFamily::createCentral()
+void Knx::createCentral()
 {
 	try
 	{
-		_central.reset(new MyCentral(0, "VBF0000001", this));
+		_central.reset(new KnxCentral(0, "VBF0000001", this));
 		GD::out.printMessage("Created central with id " + std::to_string(_central->getId()) + ".");
 	}
 	catch(const std::exception& ex)
@@ -61,12 +61,12 @@ void MyFamily::createCentral()
     }
 }
 
-std::shared_ptr<BaseLib::Systems::ICentral> MyFamily::initializeCentral(uint32_t deviceId, int32_t address, std::string serialNumber)
+std::shared_ptr<BaseLib::Systems::ICentral> Knx::initializeCentral(uint32_t deviceId, int32_t address, std::string serialNumber)
 {
-	return std::shared_ptr<MyCentral>(new MyCentral(deviceId, serialNumber, this));
+	return std::shared_ptr<KnxCentral>(new KnxCentral(deviceId, serialNumber, this));
 }
 
-PVariable MyFamily::getPairingInfo()
+PVariable Knx::getPairingInfo()
 {
 	try
 	{

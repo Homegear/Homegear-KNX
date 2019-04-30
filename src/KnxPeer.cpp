@@ -1,16 +1,18 @@
+#include <memory>
+
 /* Copyright 2013-2019 Homegear GmbH */
 
-#include "MyPeer.h"
+#include "KnxPeer.h"
 
 #include "GD.h"
-#include "MyPacket.h"
-#include "MyCentral.h"
+#include "Cemi.h"
+#include "KnxCentral.h"
 
 #include <iomanip>
 
-namespace MyFamily
+namespace Knx
 {
-std::shared_ptr<BaseLib::Systems::ICentral> MyPeer::getCentral()
+std::shared_ptr<BaseLib::Systems::ICentral> KnxPeer::getCentral()
 {
 	try
 	{
@@ -25,17 +27,17 @@ std::shared_ptr<BaseLib::Systems::ICentral> MyPeer::getCentral()
 	return std::shared_ptr<BaseLib::Systems::ICentral>();
 }
 
-MyPeer::MyPeer(uint32_t parentID, IPeerEventSink* eventHandler) : BaseLib::Systems::Peer(GD::bl, parentID, eventHandler)
+KnxPeer::KnxPeer(uint32_t parentID, IPeerEventSink* eventHandler) : BaseLib::Systems::Peer(GD::bl, parentID, eventHandler)
 {
 	init();
 }
 
-MyPeer::MyPeer(int32_t id, int32_t address, std::string serialNumber, uint32_t parentID, IPeerEventSink* eventHandler) : BaseLib::Systems::Peer(GD::bl, id, address, serialNumber, parentID, eventHandler)
+KnxPeer::KnxPeer(int32_t id, int32_t address, std::string serialNumber, uint32_t parentID, IPeerEventSink* eventHandler) : BaseLib::Systems::Peer(GD::bl, id, address, serialNumber, parentID, eventHandler)
 {
 	init();
 }
 
-MyPeer::~MyPeer()
+KnxPeer::~KnxPeer()
 {
 	try
 	{
@@ -47,7 +49,7 @@ MyPeer::~MyPeer()
 	}
 }
 
-void MyPeer::init()
+void KnxPeer::init()
 {
 	try
 	{
@@ -61,13 +63,13 @@ void MyPeer::init()
 	}
 }
 
-void MyPeer::dispose()
+void KnxPeer::dispose()
 {
 	if(_disposing) return;
 	Peer::dispose();
 }
 
-void MyPeer::worker()
+void KnxPeer::worker()
 {
     try
     {
@@ -104,7 +106,7 @@ void MyPeer::worker()
     }
 }
 
-void MyPeer::homegearStarted()
+void KnxPeer::homegearStarted()
 {
 	try
 	{
@@ -116,7 +118,7 @@ void MyPeer::homegearStarted()
 	}
 }
 
-void MyPeer::homegearShuttingDown()
+void KnxPeer::homegearShuttingDown()
 {
 	try
 	{
@@ -129,13 +131,13 @@ void MyPeer::homegearShuttingDown()
 	}
 }
 
-std::string MyPeer::getFormattedAddress()
+std::string KnxPeer::getFormattedAddress()
 {
     if(_address < 0) return "";
     return std::to_string(_address >> 12) + '.' + std::to_string((_address >> 8) & 0x0F) + '.' + std::to_string(_address & 0xFF);
 }
 
-std::string MyPeer::handleCliCommand(std::string command)
+std::string KnxPeer::handleCliCommand(std::string command)
 {
 	try
 	{
@@ -216,7 +218,7 @@ std::string MyPeer::handleCliCommand(std::string command)
     return "Error executing command. See log file for more details.\n";
 }
 
-std::string MyPeer::printConfig()
+std::string KnxPeer::printConfig()
 {
 	try
 	{
@@ -253,7 +255,7 @@ std::string MyPeer::printConfig()
                 ParameterCast::PGeneric parameterCast;
                 if(!j->second.rpcParameter->casts.empty()) parameterCast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second.rpcParameter->casts.at(0));
 
-				stringStream << "\t\t[" << j->first << (i->first == 0 || !j->second.rpcParameter ? "" : ", " + MyPacket::getFormattedGroupAddress(j->second.rpcParameter->physical->address)) + (parameterCast ? ", " + parameterCast->type : "") + "]: ";
+				stringStream << "\t\t[" << j->first << (i->first == 0 || !j->second.rpcParameter ? "" : ", " + Cemi::getFormattedGroupAddress(j->second.rpcParameter->physical->address)) + (parameterCast ? ", " + parameterCast->type : "") + "]: ";
 				if(!j->second.rpcParameter)
 				{
 					stringStream << "(No RPC parameter)";
@@ -307,7 +309,7 @@ std::string MyPeer::printConfig()
     return "";
 }
 
-std::vector<uint16_t> MyPeer::getGroupAddresses()
+std::vector<uint16_t> KnxPeer::getGroupAddresses()
 {
 	std::vector<uint16_t> addresses;
 	try
@@ -332,7 +334,7 @@ std::vector<uint16_t> MyPeer::getGroupAddresses()
     return addresses;
 }
 
-void MyPeer::loadVariables(BaseLib::Systems::ICentral* central, std::shared_ptr<BaseLib::Database::DataTable>& rows)
+void KnxPeer::loadVariables(BaseLib::Systems::ICentral* central, std::shared_ptr<BaseLib::Database::DataTable>& rows)
 {
 	try
 	{
@@ -348,7 +350,7 @@ void MyPeer::loadVariables(BaseLib::Systems::ICentral* central, std::shared_ptr<
     }
 }
 
-bool MyPeer::load(BaseLib::Systems::ICentral* central)
+bool KnxPeer::load(BaseLib::Systems::ICentral* central)
 {
 	try
 	{
@@ -381,7 +383,7 @@ bool MyPeer::load(BaseLib::Systems::ICentral* central)
     return false;
 }
 
-void MyPeer::initParametersByGroupAddress()
+void KnxPeer::initParametersByGroupAddress()
 {
 	try
 	{
@@ -434,7 +436,7 @@ void MyPeer::initParametersByGroupAddress()
     }
 }
 
-void MyPeer::packetReceived(PMyPacket& packet)
+void KnxPeer::packetReceived(PCemi& packet)
 {
 	try
 	{
@@ -444,7 +446,7 @@ void MyPeer::packetReceived(PMyPacket& packet)
 		auto parametersIterator = _parametersByGroupAddress.find(packet->getDestinationAddress());
 		if(parametersIterator == _parametersByGroupAddress.end()) return;
 
-        if(packet->getOperation() == MyPacket::Operation::groupValueWrite)
+        if(packet->getOperation() == Cemi::Operation::groupValueWrite)
         {
             for(auto& parameterIterator : parametersIterator->second)
             {
@@ -534,7 +536,7 @@ void MyPeer::packetReceived(PMyPacket& packet)
                 raiseRPCEvent(eventSource, _peerID, parameterIterator.channel, address, valueKeys, values);
             }
         }
-        else if(packet->getOperation() == MyPacket::Operation::groupValueRead)
+        else if(packet->getOperation() == Cemi::Operation::groupValueRead)
         {
             if(parametersIterator->second.empty()) return;
             int32_t channel = parametersIterator->second.front().channel;
@@ -557,7 +559,7 @@ void MyPeer::packetReceived(PMyPacket& packet)
 
             if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + parameterId + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was requested. Current value is 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
-            auto responsePacket = std::make_shared<MyPacket>(MyPacket::Operation::groupValueResponse, 0, parameter.rpcParameter->physical->address, fitsInFirstByte, parameterData);
+            auto responsePacket = std::make_shared<Cemi>(Cemi::Operation::groupValueResponse, 0, parameter.rpcParameter->physical->address, fitsInFirstByte, parameterData);
             for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
             {
                 i->second->sendPacket(responsePacket);
@@ -570,7 +572,7 @@ void MyPeer::packetReceived(PMyPacket& packet)
 	}
 }
 
-PVariable MyPeer::getValueFromDevice(PParameter& parameter, int32_t channel, bool asynchronous)
+PVariable KnxPeer::getValueFromDevice(PParameter& parameter, int32_t channel, bool asynchronous)
 {
 	try
 	{
@@ -592,7 +594,7 @@ PVariable MyPeer::getValueFromDevice(PParameter& parameter, int32_t channel, boo
 		std::unique_lock<std::mutex> lock(_getValueFromDeviceInfo.mutex);
 		_getValueFromDeviceInfo.mutexReady = false;
 
-		PMyPacket packet(new MyPacket(MyPacket::Operation::groupValueRead, 0, valuesIterator->second.rpcParameter->physical->address));
+		auto packet = std::make_shared<Cemi>(Cemi::Operation::groupValueRead, 0, valuesIterator->second.rpcParameter->physical->address);
 		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
 		{
 			i->second->sendPacket(packet);
@@ -600,7 +602,7 @@ PVariable MyPeer::getValueFromDevice(PParameter& parameter, int32_t channel, boo
 
 		if(!_getValueFromDeviceInfo.conditionVariable.wait_for(lock, std::chrono::milliseconds(2000), [&] { return _getValueFromDeviceInfo.mutexReady; }))
 		{
-			return PVariable(new Variable(VariableType::tVoid));
+			return std::make_shared<Variable>(VariableType::tVoid);
 		}
 
 		return _getValueFromDeviceInfo.value;
@@ -612,7 +614,7 @@ PVariable MyPeer::getValueFromDevice(PParameter& parameter, int32_t channel, boo
 	return Variable::createError(-32500, "Unknown application error.");
 }
 
-PParameterGroup MyPeer::getParameterSet(int32_t channel, ParameterGroup::Type::Enum type)
+PParameterGroup KnxPeer::getParameterSet(int32_t channel, ParameterGroup::Type::Enum type)
 {
 	try
 	{
@@ -628,7 +630,7 @@ PParameterGroup MyPeer::getParameterSet(int32_t channel, ParameterGroup::Type::E
 	return PParameterGroup();
 }
 
-bool MyPeer::getAllValuesHook2(PRpcClientInfo clientInfo, PParameter parameter, uint32_t channel, PVariable parameters)
+bool KnxPeer::getAllValuesHook2(PRpcClientInfo clientInfo, PParameter parameter, uint32_t channel, PVariable parameters)
 {
 	try
 	{
@@ -649,7 +651,7 @@ bool MyPeer::getAllValuesHook2(PRpcClientInfo clientInfo, PParameter parameter, 
     return false;
 }
 
-bool MyPeer::getParamsetHook2(PRpcClientInfo clientInfo, PParameter parameter, uint32_t channel, PVariable parameters)
+bool KnxPeer::getParamsetHook2(PRpcClientInfo clientInfo, PParameter parameter, uint32_t channel, PVariable parameters)
 {
 	try
 	{
@@ -670,7 +672,7 @@ bool MyPeer::getParamsetHook2(PRpcClientInfo clientInfo, PParameter parameter, u
     return false;
 }
 
-bool MyPeer::convertFromPacketHook(PParameter parameter, std::vector<uint8_t>& data, PVariable& result)
+bool KnxPeer::convertFromPacketHook(PParameter parameter, std::vector<uint8_t>& data, PVariable& result)
 {
 	try
 	{
@@ -687,7 +689,7 @@ bool MyPeer::convertFromPacketHook(PParameter parameter, std::vector<uint8_t>& d
     return true;
 }
 
-bool MyPeer::convertToPacketHook(PParameter parameter, PVariable data, std::vector<uint8_t>& result)
+bool KnxPeer::convertToPacketHook(PParameter parameter, PVariable data, std::vector<uint8_t>& result)
 {
 	try
 	{
@@ -704,7 +706,7 @@ bool MyPeer::convertToPacketHook(PParameter parameter, PVariable data, std::vect
     return true;
 }
 
-PVariable MyPeer::putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t channel, ParameterGroup::Type::Enum type, uint64_t remoteID, int32_t remoteChannel, PVariable variables, bool checkAcls, bool onlyPushing)
+PVariable KnxPeer::putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t channel, ParameterGroup::Type::Enum type, uint64_t remoteID, int32_t remoteChannel, PVariable variables, bool checkAcls, bool onlyPushing)
 {
 	try
 	{
@@ -749,17 +751,17 @@ PVariable MyPeer::putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t channe
     return Variable::createError(-32500, "Unknown application error.");
 }
 
-PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel, std::string valueKey, PVariable value, bool wait)
+PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel, std::string valueKey, PVariable value, bool wait)
 {
 	try
 	{
 		Peer::setValue(clientInfo, channel, valueKey, value, wait); //Ignore result, otherwise setHomegerValue might not be executed
 		if(_disposing) return Variable::createError(-32500, "Peer is disposing.");
 		if(valueKey.empty()) return Variable::createError(-5, "Value key is empty.");
-		if(channel == 0 && serviceMessages->set(valueKey, value->booleanValue)) return PVariable(new Variable(VariableType::tVoid));
-		std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>>::iterator channelIterator = valuesCentral.find(channel);
+		if(channel == 0 && serviceMessages->set(valueKey, value->booleanValue)) return std::make_shared<Variable>(VariableType::tVoid);
+		auto channelIterator = valuesCentral.find(channel);
 		if(channelIterator == valuesCentral.end()) return Variable::createError(-2, "Unknown channel.");
-		std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator parameterIterator = channelIterator->second.find(valueKey);
+		auto parameterIterator = channelIterator->second.find(valueKey);
 		if(parameterIterator == channelIterator->second.end()) return Variable::createError(-5, "Unknown parameter.");
 		PParameter rpcParameter = parameterIterator->second.rpcParameter;
 		if(!rpcParameter) return Variable::createError(-5, "Unknown parameter.");
@@ -782,7 +784,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			else if(rpcParameter->logical->type == ILogical::Type::tInteger)
 			{
                 if(value->type == BaseLib::VariableType::tInteger64) value->integerValue = value->integerValue64;
-                else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue = (int32_t)value->floatValue;
                 else if(value->type == BaseLib::VariableType::tBoolean)  value->integerValue = value->booleanValue;
 
 				PLogicalInteger logical = std::dynamic_pointer_cast<LogicalInteger>(rpcParameter->logical);
@@ -795,7 +797,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			else if(rpcParameter->logical->type == ILogical::Type::tInteger64)
 			{
                 if(value->type == BaseLib::VariableType::tInteger && value->integerValue64 == 0) value->integerValue64 = value->integerValue;
-                else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue64 = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tFloat)  value->integerValue64 = (int64_t)value->floatValue;
                 else if(value->type == BaseLib::VariableType::tBoolean)  value->integerValue64 = value->booleanValue;
 
 				PLogicalInteger64 logical = std::dynamic_pointer_cast<LogicalInteger64>(rpcParameter->logical);
@@ -823,7 +825,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
                 int32_t enumValue = 0;
                 if(value->type == BaseLib::VariableType::tInteger) enumValue = value->integerValue;
                 else if(value->type == BaseLib::VariableType::tInteger64)  enumValue = value->integerValue64;
-                else if(value->type == BaseLib::VariableType::tFloat)  enumValue = value->floatValue;
+                else if(value->type == BaseLib::VariableType::tFloat)  enumValue = (int32_t)value->floatValue;
                 else if(value->type == BaseLib::VariableType::tBoolean)  enumValue = value->booleanValue;
 
 				PLogicalEnumeration logical = std::dynamic_pointer_cast<LogicalEnumeration>(rpcParameter->logical);
@@ -858,7 +860,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			{
 				std::string baseName = valueKey.substr(0, pos);
 				std::string rawParameterName = baseName + ".RAW";
-				std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator rawParameterIterator = channelIterator->second.find(rawParameterName);
+				auto rawParameterIterator = channelIterator->second.find(rawParameterName);
 				if(rawParameterIterator == channelIterator->second.end()) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
 				PParameter rawRpcParameter = rawParameterIterator->second.rpcParameter;
 				if(!rawRpcParameter) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
@@ -887,7 +889,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
                 raiseEvent(clientInfo->initInterfaceId, _peerID, channel, valueKeys, values);
                 raiseRPCEvent(clientInfo->initInterfaceId, _peerID, channel, address, valueKeys, values);
 			}
-			return PVariable(new Variable(VariableType::tVoid));
+			return std::make_shared<Variable>(VariableType::tVoid);
 		}
 		else if(rpcParameter->physical->operationType != IPhysical::OperationType::Enum::command) return Variable::createError(-6, "Parameter is not settable.");
         if(rpcParameter->setPackets.empty() && !rpcParameter->writeable) return Variable::createError(-6, "parameter is read only");
@@ -899,14 +901,14 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 		if(valueKey.size() > 4 && valueKey.compare(valueKey.size() - 4, 4, ".RAW") == 0)
 		{
 			std::string baseName = valueKey.substr(0, valueKey.size() - 4);
-			std::map<int32_t, std::map<std::string, GroupedParametersInfo>>::iterator groupedParametersChannelIterator = _groupedParameters.find(channel);
+			auto groupedParametersChannelIterator = _groupedParameters.find(channel);
 			if(groupedParametersChannelIterator == _groupedParameters.end()) return Variable::createError(-8, "No grouped parameters found.");
-			std::map<std::string, GroupedParametersInfo>::iterator groupedParametersIterator = groupedParametersChannelIterator->second.find(baseName);
+			auto groupedParametersIterator = groupedParametersChannelIterator->second.find(baseName);
 			if(groupedParametersIterator == groupedParametersChannelIterator->second.end()) return Variable::createError(-8, "No grouped parameters found.");
 
 			for(std::vector<PParameter>::iterator i = groupedParametersIterator->second.parameters.begin(); i != groupedParametersIterator->second.parameters.end(); ++i)
 			{
-				std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator groupedParameterIterator = channelIterator->second.find((*i)->id);
+				auto groupedParameterIterator = channelIterator->second.find((*i)->id);
 				if(groupedParameterIterator == channelIterator->second.end()) continue;
 				PParameter groupedRpcParameter = groupedParameterIterator->second.rpcParameter;
 				if(!groupedRpcParameter) continue;
@@ -928,12 +930,12 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			}
 		}
 
-		PMyPacket packet;
+		PCemi cemi;
 		if(valueKey.size() > 7 && valueKey.compare(valueKey.size() - 7, 7, ".SUBMIT") == 0 && rpcParameter->logical->type == ILogical::Type::tAction)
 		{
 			std::string baseName = valueKey.substr(0, valueKey.size() - 7);
 			std::string rawParameterName = baseName + ".RAW";
-			std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator rawParameterIterator = channelIterator->second.find(rawParameterName);
+			auto rawParameterIterator = channelIterator->second.find(rawParameterName);
 			if(rawParameterIterator == channelIterator->second.end()) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
 			PParameter rawRpcParameter = rawParameterIterator->second.rpcParameter;
 			if(!rawRpcParameter) return Variable::createError(-9, "Parameter " + rawParameterName + " not found.");
@@ -943,13 +945,13 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
 			if(!rawCast) return Variable::createError(-10, rawParameterName + " hast no cast of type generic defined.");
 
 			std::vector<uint8_t> rawParameterData = rawParameter.getBinaryData();
-			packet.reset(new MyPacket(MyPacket::Operation::groupValueWrite, 0, rpcParameter->physical->address, _dptConverter->fitsInFirstByte(rawCast->type), rawParameterData));
+            cemi = std::make_shared<Cemi>(Cemi::Operation::groupValueWrite, 0, rpcParameter->physical->address, _dptConverter->fitsInFirstByte(rawCast->type), rawParameterData);
 		}
-		else packet.reset(new MyPacket(MyPacket::Operation::groupValueWrite, 0, rpcParameter->physical->address, fitsInFirstByte, parameterData));
+		else cemi = std::make_shared<Cemi>(Cemi::Operation::groupValueWrite, 0, rpcParameter->physical->address, fitsInFirstByte, parameterData);
 
-		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
+		for(auto& interface : GD::physicalInterfaces)
 		{
-			i->second->sendPacket(packet);
+			interface.second->sendPacket(cemi);
 		}
 
 		if(!valueKeys->empty())
@@ -959,7 +961,7 @@ PVariable MyPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel,
             raiseRPCEvent(clientInfo->initInterfaceId, _peerID, channel, address, valueKeys, values);
 		}
 
-		return PVariable(new Variable(VariableType::tVoid));
+		return std::make_shared<Variable>(VariableType::tVoid);
 	}
 	catch(const std::exception& ex)
     {

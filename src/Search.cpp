@@ -2,13 +2,14 @@
 
 #include "Search.h"
 #include "GD.h"
+#include "Cemi.h"
 
 #include <iomanip>
 
 #include <sys/stat.h>
 #include <zip.h>
 
-namespace MyFamily
+namespace Knx
 {
 
 Search::Search(BaseLib::SharedObjects* baseLib) : _bl(baseLib)
@@ -68,7 +69,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         }
         else
         {
-            typeNumberIterator = idTypeNumberMap.find(MyPacket::getFormattedPhysicalAddress(deviceInfo.address));
+            typeNumberIterator = idTypeNumberMap.find(Cemi::getFormattedPhysicalAddress(deviceInfo.address));
             if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
             {
                 supportedDevice->typeNumber = typeNumberIterator->second;
@@ -93,7 +94,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
             return PHomegearDevice();
         }
 
-        supportedDevice->id = MyPacket::getFormattedPhysicalAddress(deviceInfo.address);
+        supportedDevice->id = Cemi::getFormattedPhysicalAddress(deviceInfo.address);
         supportedDevice->description = deviceInfo.name;
         device->supportedDevices.push_back(supportedDevice);
 

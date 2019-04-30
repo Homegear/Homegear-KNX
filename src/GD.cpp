@@ -2,10 +2,10 @@
 
 #include "GD.h"
 
-namespace MyFamily
+namespace Knx
 {
 	BaseLib::SharedObjects* GD::bl = nullptr;
-	MyFamily* GD::family = nullptr;
+	Knx* GD::family = nullptr;
 	std::map<std::string, std::shared_ptr<MainInterface>> GD::physicalInterfaces;
 	std::shared_ptr<MainInterface> GD::defaultPhysicalInterface;
 	BaseLib::Output GD::out;

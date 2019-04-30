@@ -6,7 +6,7 @@ LIBS += -Wl,-Bdynamic -lzip
 
 libdir = $(localstatedir)/lib/homegear/modules
 lib_LTLIBRARIES = mod_knx.la
-mod_knx_la_SOURCES = MyFamily.cpp MyFamily.h MyPacket.cpp MyPacket.h MyPeer.cpp MyPeer.h Search.cpp Search.h DptConverter.cpp DptConverter.h Factory.cpp Factory.h GD.cpp GD.h MyCentral.cpp MyCentral.h Interfaces.h Interfaces.cpp PhysicalInterfaces/MainInterface.h PhysicalInterfaces/MainInterface.cpp
+mod_knx_la_SOURCES = Knx.cpp KnxPeer.cpp Search.cpp DptConverter.cpp Factory.cpp Cemi.cpp KnxIpForwarder.cpp KnxIpPacket.cpp GD.cpp KnxCentral.cpp Interfaces.cpp PhysicalInterfaces/MainInterface.cpp
 mod_knx_la_LDFLAGS =-module -avoid-version -shared
 install-exec-hook:
 	rm -f $(DESTDIR)$(libdir)/mod_knx.la

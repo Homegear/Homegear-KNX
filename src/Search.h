@@ -9,7 +9,7 @@
 using namespace BaseLib;
 using namespace BaseLib::DeviceDescription;
 
-namespace MyFamily
+namespace Knx
 {
 class Search
 {

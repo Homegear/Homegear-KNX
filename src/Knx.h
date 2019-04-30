@@ -7,15 +7,15 @@
 
 using namespace BaseLib;
 
-namespace MyFamily
+namespace Knx
 {
-class MyCentral;
+class KnxCentral;
 
-class MyFamily : public BaseLib::Systems::DeviceFamily
+class Knx : public BaseLib::Systems::DeviceFamily
 {
 public:
-	MyFamily(BaseLib::SharedObjects* bl, BaseLib::Systems::IFamilyEventSink* eventHandler);
-	virtual ~MyFamily();
+	Knx(BaseLib::SharedObjects* bl, BaseLib::Systems::IFamilyEventSink* eventHandler);
+	virtual ~Knx();
 	virtual bool init();
 	virtual void dispose();
 

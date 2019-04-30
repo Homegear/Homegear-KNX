@@ -3,7 +3,7 @@
 #include "DptConverter.h"
 #include "GD.h"
 
-namespace MyFamily
+namespace Knx
 {
 
 DptConverter::DptConverter(BaseLib::SharedObjects* baseLib) : _bl(baseLib)
