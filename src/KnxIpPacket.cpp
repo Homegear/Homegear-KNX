@@ -342,7 +342,7 @@ std::vector<uint8_t> KnxIpPacket::getBinary()
     else if(_serviceType == ServiceType::TUNNELING_ACK)
     {
         if(!_tunnelingAck) throw InvalidKnxIpPacketException("Packet is not initialized as this service type.");
-        uint16_t size = 10;
+        uint16_t size = 11;
         packet.reserve(size);
 
         //{{{ KNXnet/IP header
