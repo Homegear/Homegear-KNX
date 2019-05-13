@@ -109,6 +109,11 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
             _out.printWarning(std::string("Warning: !!!Not!!! sending packet, because device is not connected or opened."));
             return;
         }
+        if(_managementConnected)
+        {
+            _out.printWarning(std::string("Warning: !!!Not!!! sending packet, because a management connection is open."));
+            return;
+        }
         std::lock_guard<std::mutex> sendPacketGuard(_sendPacketMutex);
 
         //{{{ Prepare requests object
