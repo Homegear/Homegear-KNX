@@ -308,6 +308,34 @@ void KnxCentral::savePeers(bool full)
     }
 }
 
+void KnxCentral::setPeerId(uint64_t oldPeerId, uint64_t newPeerId)
+{
+    try
+    {
+        ICentral::setPeerId(oldPeerId, newPeerId);
+
+        auto peer = getPeer(newPeerId);
+        auto groupAddresses = peer->getGroupAddresses();
+
+        for(const uint16_t& address : groupAddresses)
+        {
+            removePeerFromGroupAddresses(address, oldPeerId);
+        }
+
+        std::lock_guard<std::mutex> peersGuard(_peersMutex);
+        for(const uint16_t& address : groupAddresses)
+        {
+            auto peersIterator = _peersByGroupAddress.find(address);
+            if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(address, std::make_shared<std::map<uint64_t, PMyPeer>>());
+            _peersByGroupAddress[address]->emplace(newPeerId, peer);
+        }
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+}
+
 void KnxCentral::removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId)
 {
 	try

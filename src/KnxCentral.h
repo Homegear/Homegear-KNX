@@ -51,10 +51,11 @@ protected:
 
 	virtual void init();
     virtual void worker();
-	virtual void loadPeers();
-	virtual void savePeers(bool full);
-	virtual void loadVariables() {}
-	virtual void saveVariables() {}
+	void loadPeers() override;
+	void savePeers(bool full) override;
+	void loadVariables() override {}
+	void saveVariables() override {}
+	void setPeerId(uint64_t oldPeerId, uint64_t newPeerId) override;
 	PMyPeer createPeer(uint32_t type, int32_t address, std::string serialNumber, bool save = true);
 	void deletePeer(uint64_t id);
 	void removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId);
