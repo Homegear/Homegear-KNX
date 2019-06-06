@@ -145,6 +145,8 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
             }
         }
 
+        if(device->functions.size() == 1) GD::out.printWarning(std::string("Warning: Device ") + Cemi::getFormattedPhysicalAddress(deviceInfo.address) + " has no channels.");
+
         return device;
     }
     catch(const std::exception& ex)
