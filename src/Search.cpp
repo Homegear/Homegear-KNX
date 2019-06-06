@@ -764,6 +764,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 										currentAddress = Math::getNumber(attributeValue) & 0xFF;
 										device->address = (currentArea << 12) | (currentLine << 8) | currentAddress;
 
+                                        GD::out.printDebug("Debug: Found device " + Cemi::getFormattedPhysicalAddress(device->address));
 										attribute = deviceNode->first_attribute("Id");
 										if(!attribute) continue;
 										device->id = std::string(attribute->value());
@@ -776,6 +777,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 										std::string::size_type jsonStartPos = attributeValue.find("$${");
 										if(jsonStartPos != std::string::npos)
 										{
+                                            GD::out.printDebug("Debug: Found JSON for device " + Cemi::getFormattedPhysicalAddress(device->address));
 											xmlData.jsonExists = true;
 											attributeValue = attributeValue.substr(jsonStartPos + 2);
 											std::string jsonString;
@@ -790,6 +792,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 												_bl->out.printError("Error decoding JSON of device \"" + device->name + "\" with ID \"" + device->id + "\": " + ex.what());
 												continue;
 											}
+                                            GD::out.printDebug("Debug: Successfully parsed JSON of device " + Cemi::getFormattedPhysicalAddress(device->address));
 										}
 										else continue;
 
@@ -847,6 +850,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                     {
                                                         auto& groupAddress = groupAddresses[i];
                                                         if(groupAddress.empty()) continue;
+                                                        GD::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " has group address " + groupAddress);
                                                         deviceByGroupVariable[groupAddress].emplace(device);
 
                                                         if(i > 0)
@@ -923,24 +927,49 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 			{
 				for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
 				{
+                    xml_node<>* installationNode = installationsNode->first_node("Installation");
+                    if(!installationNode) GD::out.printWarning("Warning: No element \"Installation\" found.");
 					for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
 					{
-						for(xml_node<>* groupAdressesNode = installationNode->first_node("GroupAddresses"); groupAdressesNode; groupAdressesNode = groupAdressesNode->next_sibling("GroupAddresses"))
+                        xml_node<>* groupAdressesNode = installationNode->first_node("GroupAddresses");
+                        if(!groupAdressesNode)
+                        {
+                            xml_node<>* topologyNode = installationNode->first_node("Topology");
+                            if(topologyNode) groupAdressesNode = topologyNode->first_node("GroupAddresses");
+                        }
+                        if(!groupAdressesNode) GD::out.printWarning("Warning: No element \"GroupAddresses\" found.");
+						for(; groupAdressesNode; groupAdressesNode = groupAdressesNode->next_sibling("GroupAddresses"))
 						{
+                            xml_node<>* groupRangesNode = groupAdressesNode->first_node("GroupRanges");
+                            if(!groupRangesNode) GD::out.printWarning("Warning: No element \"GroupRanges\" found.");
 							for(xml_node<>* groupRangesNode = groupAdressesNode->first_node("GroupRanges"); groupRangesNode; groupRangesNode = groupRangesNode->next_sibling("GroupRanges"))
 							{
+                                xml_node<>* mainGroupNode = groupRangesNode->first_node("GroupRange");
+                                if(!mainGroupNode) GD::out.printDebug("Debug: No element \"GroupRange\" (1) found.");
 								for(xml_node<>* mainGroupNode = groupRangesNode->first_node("GroupRange"); mainGroupNode; mainGroupNode = mainGroupNode->next_sibling("GroupRange"))
 								{
 									xml_attribute<>* attribute = mainGroupNode->first_attribute("Name");
-									if(!attribute) continue;
+									if(!attribute)
+                                    {
+                                        GD::out.printWarning("Warning: Main GroupRange has no name.");
+                                        continue;
+                                    }
 									std::string mainGroupName(attribute->value());
 
+                                    xml_node<>* middleGroupNode = mainGroupNode->first_node("GroupRange");
+                                    if(!middleGroupNode) GD::out.printDebug("Debug: No element \"GroupRange\" (2) found.");
 									for(xml_node<>* middleGroupNode = mainGroupNode->first_node("GroupRange"); middleGroupNode; middleGroupNode = middleGroupNode->next_sibling("GroupRange"))
 									{
 										attribute = middleGroupNode->first_attribute("Name");
-										if(!attribute) continue;
+										if(!attribute)
+                                        {
+                                            GD::out.printWarning("Warning: Middle GroupRange has no name.");
+                                            continue;
+                                        }
 										std::string middleGroupName(attribute->value());
 
+                                        xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress");
+                                        if(!groupAddressNode) GD::out.printDebug("Debug: No element \"GroupRange\" (3) found.");
 										for(xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress"); groupAddressNode; groupAddressNode = groupAddressNode->next_sibling("GroupAddress"))
 										{
 											std::shared_ptr<GroupVariableXmlData> element = std::make_shared<GroupVariableXmlData>();
@@ -951,16 +980,24 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 											if(!attribute) continue;
 											std::string id = std::string(attribute->value());
 											if(id.empty()) continue;
+
+                                            GD::out.printDebug("Debug: Found for group address " + id);
+
 											std::string shortId = BaseLib::HelperFunctions::splitLast(id, '_').second;
 											if(shortId.empty()) continue;
+
+                                            GD::out.printDebug("Debug: Short ID of group address " + id + ": " + shortId);
 
 											attribute = groupAddressNode->first_attribute("Name");
 											if(attribute) element->groupVariableName = std::string(attribute->value());
 
 											attribute = groupAddressNode->first_attribute("Address");
 											if(!attribute) continue;
+
 											std::string attributeValue(attribute->value());
 											element->address = (uint16_t)BaseLib::Math::getNumber(attributeValue);
+
+                                            GD::out.printDebug("Debug: Address of group address with ID " + id + ": " + Cemi::getFormattedGroupAddress(element->address));
 
 											attribute = groupAddressNode->first_attribute("DatapointType");
 											if(!attribute)
@@ -969,6 +1006,8 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 												continue;
 											}
 											element->datapointType = std::string(attribute->value());
+
+                                            GD::out.printDebug("Debug: DPT of group address with ID " + id + ": " + element->datapointType);
 
 											attribute = groupAddressNode->first_attribute("Description");
 											if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
@@ -1000,6 +1039,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 												{
 													for(auto& device : variableIterator->second)
 													{
+                                                        GD::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " found for group address " + id);
 														auto infoIterator = device->variableInfo.find(id);
 														if(infoIterator == device->variableInfo.end()) infoIterator = device->variableInfo.find(shortId);
 														if(infoIterator != device->variableInfo.end())
@@ -1040,6 +1080,10 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                         }
 													}
 												}
+                                                else
+                                                {
+                                                    GD::out.printDebug("Debug: No device found for group address " + id);
+                                                }
 											//}}}
 										}
 									}
