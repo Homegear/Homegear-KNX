@@ -57,7 +57,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         if(deviceInfo.address == -1) return PHomegearDevice();
         std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
         device->version = 1;
-        PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl, device.get());
+        PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl);
         bool newDevice = true;
         auto typeNumberIterator = idTypeNumberMap.find(deviceInfo.id); //Backwards compatability
         if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
@@ -224,7 +224,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 				{
 					PHomegearDevice device(new HomegearDevice(_bl));
 					device->version = 1;
-					PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
+					PSupportedDevice supportedDevice(new SupportedDevice(_bl));
 					supportedDevice->id = "KNX_" + std::to_string(variableXml->address >> 11) + "_" + std::to_string((variableXml->address >> 8) & 0x7) + "_" + std::to_string(variableXml->address & 0xFF);
 					supportedDevice->description = "KNX_" + std::to_string(variableXml->address >> 11) + "/" + std::to_string((variableXml->address >> 8) & 0x7) + "/" + std::to_string(variableXml->address & 0xFF);
 					supportedDevice->typeNumber = variableXml->address;
@@ -258,7 +258,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					{
 						device.reset(new HomegearDevice(_bl));
 						device->version = 1;
-						PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
+						PSupportedDevice supportedDevice(new SupportedDevice(_bl));
 						supportedDevice->id = id;
 						supportedDevice->description = supportedDevice->id;
 						if(type != -1) supportedDevice->typeNumber = (uint32_t)type + 65535;
@@ -552,7 +552,7 @@ void Search::createXmlMaintenanceChannel(PHomegearDevice& device)
 		function->variablesId = "knx_maintenance_values";
 		device->functions[function->channel] = function;
 
-		PParameter parameter(new Parameter(_bl, function->variables.get()));
+		PParameter parameter(new Parameter(_bl, function->variables));
 		parameter->id = "UNREACH";
 		function->variables->parametersOrdered.push_back(parameter);
 		function->variables->parameters[parameter->id] = parameter;
@@ -563,7 +563,7 @@ void Search::createXmlMaintenanceChannel(PHomegearDevice& device)
 		parameter->physical->groupId = parameter->id;
 		parameter->physical->operationType = IPhysical::OperationType::internal;
 
-		parameter.reset(new Parameter(_bl, function->variables.get()));
+		parameter.reset(new Parameter(_bl, function->variables));
 		parameter->id = "STICKY_UNREACH";
 		function->variables->parametersOrdered.push_back(parameter);
 		function->variables->parameters[parameter->id] = parameter;
@@ -1063,7 +1063,7 @@ PParameter Search::createParameter(PFunction& function, std::string name, std::s
 {
 	try
 	{
-		PParameter parameter(new Parameter(_bl, function->variables.get()));
+		PParameter parameter(new Parameter(_bl, function->variables));
 		parameter->id = std::move(name);
 		parameter->metadata = metadata;
 		parameter->unit = std::move(unit);
