@@ -5,8 +5,10 @@
 
 #include <homegear-base/BaseLib.h>
 
-namespace MyFamily
+namespace Knx
 {
+
+class KnxIpForwarder;
 
 using namespace BaseLib;
 
@@ -17,6 +19,8 @@ public:
 	virtual ~Interfaces();
 
 protected:
+    std::unordered_map<std::string, std::shared_ptr<KnxIpForwarder>> _forwarders;
+
 	virtual void create();
 };
 

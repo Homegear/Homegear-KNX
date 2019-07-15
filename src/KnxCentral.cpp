@@ -1,27 +1,31 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
-#include "MyCentral.h"
+#include "KnxCentral.h"
 #include "GD.h"
+#include "Cemi.h"
+#include "KnxIpPacket.h"
 
-namespace MyFamily
+#include <iomanip>
+
+namespace Knx
 {
 
-MyCentral::MyCentral(ICentralEventSink* eventHandler) : BaseLib::Systems::ICentral(MY_FAMILY_ID, GD::bl, eventHandler)
+KnxCentral::KnxCentral(ICentralEventSink* eventHandler) : BaseLib::Systems::ICentral(MY_FAMILY_ID, GD::bl, eventHandler)
 {
 	init();
 }
 
-MyCentral::MyCentral(uint32_t deviceID, std::string serialNumber, ICentralEventSink* eventHandler) : BaseLib::Systems::ICentral(MY_FAMILY_ID, GD::bl, deviceID, serialNumber, -1, eventHandler)
+KnxCentral::KnxCentral(uint32_t deviceID, std::string serialNumber, ICentralEventSink* eventHandler) : BaseLib::Systems::ICentral(MY_FAMILY_ID, GD::bl, deviceID, serialNumber, -1, eventHandler)
 {
 	init();
 }
 
-MyCentral::~MyCentral()
+KnxCentral::~KnxCentral()
 {
 	dispose();
 }
 
-void MyCentral::dispose(bool wait)
+void KnxCentral::dispose(bool wait)
 {
 	try
 	{
@@ -33,7 +37,7 @@ void MyCentral::dispose(bool wait)
 		auto peers = getPeers();
 		for(auto& peer : peers)
 		{
-			auto myPeer = std::dynamic_pointer_cast<MyPeer>(peer);
+			auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peer);
 			myPeer->stopWorkerThread();
 		}
 
@@ -51,76 +55,52 @@ void MyCentral::dispose(bool wait)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
-void MyCentral::init()
+void KnxCentral::init()
 {
 	try
     {
         if (_initialized) return; //Prevent running init two times
         _initialized = true;
 
-		_localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PRpcClientInfo& clientInfo, BaseLib::PArray& parameters)>>("updateDevice", std::bind(&MyCentral::updateDevice, this, std::placeholders::_1, std::placeholders::_2)));
+		_localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PRpcClientInfo& clientInfo, BaseLib::PArray& parameters)>>("updateDevice", std::bind(&KnxCentral::updateDevice, this, std::placeholders::_1, std::placeholders::_2)));
 
         _search.reset(new Search(GD::bl));
 
         for (std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
         {
             _physicalInterfaceEventhandlers[i->first] = i->second->addEventHandler((BaseLib::Systems::IPhysicalInterface::IPhysicalInterfaceEventSink*) this);
-            i->second->setReconnected(std::function<void()>(std::bind(&MyCentral::interfaceReconnected, this)));
+            i->second->setReconnected(std::function<void()>(std::bind(&KnxCentral::interfaceReconnected, this)));
         }
 
         _stopWorkerThread = false;
-        GD::bl->threadManager.start(_workerThread, true, _bl->settings.workerThreadPriority(), _bl->settings.workerThreadPolicy(), &MyCentral::worker, this);
+        GD::bl->threadManager.start(_workerThread, true, _bl->settings.workerThreadPriority(), _bl->settings.workerThreadPolicy(), &KnxCentral::worker, this);
     }
-    catch(BaseLib::Exception& ex)
+    catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-	catch(const std::exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 }
 
-void MyCentral::interfaceReconnected()
+void KnxCentral::interfaceReconnected()
 {
     try
     {
         auto peers = getPeers();
         for(auto& peer : peers)
         {
-            auto myPeer = std::dynamic_pointer_cast<MyPeer>(peer);
+            auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peer);
             myPeer->interfaceReconnected();
         }
-    }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
     catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
-void MyCentral::worker()
+void KnxCentral::worker()
 {
     try
     {
@@ -149,7 +129,7 @@ void MyCentral::worker()
                     }
                 }
 
-                std::shared_ptr<MyPeer> peer;
+                std::shared_ptr<KnxPeer> peer;
 
                 {
                     std::lock_guard<std::mutex> peersGuard(_peersMutex);
@@ -165,7 +145,7 @@ void MyCentral::worker()
                             }
                             else nextPeer = _peersById.begin();
                             lastPeer = nextPeer->first;
-                            peer = std::dynamic_pointer_cast<MyPeer>(nextPeer->second);
+                            peer = std::dynamic_pointer_cast<KnxPeer>(nextPeer->second);
                         }
                     }
                 }
@@ -177,31 +157,15 @@ void MyCentral::worker()
             {
                 GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
             }
-            catch(BaseLib::Exception& ex)
-            {
-                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-            }
-            catch(...)
-            {
-                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-            }
         }
     }
     catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
-void MyCentral::loadPeers()
+void KnxCentral::loadPeers()
 {
 	try
 	{
@@ -210,7 +174,7 @@ void MyCentral::loadPeers()
 		{
 			uint64_t peerID = row->second.at(0)->intValue;
 			GD::out.printMessage("Loading KNX peer " + std::to_string(peerID));
-			std::shared_ptr<MyPeer> peer(new MyPeer(peerID, row->second.at(2)->intValue, row->second.at(3)->textValue, _deviceId, this));
+			std::shared_ptr<KnxPeer> peer(new KnxPeer(peerID, row->second.at(2)->intValue, row->second.at(3)->textValue, _deviceId, this));
 			if(!peer->load(this))
 			{
 				if(peer->getDeviceType() == 0)
@@ -238,86 +202,54 @@ void MyCentral::loadPeers()
     {
     	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
-std::shared_ptr<MyPeer> MyCentral::getPeer(uint64_t id)
+std::shared_ptr<KnxPeer> KnxCentral::getPeer(uint64_t id)
 {
 	try
 	{
 		std::lock_guard<std::mutex> peersGuard(_peersMutex);
 		auto peersIterator = _peersById.find(id);
-		if(peersIterator != _peersById.end()) return std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
+		if(peersIterator != _peersById.end()) return std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
 	}
 	catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
-    return std::shared_ptr<MyPeer>();
+    return std::shared_ptr<KnxPeer>();
 }
 
-std::shared_ptr<MyPeer> MyCentral::getPeer(int32_t address)
+std::shared_ptr<KnxPeer> KnxCentral::getPeer(int32_t address)
 {
     try
     {
         std::lock_guard<std::mutex> peersGuard(_peersMutex);
         auto peersIterator = _peers.find(address);
-        if(peersIterator != _peers.end()) return std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
+        if(peersIterator != _peers.end()) return std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
     }
     catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
-    return std::shared_ptr<MyPeer>();
+    return std::shared_ptr<KnxPeer>();
 }
 
-std::shared_ptr<MyPeer> MyCentral::getPeer(std::string serialNumber)
+std::shared_ptr<KnxPeer> KnxCentral::getPeer(std::string serialNumber)
 {
 	try
 	{
 		std::lock_guard<std::mutex> peersGuard(_peersMutex);
 		auto peersIterator = _peersBySerial.find(serialNumber);
-		if(peersIterator != _peersBySerial.end()) return std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
+		if(peersIterator != _peersBySerial.end()) return std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
 	}
 	catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
-    return std::shared_ptr<MyPeer>();
+    return std::shared_ptr<KnxPeer>();
 }
 
-PGroupAddressPeers MyCentral::getPeer(uint16_t groupAddress)
+PGroupAddressPeers KnxCentral::getPeer(uint16_t groupAddress)
 {
 	try
 	{
@@ -329,23 +261,16 @@ PGroupAddressPeers MyCentral::getPeer(uint16_t groupAddress)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return PGroupAddressPeers();
 }
 
-bool MyCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib::Systems::Packet> packet)
+bool KnxCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib::Systems::Packet> packet)
 {
 	try
 	{
 		if(_disposing) return false;
-		std::shared_ptr<MyPacket> myPacket(std::dynamic_pointer_cast<MyPacket>(packet));
+		if(!packet) return false;
+		std::shared_ptr<Cemi> myPacket(std::dynamic_pointer_cast<Cemi>(packet));
 		if(!myPacket) return false;
 
 		if(_bl->debugLevel >= 4) GD::out.printInfo("Packet received from " + myPacket->getFormattedSourceAddress() + " to " + myPacket->getFormattedDestinationAddress() + ". Operation: " + myPacket->getOperationString() + ". Payload: " + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
@@ -363,18 +288,10 @@ bool MyCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib:
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return false;
 }
 
-void MyCentral::savePeers(bool full)
+void KnxCentral::savePeers(bool full)
 {
 	try
 	{
@@ -389,17 +306,37 @@ void MyCentral::savePeers(bool full)
     {
     	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
+}
+
+void KnxCentral::setPeerId(uint64_t oldPeerId, uint64_t newPeerId)
+{
+    try
     {
-    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+        ICentral::setPeerId(oldPeerId, newPeerId);
+
+        auto peer = getPeer(newPeerId);
+        auto groupAddresses = peer->getGroupAddresses();
+
+        for(const uint16_t& address : groupAddresses)
+        {
+            removePeerFromGroupAddresses(address, oldPeerId);
+        }
+
+        std::lock_guard<std::mutex> peersGuard(_peersMutex);
+        for(const uint16_t& address : groupAddresses)
+        {
+            auto peersIterator = _peersByGroupAddress.find(address);
+            if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(address, std::make_shared<std::map<uint64_t, PMyPeer>>());
+            _peersByGroupAddress[address]->emplace(newPeerId, peer);
+        }
     }
-    catch(...)
+    catch(const std::exception& ex)
     {
-    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
 }
 
-void MyCentral::removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId)
+void KnxCentral::removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId)
 {
 	try
 	{
@@ -412,21 +349,13 @@ void MyCentral::removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t pee
     {
     	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
-void MyCentral::deletePeer(uint64_t id)
+void KnxCentral::deletePeer(uint64_t id)
 {
 	try
 	{
-		std::shared_ptr<MyPeer> peer(getPeer(id));
+		std::shared_ptr<KnxPeer> peer(getPeer(id));
 		if(!peer) return;
 		peer->deleting = true;
 		PVariable deviceAddresses(new Variable(VariableType::tArray));
@@ -479,17 +408,9 @@ void MyCentral::deletePeer(uint64_t id)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
 }
 
-std::string MyCentral::handleCliCommand(std::string command)
+std::string KnxCentral::handleCliCommand(std::string command)
 {
 	try
 	{
@@ -618,7 +539,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 				_peersMutex.lock();
 				for(std::map<uint64_t, std::shared_ptr<BaseLib::Systems::Peer>>::iterator i = _peersById.begin(); i != _peersById.end(); ++i)
 				{
-                    auto myPeer = std::dynamic_pointer_cast<MyPeer>(i->second);
+                    auto myPeer = std::dynamic_pointer_cast<KnxPeer>(i->second);
 
 					if(filterType == "id")
 					{
@@ -679,16 +600,6 @@ std::string MyCentral::handleCliCommand(std::string command)
 				_peersMutex.unlock();
 				GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 			}
-			catch(BaseLib::Exception& ex)
-			{
-				_peersMutex.unlock();
-				GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-			}
-			catch(...)
-			{
-				_peersMutex.unlock();
-				GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-			}
 		}
 		else if(command.compare(0, 13, "peers setname") == 0 || command.compare(0, 2, "pn") == 0)
 		{
@@ -732,7 +643,7 @@ std::string MyCentral::handleCliCommand(std::string command)
 			if(!peerExists(peerID)) stringStream << "This peer is not paired to this central." << std::endl;
 			else
 			{
-				std::shared_ptr<MyPeer> peer = getPeer(peerID);
+				std::shared_ptr<KnxPeer> peer = getPeer(peerID);
 				peer->setName(name);
 				stringStream << "Name set to \"" << name << "\"." << std::endl;
 			}
@@ -772,12 +683,16 @@ std::string MyCentral::handleCliCommand(std::string command)
 		}
 		else if(command == "test")
 		{
-			std::vector<char> rawPacket = _bl->hf.getBinary("061004200018044D02001100BCE00000210A0400800B3500");
-			PMyPacket packet(new MyPacket(rawPacket));
+			auto rawPacket = _bl->hf.getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
+			PKnxIpPacket packet = std::make_shared<KnxIpPacket>(KnxIpPacket(rawPacket));
 			std::string interface = "MyInterface";
-			onPacketReceived(interface, packet);
-			stringStream << "Hallo" << std::endl;
-			return stringStream.str();
+			auto packetData = packet->getTunnelingRequest();
+			if(packetData)
+            {
+                onPacketReceived(interface, packetData->cemi);
+                stringStream << "Hallo" << std::endl;
+            }
+            return stringStream.str();
 		}
 		else return "Unknown command.\n";
 	}
@@ -785,27 +700,19 @@ std::string MyCentral::handleCliCommand(std::string command)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return "Error executing command. See log file for more details.\n";
 }
 
-std::shared_ptr<MyPeer> MyCentral::createPeer(uint32_t deviceType, int32_t address, std::string serialNumber, bool save)
+std::shared_ptr<KnxPeer> KnxCentral::createPeer(uint32_t deviceType, int32_t address, std::string serialNumber, bool save)
 {
 	try
 	{
-		std::shared_ptr<MyPeer> peer(new MyPeer(_deviceId, this));
+		std::shared_ptr<KnxPeer> peer(new KnxPeer(_deviceId, this));
 		peer->setDeviceType(deviceType);
         peer->setAddress(address);
 		peer->setSerialNumber(serialNumber);
 		peer->setRpcDevice(GD::family->getRpcDevices()->find(deviceType, 0x10, -1));
-		if(!peer->getRpcDevice()) return std::shared_ptr<MyPeer>();
+		if(!peer->getRpcDevice()) return std::shared_ptr<KnxPeer>();
 		if(save) peer->save(true, true, false); //Save and create peerID
 		return peer;
 	}
@@ -813,18 +720,10 @@ std::shared_ptr<MyPeer> MyCentral::createPeer(uint32_t deviceType, int32_t addre
     {
     	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
-    return std::shared_ptr<MyPeer>();
+    return std::shared_ptr<KnxPeer>();
 }
 
-PVariable MyCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::string serialNumber, int32_t flags)
+PVariable KnxCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::string serialNumber, int32_t flags)
 {
 	try
 	{
@@ -833,7 +732,7 @@ PVariable MyCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::strin
         uint64_t peerId = 0;
 
         {
-            std::shared_ptr<MyPeer> peer = getPeer(serialNumber);
+            std::shared_ptr<KnxPeer> peer = getPeer(serialNumber);
             if(!peer) return PVariable(new Variable(VariableType::tVoid));
             peerId = peer->getID();
         }
@@ -844,25 +743,17 @@ PVariable MyCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::strin
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return Variable::createError(-32500, "Unknown application error.");
 }
 
-PVariable MyCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, int32_t flags)
+PVariable KnxCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, int32_t flags)
 {
 	try
 	{
 		if(peerId == 0) return Variable::createError(-2, "Unknown device.");
 
         {
-            std::shared_ptr<MyPeer> peer = getPeer(peerId);
+            std::shared_ptr<KnxPeer> peer = getPeer(peerId);
             if(!peer) return PVariable(new Variable(VariableType::tVoid));
         }
 
@@ -876,18 +767,10 @@ PVariable MyCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t p
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return Variable::createError(-32500, "Unknown application error.");
 }
 
-PVariable MyCentral::invokeFamilyMethod(BaseLib::PRpcClientInfo clientInfo, std::string& method, PArray parameters)
+PVariable KnxCentral::invokeFamilyMethod(BaseLib::PRpcClientInfo clientInfo, std::string& method, PArray parameters)
 {
     try
     {
@@ -902,18 +785,10 @@ PVariable MyCentral::invokeFamilyMethod(BaseLib::PRpcClientInfo clientInfo, std:
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return Variable::createError(-32502, "Unknown application error.");
 }
 
-PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
+PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 {
 	try
 	{
@@ -937,7 +812,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 
 		loadPeers();
 
-		std::vector<std::shared_ptr<MyPeer>> newPeers;
+		std::vector<std::shared_ptr<KnxPeer>> newPeers;
 		for(std::vector<Search::PeerInfo>::iterator i = peerInfo.begin(); i != peerInfo.end(); ++i)
         {
             {
@@ -945,7 +820,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
                 auto peersIterator = _peersBySerial.find(i->serialNumber);
                 if(peersIterator != _peersBySerial.end())
                 {
-                    auto myPeer = std::dynamic_pointer_cast<MyPeer>(peersIterator->second);
+                    auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
                     if(!i->room.empty())
                     {
                         uint64_t roomId = raiseGetRoomIdByName(i->room);
@@ -956,7 +831,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
                     continue;
                 }
             }
-			std::shared_ptr<MyPeer> peer = createPeer(i->type, i->address, i->serialNumber, true);
+			std::shared_ptr<KnxPeer> peer = createPeer(i->type, i->address, i->serialNumber, true);
 			if(!peer)
 			{
 				GD::out.printError("Error: Could not add device with type " + BaseLib::HelperFunctions::getHexString(i->type) + ". No matching XML file was found.");
@@ -995,7 +870,7 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
             std::vector<uint64_t> newIds;
             newIds.reserve(newPeers.size());
 			PVariable deviceDescriptions(new Variable(VariableType::tArray));
-			for(std::vector<std::shared_ptr<MyPeer>>::iterator i = newPeers.begin(); i != newPeers.end(); ++i)
+			for(std::vector<std::shared_ptr<KnxPeer>>::iterator i = newPeers.begin(); i != newPeers.end(); ++i)
 			{
 				std::shared_ptr<std::vector<PVariable>> descriptions = (*i)->getDeviceDescriptions(clientInfo, true, std::map<std::string, bool>());
 				if(!descriptions) continue;
@@ -1014,22 +889,14 @@ PVariable MyCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 	return Variable::createError(-32500, "Unknown application error.");
 }
 
-PVariable MyCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, std::string interfaceId)
+PVariable KnxCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, std::string interfaceId)
 {
 	try
 	{
-		std::shared_ptr<MyPeer> peer(getPeer(peerId));
+		std::shared_ptr<KnxPeer> peer(getPeer(peerId));
 		if(!peer) return Variable::createError(-2, "Unknown device.");
 		return peer->setInterface(clientInfo, interfaceId);
 	}
@@ -1037,19 +904,11 @@ PVariable MyCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t p
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return Variable::createError(-32500, "Unknown application error.");
 }
 
 //{{{ Family RPC methods
-	BaseLib::PVariable MyCentral::updateDevice(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters)
+	BaseLib::PVariable KnxCentral::updateDevice(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters)
 	{
 		try
 		{
@@ -1068,7 +927,7 @@ PVariable MyCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t p
                 return BaseLib::Variable::createError(-2, "Could not create peer. Probably there is an error in the provided data structure. Check the Homegear log for more details.");
             }
 
-            GD::out.printInfo("Info: Successfully created peer structure for peer with physical address " + MyPacket::getFormattedPhysicalAddress(peerInfo.address) + " and name " + peerInfo.name + ". Type number is 0x" + BaseLib::HelperFunctions::getHexString(peerInfo.type, 4));
+            GD::out.printInfo("Info: Successfully created peer structure for peer with physical address " + Cemi::getFormattedPhysicalAddress(peerInfo.address) + " and name " + peerInfo.name + ". Type number is 0x" + BaseLib::HelperFunctions::getHexString(peerInfo.type, 4));
 
             bool newPeer = true;
             auto peer = getPeer(peerInfo.address);
@@ -1144,7 +1003,7 @@ PVariable MyCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t p
 
             if(newPeer)
             {
-                GD::out.printInfo("Info: Device with address " + MyPacket::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully added. Peer ID is: " + std::to_string(peer->getID()));
+                GD::out.printInfo("Info: Device with address " + Cemi::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully added. Peer ID is: " + std::to_string(peer->getID()));
 
                 PVariable deviceDescriptions(new Variable(VariableType::tArray));
                 std::shared_ptr<std::vector<PVariable>> descriptions = peer->getDeviceDescriptions(nullptr, true, std::map<std::string, bool>());
@@ -1160,7 +1019,7 @@ PVariable MyCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t p
             }
             else
             {
-                GD::out.printInfo("Info: Peer " + std::to_string(peer->getID()) + " with address " + MyPacket::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully updated.");
+                GD::out.printInfo("Info: Peer " + std::to_string(peer->getID()) + " with address " + Cemi::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully updated.");
 
                 raiseRPCUpdateDevice(peer->getID(), 0, peer->getSerialNumber() + ":" + std::to_string(0), 0);
             }
@@ -1168,14 +1027,6 @@ PVariable MyCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t p
 		catch(const std::exception& ex)
 		{
 			GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-		}
-		catch(BaseLib::Exception& ex)
-		{
-			GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-		}
-		catch(...)
-		{
-			GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 		}
 		return Variable::createError(-32500, "Unknown application error.");
 	}

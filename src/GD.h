@@ -7,10 +7,10 @@
 #define MY_FAMILY_NAME "KNX"
 
 #include <homegear-base/BaseLib.h>
-#include "MyFamily.h"
+#include "Knx.h"
 #include "PhysicalInterfaces/MainInterface.h"
 
-namespace MyFamily
+namespace Knx
 {
 
 class GD
@@ -19,7 +19,7 @@ public:
 	virtual ~GD();
 
 	static BaseLib::SharedObjects* bl;
-	static MyFamily* family;
+	static Knx* family;
 	static std::map<std::string, std::shared_ptr<MainInterface>> physicalInterfaces;
 	static std::shared_ptr<MainInterface> defaultPhysicalInterface;
 	static BaseLib::Output out;

@@ -10,21 +10,25 @@ set(SOURCE_FILES
         src/DptConverter.h
         src/Factory.cpp
         src/Factory.h
+        src/KnxIpForwarder.cpp
+        src/KnxIpForwarder.h
         src/GD.cpp
         src/GD.h
         src/Interfaces.cpp
         src/Interfaces.h
-        src/MyCentral.cpp
-        src/MyCentral.h
-        src/MyFamily.cpp
-        src/MyFamily.h
-        src/MyPacket.cpp
-        src/MyPacket.h
-        src/MyPeer.cpp
-        src/MyPeer.h
+        src/KnxCentral.cpp
+        src/KnxCentral.h
+        src/Knx.cpp
+        src/Knx.h
+        src/Cemi.cpp
+        src/Cemi.h
+        src/KnxIpPacket.cpp
+        src/KnxIpPacket.h
+        src/KnxPeer.cpp
+        src/KnxPeer.h
         src/Search.cpp
         src/Search.h
-        config.h)
+        config.h src/KnxIpPacket.cpp src/KnxIpPacket.h)
 
 add_custom_target(homegear COMMAND ../../makeAll.sh SOURCES ${SOURCE_FILES})
 

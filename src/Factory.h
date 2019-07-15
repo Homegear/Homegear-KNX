@@ -4,7 +4,7 @@
 #define FACTORY_H
 
 #include <homegear-base/BaseLib.h>
-#include "MyFamily.h"
+#include "Knx.h"
 
 class MyFactory : BaseLib::Systems::SystemFactory
 {

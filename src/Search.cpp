@@ -2,8 +2,14 @@
 
 #include "Search.h"
 #include "GD.h"
+#include "Cemi.h"
 
-namespace MyFamily
+#include <iomanip>
+
+#include <sys/stat.h>
+#include <zip.h>
+
+namespace Knx
 {
 
 Search::Search(BaseLib::SharedObjects* baseLib) : _bl(baseLib)
@@ -42,14 +48,6 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 }
 
 std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::DeviceXmlData& deviceInfo, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap)
@@ -59,7 +57,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         if(deviceInfo.address == -1) return PHomegearDevice();
         std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
         device->version = 1;
-        PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl, device.get());
+        PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl);
         bool newDevice = true;
         auto typeNumberIterator = idTypeNumberMap.find(deviceInfo.id); //Backwards compatability
         if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
@@ -71,7 +69,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         }
         else
         {
-            typeNumberIterator = idTypeNumberMap.find(MyPacket::getFormattedPhysicalAddress(deviceInfo.address));
+            typeNumberIterator = idTypeNumberMap.find(Cemi::getFormattedPhysicalAddress(deviceInfo.address));
             if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
             {
                 supportedDevice->typeNumber = typeNumberIterator->second;
@@ -96,7 +94,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
             return PHomegearDevice();
         }
 
-        supportedDevice->id = MyPacket::getFormattedPhysicalAddress(deviceInfo.address);
+        supportedDevice->id = Cemi::getFormattedPhysicalAddress(deviceInfo.address);
         supportedDevice->description = deviceInfo.name;
         device->supportedDevices.push_back(supportedDevice);
 
@@ -147,19 +145,13 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
             }
         }
 
+        if(device->functions.size() == 1) GD::out.printWarning(std::string("Warning: Device ") + Cemi::getFormattedPhysicalAddress(deviceInfo.address) + " has no channels.");
+
         return device;
     }
     catch(const std::exception& ex)
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
     }
     return PHomegearDevice();
 }
@@ -234,7 +226,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 				{
 					PHomegearDevice device(new HomegearDevice(_bl));
 					device->version = 1;
-					PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
+					PSupportedDevice supportedDevice(new SupportedDevice(_bl));
 					supportedDevice->id = "KNX_" + std::to_string(variableXml->address >> 11) + "_" + std::to_string((variableXml->address >> 8) & 0x7) + "_" + std::to_string(variableXml->address & 0xFF);
 					supportedDevice->description = "KNX_" + std::to_string(variableXml->address >> 11) + "/" + std::to_string((variableXml->address >> 8) & 0x7) + "/" + std::to_string(variableXml->address & 0xFF);
 					supportedDevice->typeNumber = variableXml->address;
@@ -268,7 +260,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					{
 						device.reset(new HomegearDevice(_bl));
 						device->version = 1;
-						PSupportedDevice supportedDevice(new SupportedDevice(_bl, device.get()));
+						PSupportedDevice supportedDevice(new SupportedDevice(_bl));
 						supportedDevice->id = id;
 						supportedDevice->description = supportedDevice->id;
 						if(type != -1) supportedDevice->typeNumber = (uint32_t)type + 65535;
@@ -361,14 +353,6 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 	return peerInfo;
 }
 
@@ -430,9 +414,9 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
                 BaseLib::Rpc::JsonDecoder jsonDecoder(_bl);
                 deviceXml.description = jsonDecoder.decode(jsonString);
             }
-            catch(const Exception& ex)
+            catch(const std::exception& ex)
             {
-                _bl->out.printError("Error decoding JSON in KNX device information: " + ex.what());
+                _bl->out.printError("Error decoding JSON in KNX device information: " + std::string(ex.what()));
                 return PeerInfo();
             }
         }
@@ -518,14 +502,6 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
     {
         GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
     }
-    catch(BaseLib::Exception& ex)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
     return PeerInfo();
 }
 
@@ -547,33 +523,25 @@ void Search::createDirectories()
 		if(!BaseLib::Io::directoryExists(path1)) BaseLib::Io::createDirectory(path1, GD::bl->settings.dataPathPermissions());
 		if(localUserId != 0 || localGroupId != 0)
 		{
-			if(chown(path1.c_str(), localUserId, localGroupId) == -1) std::cerr << "Could not set owner on " << path1 << std::endl;
-			if(chmod(path1.c_str(), GD::bl->settings.dataPathPermissions()) == -1) std::cerr << "Could not set permissions on " << path1 << std::endl;
+			if(chown(path1.c_str(), localUserId, localGroupId) == -1) GD::out.printWarning("Could not set owner on " + path1);
+			if(chmod(path1.c_str(), GD::bl->settings.dataPathPermissions()) == -1) GD::out.printWarning("Could not set permissions on " + path1);
 		}
 		if(!BaseLib::Io::directoryExists(path2)) BaseLib::Io::createDirectory(path2, GD::bl->settings.dataPathPermissions());
 		if(localUserId != 0 || localGroupId != 0)
 		{
-			if(chown(path2.c_str(), localUserId, localGroupId) == -1) std::cerr << "Could not set owner on " << path2 << std::endl;
-			if(chmod(path2.c_str(), GD::bl->settings.dataPathPermissions()) == -1) std::cerr << "Could not set permissions on " << path2 << std::endl;
+			if(chown(path2.c_str(), localUserId, localGroupId) == -1) GD::out.printWarning("Could not set owner on " + path2);
+			if(chmod(path2.c_str(), GD::bl->settings.dataPathPermissions()) == -1) GD::out.printWarning("Could not set permissions on " + path2);
 		}
 		if(!BaseLib::Io::directoryExists(_xmlPath)) BaseLib::Io::createDirectory(_xmlPath, GD::bl->settings.dataPathPermissions());
 		if(localUserId != 0 || localGroupId != 0)
 		{
-			if(chown(_xmlPath.c_str(), localUserId, localGroupId) == -1) std::cerr << "Could not set owner on " << _xmlPath << std::endl;
-			if(chmod(_xmlPath.c_str(), GD::bl->settings.dataPathPermissions()) == -1) std::cerr << "Could not set permissions on " << _xmlPath << std::endl;
+			if(chown(_xmlPath.c_str(), localUserId, localGroupId) == -1) GD::out.printWarning("Could not set owner on " + _xmlPath);
+			if(chmod(_xmlPath.c_str(), GD::bl->settings.dataPathPermissions()) == -1) GD::out.printWarning("Could not set permissions on " + _xmlPath);
 		}
 	}
 	catch(const std::exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 
@@ -586,7 +554,7 @@ void Search::createXmlMaintenanceChannel(PHomegearDevice& device)
 		function->variablesId = "knx_maintenance_values";
 		device->functions[function->channel] = function;
 
-		PParameter parameter(new Parameter(_bl, function->variables.get()));
+		PParameter parameter(new Parameter(_bl, function->variables));
 		parameter->id = "UNREACH";
 		function->variables->parametersOrdered.push_back(parameter);
 		function->variables->parameters[parameter->id] = parameter;
@@ -597,7 +565,7 @@ void Search::createXmlMaintenanceChannel(PHomegearDevice& device)
 		parameter->physical->groupId = parameter->id;
 		parameter->physical->operationType = IPhysical::OperationType::internal;
 
-		parameter.reset(new Parameter(_bl, function->variables.get()));
+		parameter.reset(new Parameter(_bl, function->variables));
 		parameter->id = "STICKY_UNREACH";
 		function->variables->parametersOrdered.push_back(parameter);
 		function->variables->parameters[parameter->id] = parameter;
@@ -690,14 +658,6 @@ std::vector<std::shared_ptr<std::vector<char>>> Search::extractKnxProjectFiles()
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
 	return contents;
 }
 
@@ -740,14 +700,6 @@ void Search::assignRoomsToDevices(xml_node<>* currentNode, std::string currentRo
 	catch(const std::exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(BaseLib::Exception& ex)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 
@@ -814,6 +766,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 										currentAddress = Math::getNumber(attributeValue) & 0xFF;
 										device->address = (currentArea << 12) | (currentLine << 8) | currentAddress;
 
+                                        GD::out.printDebug("Debug: Found device " + Cemi::getFormattedPhysicalAddress(device->address));
 										attribute = deviceNode->first_attribute("Id");
 										if(!attribute) continue;
 										device->id = std::string(attribute->value());
@@ -826,6 +779,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 										std::string::size_type jsonStartPos = attributeValue.find("$${");
 										if(jsonStartPos != std::string::npos)
 										{
+                                            GD::out.printDebug("Debug: Found JSON for device " + Cemi::getFormattedPhysicalAddress(device->address));
 											xmlData.jsonExists = true;
 											attributeValue = attributeValue.substr(jsonStartPos + 2);
 											std::string jsonString;
@@ -835,11 +789,12 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 												BaseLib::PVariable json = jsonDecoder.decode(jsonString);
 												device->description = json;
 											}
-											catch(const Exception& ex)
+											catch(const std::exception& ex)
 											{
 												_bl->out.printError("Error decoding JSON of device \"" + device->name + "\" with ID \"" + device->id + "\": " + ex.what());
 												continue;
 											}
+                                            GD::out.printDebug("Debug: Successfully parsed JSON of device " + Cemi::getFormattedPhysicalAddress(device->address));
 										}
 										else continue;
 
@@ -879,36 +834,70 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 														auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(2), '-');
 														variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
 													}
+                                                    else if(parts.size() == 2) //>= ETS5.7
+                                                    {
+                                                        auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(0), '-');
+                                                        variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
+                                                    }
 												}
 
 												if(variableInfo.index == -1) continue;
 
-												for(xml_node<>* connectorsNode = comInstanceRefNode->first_node("Connectors"); connectorsNode; connectorsNode = connectorsNode->next_sibling("Connectors"))
-												{
-													for(xml_node<>* sendNode = connectorsNode->first_node("Send"); sendNode; sendNode = sendNode->next_sibling("Send"))
-													{
-														attribute = sendNode->first_attribute("GroupAddressRefId");
-														if(!attribute) continue;
-														attributeValue = std::string(attribute->value());
-														if(attributeValue.empty()) continue;
-														deviceByGroupVariable[attributeValue].emplace(device);
-                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
-														device->variableInfo[attributeValue].push_back(variableInfo);
-													}
+                                                attribute = comInstanceRefNode->first_attribute("Links");
+                                                if(attribute) //>= ETS5.7
+                                                {
+                                                    attributeValue = std::string(attribute->value());
+                                                    std::vector<std::string> groupAddresses = BaseLib::HelperFunctions::splitAll(attributeValue, ' ');
+                                                    for(int32_t i = 0; i < (signed)groupAddresses.size(); i++)
+                                                    {
+                                                        auto& groupAddress = groupAddresses[i];
+                                                        if(groupAddress.empty()) continue;
+                                                        GD::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " has group address " + groupAddress);
+                                                        deviceByGroupVariable[groupAddress].emplace(device);
 
-													for(xml_node<>* receiveNode = connectorsNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
-													{
-														attribute = receiveNode->first_attribute("GroupAddressRefId");
-														if(!attribute) continue;
-														attributeValue = std::string(attribute->value());
-														if(attributeValue.empty()) continue;
-														deviceByGroupVariable[attributeValue].emplace(device);
-														GroupVariableInfo receiveVariableInfo = variableInfo;
-														receiveVariableInfo.writeFlag = false;
-                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
-														device->variableInfo[attributeValue].push_back(receiveVariableInfo);
-													}
-												}
+                                                        if(i > 0)
+                                                        {
+                                                            //Only first entry is writeable
+                                                            GroupVariableInfo receiveVariableInfo = variableInfo;
+                                                            receiveVariableInfo.writeFlag = false;
+                                                            device->variableInfo[groupAddress].push_back(receiveVariableInfo);
+                                                        }
+                                                        else
+                                                        {
+                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                            device->variableInfo[groupAddress].push_back(variableInfo);
+                                                        }
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    for(xml_node<>* connectorsNode = comInstanceRefNode->first_node("Connectors"); connectorsNode; connectorsNode = connectorsNode->next_sibling("Connectors"))
+                                                    {
+                                                        for(xml_node<>* sendNode = connectorsNode->first_node("Send"); sendNode; sendNode = sendNode->next_sibling("Send"))
+                                                        {
+                                                            attribute = sendNode->first_attribute("GroupAddressRefId");
+                                                            if(!attribute) continue;
+                                                            attributeValue = std::string(attribute->value());
+                                                            if(attributeValue.empty()) continue;
+                                                            deviceByGroupVariable[attributeValue].emplace(device);
+                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                            device->variableInfo[attributeValue].push_back(variableInfo);
+                                                        }
+
+                                                        for(xml_node<>* receiveNode = connectorsNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
+                                                        {
+                                                            attribute = receiveNode->first_attribute("GroupAddressRefId");
+                                                            if(!attribute) continue;
+                                                            attributeValue = std::string(attribute->value());
+                                                            if(attributeValue.empty()) continue;
+                                                            deviceByGroupVariable[attributeValue].emplace(device);
+                                                            GroupVariableInfo receiveVariableInfo = variableInfo;
+                                                            receiveVariableInfo.writeFlag = false;
+                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                            device->variableInfo[attributeValue].push_back(receiveVariableInfo);
+                                                        }
+                                                    }
+                                                }
 											}
 										}
 
@@ -940,24 +929,49 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 			{
 				for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
 				{
+                    xml_node<>* installationNode = installationsNode->first_node("Installation");
+                    if(!installationNode) GD::out.printWarning("Warning: No element \"Installation\" found.");
 					for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
 					{
-						for(xml_node<>* groupAdressesNode = installationNode->first_node("GroupAddresses"); groupAdressesNode; groupAdressesNode = groupAdressesNode->next_sibling("GroupAddresses"))
+                        xml_node<>* groupAdressesNode = installationNode->first_node("GroupAddresses");
+                        if(!groupAdressesNode)
+                        {
+                            xml_node<>* topologyNode = installationNode->first_node("Topology");
+                            if(topologyNode) groupAdressesNode = topologyNode->first_node("GroupAddresses");
+                        }
+                        if(!groupAdressesNode) GD::out.printWarning("Warning: No element \"GroupAddresses\" found.");
+						for(; groupAdressesNode; groupAdressesNode = groupAdressesNode->next_sibling("GroupAddresses"))
 						{
+                            xml_node<>* groupRangesNode = groupAdressesNode->first_node("GroupRanges");
+                            if(!groupRangesNode) GD::out.printWarning("Warning: No element \"GroupRanges\" found.");
 							for(xml_node<>* groupRangesNode = groupAdressesNode->first_node("GroupRanges"); groupRangesNode; groupRangesNode = groupRangesNode->next_sibling("GroupRanges"))
 							{
+                                xml_node<>* mainGroupNode = groupRangesNode->first_node("GroupRange");
+                                if(!mainGroupNode) GD::out.printDebug("Debug: No element \"GroupRange\" (1) found.");
 								for(xml_node<>* mainGroupNode = groupRangesNode->first_node("GroupRange"); mainGroupNode; mainGroupNode = mainGroupNode->next_sibling("GroupRange"))
 								{
 									xml_attribute<>* attribute = mainGroupNode->first_attribute("Name");
-									if(!attribute) continue;
+									if(!attribute)
+                                    {
+                                        GD::out.printWarning("Warning: Main GroupRange has no name.");
+                                        continue;
+                                    }
 									std::string mainGroupName(attribute->value());
 
+                                    xml_node<>* middleGroupNode = mainGroupNode->first_node("GroupRange");
+                                    if(!middleGroupNode) GD::out.printDebug("Debug: No element \"GroupRange\" (2) found.");
 									for(xml_node<>* middleGroupNode = mainGroupNode->first_node("GroupRange"); middleGroupNode; middleGroupNode = middleGroupNode->next_sibling("GroupRange"))
 									{
 										attribute = middleGroupNode->first_attribute("Name");
-										if(!attribute) continue;
+										if(!attribute)
+                                        {
+                                            GD::out.printWarning("Warning: Middle GroupRange has no name.");
+                                            continue;
+                                        }
 										std::string middleGroupName(attribute->value());
 
+                                        xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress");
+                                        if(!groupAddressNode) GD::out.printDebug("Debug: No element \"GroupRange\" (3) found.");
 										for(xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress"); groupAddressNode; groupAddressNode = groupAddressNode->next_sibling("GroupAddress"))
 										{
 											std::shared_ptr<GroupVariableXmlData> element = std::make_shared<GroupVariableXmlData>();
@@ -969,13 +983,23 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 											std::string id = std::string(attribute->value());
 											if(id.empty()) continue;
 
+                                            GD::out.printDebug("Debug: Found for group address " + id);
+
+											std::string shortId = BaseLib::HelperFunctions::splitLast(id, '_').second;
+											if(shortId.empty()) continue;
+
+                                            GD::out.printDebug("Debug: Short ID of group address " + id + ": " + shortId);
+
 											attribute = groupAddressNode->first_attribute("Name");
 											if(attribute) element->groupVariableName = std::string(attribute->value());
 
 											attribute = groupAddressNode->first_attribute("Address");
 											if(!attribute) continue;
+
 											std::string attributeValue(attribute->value());
 											element->address = (uint16_t)BaseLib::Math::getNumber(attributeValue);
+
+                                            GD::out.printDebug("Debug: Address of group address with ID " + id + ": " + Cemi::getFormattedGroupAddress(element->address));
 
 											attribute = groupAddressNode->first_attribute("DatapointType");
 											if(!attribute)
@@ -984,6 +1008,8 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 												continue;
 											}
 											element->datapointType = std::string(attribute->value());
+
+                                            GD::out.printDebug("Debug: DPT of group address with ID " + id + ": " + element->datapointType);
 
 											attribute = groupAddressNode->first_attribute("Description");
 											if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
@@ -999,7 +1025,7 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 													BaseLib::PVariable json = jsonDecoder.decode(jsonString);
 													element->description = json;
 												}
-												catch(const Exception& ex)
+												catch(const std::exception& ex)
 												{
 													_bl->out.printError("Error decoding JSON of group variable \"" + element->groupVariableName + "\": " + ex.what());
 													continue;
@@ -1010,11 +1036,14 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 
 											//{{{ Assign group variable to device
 												auto variableIterator = deviceByGroupVariable.find(id);
+												if(variableIterator == deviceByGroupVariable.end()) variableIterator = deviceByGroupVariable.find(shortId);
 												if(variableIterator != deviceByGroupVariable.end())
 												{
 													for(auto& device : variableIterator->second)
 													{
+                                                        GD::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " found for group address " + id);
 														auto infoIterator = device->variableInfo.find(id);
+														if(infoIterator == device->variableInfo.end()) infoIterator = device->variableInfo.find(shortId);
 														if(infoIterator != device->variableInfo.end())
 														{
                                                             for(auto& variableInfoElement : infoIterator->second)
@@ -1053,6 +1082,10 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                         }
 													}
 												}
+                                                else
+                                                {
+                                                    GD::out.printDebug("Debug: No device found for group address " + id);
+                                                }
 											//}}}
 										}
 									}
@@ -1067,14 +1100,6 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 		{
 			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 		}
-		catch(const Exception& ex)
-		{
-			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-		}
-		catch(...)
-		{
-			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-		}
 		doc.clear();
 	}
 	return xmlData;
@@ -1084,7 +1109,7 @@ PParameter Search::createParameter(PFunction& function, std::string name, std::s
 {
 	try
 	{
-		PParameter parameter(new Parameter(_bl, function->variables.get()));
+		PParameter parameter(new Parameter(_bl, function->variables));
 		parameter->id = std::move(name);
 		parameter->metadata = metadata;
 		parameter->unit = std::move(unit);
@@ -1106,14 +1131,6 @@ PParameter Search::createParameter(PFunction& function, std::string name, std::s
 	catch(const std::exception& ex)
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(const Exception& ex)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 	return PParameter();
 }
@@ -3793,14 +3810,6 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 	catch(const std::exception& ex)
 	{
 		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(const Exception& ex)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch(...)
-	{
-		_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 
