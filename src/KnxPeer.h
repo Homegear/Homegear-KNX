@@ -12,16 +12,18 @@
 using namespace BaseLib;
 using namespace BaseLib::DeviceDescription;
 
-namespace MyFamily
+namespace Knx
 {
-class MyCentral;
+class KnxCentral;
+class Cemi;
+typedef std::shared_ptr<Cemi> PCemi;
 
-class MyPeer : public BaseLib::Systems::Peer, public BaseLib::Rpc::IWebserverEventSink
+class KnxPeer : public BaseLib::Systems::Peer, public BaseLib::Rpc::IWebserverEventSink
 {
 public:
-	MyPeer(uint32_t parentID, IPeerEventSink* eventHandler);
-	MyPeer(int32_t id, int32_t address, std::string serialNumber, uint32_t parentID, IPeerEventSink* eventHandler);
-	virtual ~MyPeer();
+	KnxPeer(uint32_t parentID, IPeerEventSink* eventHandler);
+	KnxPeer(int32_t id, int32_t address, std::string serialNumber, uint32_t parentID, IPeerEventSink* eventHandler);
+	virtual ~KnxPeer();
 	void init();
 	void dispose();
 	void stopWorkerThread() { _stopWorkerThread = true; }
@@ -33,7 +35,7 @@ public:
     void worker();
     void interfaceReconnected() { _readVariables = true; }
 	virtual std::string handleCliCommand(std::string command);
-	void packetReceived(PMyPacket& packet);
+	void packetReceived(PCemi& packet);
 
 	virtual bool load(BaseLib::Systems::ICentral* central);
     virtual void savePeers() {}
@@ -136,7 +138,7 @@ protected:
 	// }}}
 };
 
-typedef std::shared_ptr<MyPeer> PMyPeer;
+typedef std::shared_ptr<KnxPeer> PMyPeer;
 
 }
 

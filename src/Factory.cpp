@@ -6,7 +6,7 @@
 
 BaseLib::Systems::DeviceFamily* MyFactory::createDeviceFamily(BaseLib::SharedObjects* bl, BaseLib::Systems::IFamilyEventSink* eventHandler)
 {
-	return new MyFamily::MyFamily(bl, eventHandler);
+	return new Knx::Knx(bl, eventHandler);
 }
 
 std::string getVersion()

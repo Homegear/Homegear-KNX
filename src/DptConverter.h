@@ -7,7 +7,7 @@
 
 using namespace BaseLib;
 
-namespace MyFamily
+namespace Knx
 {
 class DptConverter
 {

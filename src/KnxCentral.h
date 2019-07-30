@@ -4,7 +4,7 @@
 #define MYCENTRAL_H_
 
 #include <homegear-base/BaseLib.h>
-#include "MyPeer.h"
+#include "KnxPeer.h"
 #include "Search.h"
 
 #include <stdio.h>
@@ -12,23 +12,23 @@
 #include <mutex>
 #include <string>
 
-namespace MyFamily
+namespace Knx
 {
 
 typedef std::shared_ptr<std::map<uint64_t, PMyPeer>> PGroupAddressPeers;
 
-class MyCentral : public BaseLib::Systems::ICentral
+class KnxCentral : public BaseLib::Systems::ICentral
 {
 public:
-	MyCentral(ICentralEventSink* eventHandler);
-	MyCentral(uint32_t deviceType, std::string serialNumber, ICentralEventSink* eventHandler);
-	virtual ~MyCentral();
+	KnxCentral(ICentralEventSink* eventHandler);
+	KnxCentral(uint32_t deviceType, std::string serialNumber, ICentralEventSink* eventHandler);
+	virtual ~KnxCentral();
 	virtual void dispose(bool wait = true);
 
 	std::string handleCliCommand(std::string command);
 	virtual bool onPacketReceived(std::string& senderId, std::shared_ptr<BaseLib::Systems::Packet> packet);
 
-	uint64_t getPeerIdFromSerial(std::string& serialNumber) { std::shared_ptr<MyPeer> peer = getPeer(serialNumber); if(peer) return peer->getID(); else return 0; }
+	uint64_t getPeerIdFromSerial(std::string& serialNumber) { std::shared_ptr<KnxPeer> peer = getPeer(serialNumber); if(peer) return peer->getID(); else return 0; }
 	PMyPeer getPeer(uint64_t id);
 	PMyPeer getPeer(int32_t address);
 	PMyPeer getPeer(std::string serialNumber);
@@ -51,10 +51,11 @@ protected:
 
 	virtual void init();
     virtual void worker();
-	virtual void loadPeers();
-	virtual void savePeers(bool full);
-	virtual void loadVariables() {}
-	virtual void saveVariables() {}
+	void loadPeers() override;
+	void savePeers(bool full) override;
+	void loadVariables() override {}
+	void saveVariables() override {}
+	void setPeerId(uint64_t oldPeerId, uint64_t newPeerId) override;
 	PMyPeer createPeer(uint32_t type, int32_t address, std::string serialNumber, bool save = true);
 	void deletePeer(uint64_t id);
 	void removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId);
