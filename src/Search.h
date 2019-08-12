@@ -47,6 +47,7 @@ protected:
 	struct GroupVariableInfo
 	{
 		int32_t index = -1;
+        std::string datapointType;
 		bool writeFlag = true;
 		bool readFlag = true;
         bool transmitFlag = true;

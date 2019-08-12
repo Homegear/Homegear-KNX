@@ -54,7 +54,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
 {
     try
     {
-        if(deviceInfo.address == -1) return PHomegearDevice();
+        if(deviceInfo.address == -1 || !deviceInfo.description || deviceInfo.description->structValue->empty()) return PHomegearDevice();
         std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
         device->version = 1;
         PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl);
@@ -100,48 +100,49 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
 
         createXmlMaintenanceChannel(device);
 
-        for(auto groupVariable : deviceInfo.variables)
+        if(deviceInfo.description && !deviceInfo.description->structValue->empty())
         {
-            if(deviceInfo.description->structValue->empty()) continue;
-
-            int32_t channel = 1;
-            std::string variableName;
-            std::string unit;
-
-            auto variableIterator = deviceInfo.description->structValue->find(std::to_string(groupVariable.first));
-            if(variableIterator == deviceInfo.description->structValue->end()) continue;
-
-            auto structIterator = variableIterator->second->structValue->find("channel");
-            if(structIterator != variableIterator->second->structValue->end()) channel = structIterator->second->integerValue;
-
-            structIterator = variableIterator->second->structValue->find("variable");
-            if(structIterator != variableIterator->second->structValue->end()) variableName = _bl->hf.stringReplace(structIterator->second->stringValue, ".", "_");;
-
-            structIterator = variableIterator->second->structValue->find("unit");
-            if(structIterator != variableIterator->second->structValue->end()) unit = structIterator->second->stringValue;
-
-            PFunction function;
-            auto functionIterator = device->functions.find((uint32_t)channel);
-            if(functionIterator == device->functions.end())
+            for(auto groupVariable : deviceInfo.variables)
             {
-                function.reset(new Function(_bl));
-                function->channel = (uint32_t)channel;
-                function->type = "KNX_CHANNEL_" + std::to_string(channel);
-                function->variablesId = "knx_values_" + std::to_string(channel);
-                device->functions[function->channel] = function;
-            }
-            else function = functionIterator->second;
+                int32_t channel = 1;
+                std::string variableName;
+                std::string unit;
 
-            PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, groupVariable.second->address);
-            if(!parameter) continue;
-            parameter->transmitted = groupVariable.second->transmitFlag;
+                auto variableIterator = deviceInfo.description->structValue->find(std::to_string(groupVariable.first));
+                if(variableIterator == deviceInfo.description->structValue->end()) continue;
 
-            parseDatapointType(function, groupVariable.second->datapointType, parameter);
+                auto structIterator = variableIterator->second->structValue->find("channel");
+                if(structIterator != variableIterator->second->structValue->end()) channel = structIterator->second->integerValue;
 
-            if(!parameter->casts.empty())
-            {
-                function->variables->parametersOrdered.push_back(parameter);
-                function->variables->parameters[parameter->id] = parameter;
+                structIterator = variableIterator->second->structValue->find("variable");
+                if(structIterator != variableIterator->second->structValue->end()) variableName = _bl->hf.stringReplace(structIterator->second->stringValue, ".", "_");;
+
+                structIterator = variableIterator->second->structValue->find("unit");
+                if(structIterator != variableIterator->second->structValue->end()) unit = structIterator->second->stringValue;
+
+                PFunction function;
+                auto functionIterator = device->functions.find((uint32_t)channel);
+                if(functionIterator == device->functions.end())
+                {
+                    function.reset(new Function(_bl));
+                    function->channel = (uint32_t)channel;
+                    function->type = "KNX_CHANNEL_" + std::to_string(channel);
+                    function->variablesId = "knx_values_" + std::to_string(channel);
+                    device->functions[function->channel] = function;
+                }
+                else function = functionIterator->second;
+
+                PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, groupVariable.second->address);
+                if(!parameter) continue;
+                parameter->transmitted = groupVariable.second->transmitFlag;
+
+                parseDatapointType(function, groupVariable.second->datapointType, parameter);
+
+                if(!parameter->casts.empty())
+                {
+                    function->variables->parametersOrdered.push_back(parameter);
+                    function->variables->parameters[parameter->id] = parameter;
+                }
             }
         }
 
@@ -319,6 +320,11 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
                     GD::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", because it has no physical address.");
                     continue;
                 }
+                if(!deviceXml->description || deviceXml->description->structValue->empty())
+                {
+                    GD::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", because it has no JSON description.");
+                    continue;
+                }
                 auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap);
                 if(device)
 				{
@@ -420,6 +426,8 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
                 return PeerInfo();
             }
         }
+
+        if(!deviceXml.description) deviceXml.description = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
 
         structIterator = deviceInfo->structValue->find("variables");
         if(structIterator == deviceInfo->structValue->end())
@@ -796,7 +804,6 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 											}
                                             GD::out.printDebug("Debug: Successfully parsed JSON of device " + Cemi::getFormattedPhysicalAddress(device->address));
 										}
-										else continue;
 
 										for(xml_node<>* comInstanceRefsNode = deviceNode->first_node("ComObjectInstanceRefs"); comInstanceRefsNode; comInstanceRefsNode = comInstanceRefsNode->next_sibling("ComObjectInstanceRefs"))
 										{
@@ -823,6 +830,9 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                     attributeValue = std::string(attribute->value());
                                                     variableInfo.transmitFlag = attributeValue != "Disabled";
                                                 }
+
+                                                attribute = comInstanceRefNode->first_attribute("DatapointType");
+                                                if(attribute) variableInfo.datapointType = std::string(attribute->value());
 
 												attribute = comInstanceRefNode->first_attribute("RefId");
 												if(attribute)
@@ -1001,15 +1011,14 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 
                                             GD::out.printDebug("Debug: Address of group address with ID " + id + ": " + Cemi::getFormattedGroupAddress(element->address));
 
+                                            //Try to add datapoint type from group variable. If the attribute doesn't exist, we try to get the
+                                            //datapoint type from the device further below. So don't throw an error here.
 											attribute = groupAddressNode->first_attribute("DatapointType");
-											if(!attribute)
-											{
-												GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
-												continue;
-											}
-											element->datapointType = std::string(attribute->value());
-
-                                            GD::out.printDebug("Debug: DPT of group address with ID " + id + ": " + element->datapointType);
+											if(attribute)
+                                            {
+                                                element->datapointType = std::string(attribute->value());
+                                                GD::out.printDebug("Debug: DPT of group address with ID " + id + ": " + element->datapointType);
+                                            }
 
 											attribute = groupAddressNode->first_attribute("Description");
 											if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
@@ -1032,8 +1041,6 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 												}
 											}
 
-											xmlData.groupVariableXmlData.emplace(element);
-
 											//{{{ Assign group variable to device
 												auto variableIterator = deviceByGroupVariable.find(id);
 												if(variableIterator == deviceByGroupVariable.end()) variableIterator = deviceByGroupVariable.find(shortId);
@@ -1048,6 +1055,18 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 														{
                                                             for(auto& variableInfoElement : infoIterator->second)
                                                             {
+                                                                if(element->datapointType.empty() && !variableInfoElement.datapointType.empty())
+                                                                {
+                                                                    element->datapointType = variableInfoElement.datapointType;
+                                                                    GD::out.printDebug("Debug: DPT of group address with ID " + id + " (assigned from device): " + element->datapointType);
+                                                                }
+
+                                                                if(element->datapointType.empty())
+                                                                {
+                                                                    GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
+                                                                    break;
+                                                                }
+
                                                                 {
                                                                     //Delete old element if necessary
 
@@ -1075,6 +1094,12 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
 														}
 														else
                                                         {
+                                                            if(element->datapointType.empty())
+                                                            {
+                                                                GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
+                                                                break;
+                                                            }
+
                                                             std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
                                                             *variableInfo = *element;
                                                             variableInfo->autocreated = true;
@@ -1087,6 +1112,14 @@ Search::XmlData Search::extractXmlData(std::vector<std::shared_ptr<std::vector<c
                                                     GD::out.printDebug("Debug: No device found for group address " + id);
                                                 }
 											//}}}
+
+											if(element->datapointType.empty())
+                                            {
+                                                GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
+                                                continue;
+                                            }
+
+                                            xmlData.groupVariableXmlData.emplace(element);
 										}
 									}
 								}
