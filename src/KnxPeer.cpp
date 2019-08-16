@@ -779,10 +779,20 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
 		if(!rpcParameter->casts.empty())
 		{
 			ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(rpcParameter->casts.at(0));
-			if(!cast) return Variable::createError(-7, "No DPT conversion defined.");
-			parameterData = _dptConverter->getDpt(cast->type, value);
-			parameter.setBinaryData(parameterData);
-			fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
+			if(!cast)
+            {
+                if(rpcParameter->physical->operationType == IPhysical::OperationType::Enum::store)
+                {
+                    parameterData = parameter.getBinaryData();
+                }
+                else return Variable::createError(-7, "No DPT conversion defined.");
+            }
+            else
+            {
+                parameterData = _dptConverter->getDpt(cast->type, value);
+                parameter.setBinaryData(parameterData);
+                fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
+            }
 		}
 		else parameterData = parameter.getBinaryData();
 
