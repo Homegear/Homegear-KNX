@@ -776,25 +776,37 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
 
 		bool fitsInFirstByte = false;
 		std::vector<uint8_t> parameterData;
-		if(!rpcParameter->casts.empty())
-		{
-			ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(rpcParameter->casts.at(0));
-			if(!cast)
+
+        {
+            bool parameterConverted = false;
+            if(!rpcParameter->casts.empty())
             {
-                if(rpcParameter->physical->operationType == IPhysical::OperationType::Enum::store)
+                ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(rpcParameter->casts.at(0));
+                if(!cast)
                 {
-                    parameterData = parameter.getBinaryData();
+                    if(rpcParameter->physical->operationType != IPhysical::OperationType::Enum::store)
+                    {
+                        return Variable::createError(-7, "No DPT conversion defined.");
+                    }
                 }
-                else return Variable::createError(-7, "No DPT conversion defined.");
+                else
+                {
+                    parameterData = _dptConverter->getDpt(cast->type, value);
+                    parameter.setBinaryData(parameterData);
+                    fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
+                    parameterConverted = true;
+                }
             }
-            else
+
+            if(!parameterConverted)
             {
-                parameterData = _dptConverter->getDpt(cast->type, value);
+                std::vector<uint8_t> parameterData;
+                rpcParameter->convertToPacket(value, parameterData);
                 parameter.setBinaryData(parameterData);
-                fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
+                if(parameter.databaseId > 0) saveParameter(parameter.databaseId, parameterData);
+                else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameterData);
             }
-		}
-		else parameterData = parameter.getBinaryData();
+        }
 
 		if(rpcParameter->physical->operationType == IPhysical::OperationType::Enum::store)
 		{
@@ -803,7 +815,8 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
 			if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
 			std::string::size_type pos = valueKey.find('.');
-			if(pos != std::string::npos)
+			std::string::size_type posRv = valueKey.find(".RV.");
+			if(posRv == std::string::npos && pos != std::string::npos)
 			{
 				std::string baseName = valueKey.substr(0, pos);
 				std::string rawParameterName = baseName + ".RAW";
