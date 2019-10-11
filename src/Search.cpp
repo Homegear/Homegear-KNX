@@ -612,6 +612,7 @@ std::vector<std::shared_ptr<std::vector<char>>> Search::extractKnxProjectFiles()
 			std::shared_ptr<std::vector<char>> content(new std::vector<char>());
 
 			int32_t error = 0;
+            zip_error_t zipError;
 			zip* projectArchive = zip_open(projectFilename.c_str(), 0, &error);
 			if(!projectArchive)
 			{
@@ -637,26 +638,96 @@ std::vector<std::shared_ptr<std::vector<char>>> Search::extractKnxProjectFiles()
 
 				std::string filename(st.name);
 				if(filename.size() < 6) continue;
-				if(filename.compare(filename.size() - 6, 6, "/0.xml") != 0) continue;
+                bool isProjectXml = (filename.compare(filename.size() - 6, 6, "/0.xml") == 0);
+                bool isProjectZip = (filename.compare(0, 2, "P-") == 0) && (filename.compare(filename.size() - 4, 4, ".zip") == 0);
+                if(!isProjectXml && !isProjectZip) continue;
 
-				content->resize(st.size + 1);
-				zip_file* projectFile = zip_fopen(projectArchive, filename.c_str(), 0);
-				if(!projectFile)
-				{
-					GD::out.printError("Error: Could not open project file in archive. Error code: " + std::to_string(error));
-					continue;
-				}
-				if(zip_fread(projectFile, &content->at(0), st.size) != (signed)st.size)
-				{
-					GD::out.printError("Error: Could not read project file in archive. Error code: " + std::to_string(error));
-					continue;
-				}
-				content->push_back(0);
-				zip_fclose(projectFile);
+                if(isProjectXml)
+                {
+                    content->resize(st.size + 1);
+                    zip_file* projectFile = zip_fopen(projectArchive, filename.c_str(), 0);
+                    if(!projectFile)
+                    {
+                        GD::out.printError("Error: Could not open project file in archive.");
+                        continue;
+                    }
+                    if(zip_fread(projectFile, &content->at(0), st.size) != (signed)st.size)
+                    {
+                        GD::out.printError("Error: Could not read project file in archive.");
+                        continue;
+                    }
+                    content->push_back(0);
+                    zip_fclose(projectFile);
+                }
+                else if(isProjectZip)
+                {
+                    std::vector<char> projectZip;
+                    projectZip.resize(st.size);
+                    zip_file* projectZipFile = zip_fopen(projectArchive, filename.c_str(), 0);
+                    if(zip_fread(projectZipFile, projectZip.data(), st.size) != (signed)st.size)
+                    {
+                        GD::out.printError("Error: Could not read project zip file in archive. Error code: " + std::to_string(error));
+                        continue;
+                    }
+                    zip_fclose(projectZipFile);
 
-				if(!content->empty()) contents.push_back(content);
+                    auto projectZipSource = zip_source_buffer_create(projectZip.data(), projectZip.size(), 0, &zipError);
+                    if(!projectZipSource)
+                    {
+                        GD::out.printError("Error: Could not create buffer for project zip file. Error: " + std::string(zipError.str));
+                        continue;
+                    }
 
-				break;
+                    auto projectZipArchive = zip_open_from_source(projectZipSource, 0, &zipError);
+                    if(!projectZipArchive)
+                    {
+                        GD::out.printError("Error: Could not open project zip file. Error: " + std::string(zipError.str));
+                        continue;
+                    }
+
+                    zip_int64_t filesInProjectArchive = zip_get_num_entries(projectZipArchive, 0);
+                    for(zip_uint64_t j = 0; j < (zip_uint64_t)filesInProjectArchive; ++j)
+                    {
+                        struct zip_stat projectSt{};
+                        zip_stat_init(&projectSt);
+                        if(zip_stat_index(projectZipArchive, j, 0, &projectSt) == -1)
+                        {
+                            GD::out.printError("Error: Could not get information for project file at index " + std::to_string(j));
+                            continue;
+                        }
+                        if(!(projectSt.valid & ZIP_STAT_NAME) || !(projectSt.valid & ZIP_STAT_SIZE))
+                        {
+                            GD::out.printError("Error: Could not get name or size for project file at index " + std::to_string(j));
+                            continue;
+                        }
+
+                        std::string projectZipFilename(projectSt.name);
+                        if(projectZipFilename != "0.xml") continue;
+
+                        std::string settingName = "knxProjectPassword";
+                        auto password = GD::family->getFamilySetting(settingName);
+                        if(password && !password->stringValue.empty()) zip_set_default_password(projectZipArchive, password->stringValue.c_str());
+
+                        content->resize(projectSt.size + 1);
+                        zip_file* projectFile = zip_fopen(projectZipArchive, projectZipFilename.c_str(), 0);
+                        if(!projectFile)
+                        {
+                            GD::out.printError("Error: Could not open project file in ZIP archive. Wrong password?");
+                            continue;
+                        }
+                        if(zip_fread(projectFile, &content->at(0), projectSt.size) != (signed)projectSt.size)
+                        {
+                            GD::out.printError("Error: Could not read project file in ZIP archive.");
+                            continue;
+                        }
+                        content->push_back(0);
+                        zip_fclose(projectFile);
+                    }
+                }
+                
+                if(!content->empty()) contents.push_back(content);
+
+                break;
 			}
 
 			zip_close(projectArchive);

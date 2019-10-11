@@ -11,6 +11,11 @@ override_dh_auto_install:
 	mkdir -p $(CURDIR)/debian/homegear-knx/etc/homegear/devices/14
 	chmod 755 $(CURDIR)/debian/homegear-knx/etc/homegear/devices/14
 
+	mkdir -p $(CURDIR)/debian/homegear-knx/var/lib/homegear/admin-ui/translations/modules/knx
+	cp -R $(CURDIR)/misc/UI\ Translations/* $(CURDIR)/debian/homegear-knx/var/lib/homegear/admin-ui/translations/modules/knx
+	chown -R root:root $(CURDIR)/debian/homegear-knx/var/lib/homegear/admin-ui/translations/modules/knx
+	chmod -R 555 $(CURDIR)/debian/homegear-knx/var/lib/homegear/admin-ui/translations/modules/knx
+
 override_dh_strip:
 	dh_strip
 
