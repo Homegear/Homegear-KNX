@@ -117,7 +117,7 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
         std::lock_guard<std::mutex> sendPacketGuard(_sendPacketMutex);
 
         //{{{ Prepare requests object
-        std::shared_ptr<Request> request(new Request());
+        auto request = std::make_shared<Request>();
         uint32_t serviceType = 0x2E0420;
         _requestsMutex.lock();
         _requests[serviceType] = request;
@@ -590,6 +590,7 @@ void MainInterface::processPacket(const std::vector<uint8_t>& data)
             }
             if(packet->getServiceType() == ServiceType::DISCONNECT_REQUEST) //DISCONNECT_REQUEST
             {
+                _out.printInfo("Info: Disconnect request received. Disconnecting...");
                 auto packetData = packet->getDisconnectRequest();
                 if(packetData)
                 {
