@@ -173,7 +173,7 @@ KnxIpPacket::KnxIpPacket(const std::vector<uint8_t>& binaryPacket)
         if(_connectResponse->status == KnxIpErrorCodes::E_NO_ERROR)
         {
             if(binaryPacket.size() < 18) throw InvalidKnxIpPacketException("Packet too small.");
-            _connectResponse->hostProtocolCode = binaryPacket.at(9);
+            _connectResponse->hostProtocolCode = binaryPacket.at(9); //1 = IPv4 UDP, 2 = IPv4 TCP
             std::array<uint32_t, 4> ipBytes = {binaryPacket.at(10), binaryPacket.at(11), binaryPacket.at(12), binaryPacket.at(13)};
             _connectResponse->dataEndpointIp = (ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3];
             _connectResponse->dataEndpointIpString = std::to_string(ipBytes[0]).append(".").append(std::to_string(ipBytes[1])).append(".").append(std::to_string(ipBytes[2])).append(".").append(std::to_string(ipBytes[3]));
@@ -190,7 +190,7 @@ KnxIpPacket::KnxIpPacket(const std::vector<uint8_t>& binaryPacket)
         if(binaryPacket.size() < 16) throw InvalidKnxIpPacketException("Packet too small.");
         _disconnectRequest = std::make_shared<DisconnectRequest>();
         _disconnectRequest->channelId = binaryPacket.at(6);
-        _disconnectRequest->hostProtocolCode = binaryPacket.at(9);
+        _disconnectRequest->hostProtocolCode = binaryPacket.at(9); //1 = IPv4 UDP, 2 = IPv4 TCP
         std::array<uint32_t, 4> ipBytes = {binaryPacket.at(10), binaryPacket.at(11), binaryPacket.at(12), binaryPacket.at(13)};
         _disconnectRequest->controlEndpointIp = (ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3];
         _disconnectRequest->controlEndpointIpString = std::to_string(ipBytes[0]).append(".").append(std::to_string(ipBytes[1])).append(".").append(std::to_string(ipBytes[2])).append(".").append(std::to_string(ipBytes[3]));
@@ -208,7 +208,7 @@ KnxIpPacket::KnxIpPacket(const std::vector<uint8_t>& binaryPacket)
         if(binaryPacket.size() < 16) throw InvalidKnxIpPacketException("Packet too small.");
         _connectionStateRequest = std::make_shared<ConnectionStateRequest>();
         _connectionStateRequest->channelId = binaryPacket.at(6);
-        _connectionStateRequest->hostProtocolCode = binaryPacket.at(9);
+        _connectionStateRequest->hostProtocolCode = binaryPacket.at(9); //1 = IPv4 UDP, 2 = IPv4 TCP
         std::array<uint32_t, 4> ipBytes = {binaryPacket.at(10), binaryPacket.at(11), binaryPacket.at(12), binaryPacket.at(13)};
         _connectionStateRequest->controlEndpointIp = (ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3];
         _connectionStateRequest->controlEndpointIpString = std::to_string(ipBytes[0]).append(".").append(std::to_string(ipBytes[1])).append(".").append(std::to_string(ipBytes[2])).append(".").append(std::to_string(ipBytes[3]));
