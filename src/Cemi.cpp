@@ -37,12 +37,13 @@ Cemi::Cemi(Operation operation, uint16_t sourceAddress, uint16_t destinationAddr
 Cemi::Cemi(const std::vector<uint8_t>& binaryPacket)
 {
 	if(binaryPacket.size() < 1) throw InvalidKnxPacketException("Too small packet.");
+	//Message always starts with the message code (section 4.1.3.1 of chapter 3.6.3)
 	_messageCode = binaryPacket[0];
 	if(_messageCode == 0x11 || _messageCode == 0x29)
     {
         if(binaryPacket.size() >= 11)
         {
-            int32_t additionalInformationLength = binaryPacket[1];
+            int32_t additionalInformationLength = binaryPacket[1]; //Always there (section 4.1.4.1 of chapter 3.6.3), except for local device management. Can be ignored, if we are not interested.
             if((signed) binaryPacket.size() < 11 + additionalInformationLength) throw InvalidKnxPacketException("Too small packet.");
             _sourceAddress = (((uint16_t) (uint8_t) binaryPacket[4 + additionalInformationLength]) << 8) | (uint8_t) binaryPacket[5 + additionalInformationLength];
             _destinationAddress = (((uint16_t) (uint8_t) binaryPacket[6 + additionalInformationLength]) << 8) | (uint8_t) binaryPacket[7 + additionalInformationLength];

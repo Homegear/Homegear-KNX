@@ -253,7 +253,7 @@ std::shared_ptr<BaseLib::FileDescriptor> KnxIpForwarder::getSocketDescriptor()
         localSock.sin_port = htons(_port);
         localSock.sin_addr.s_addr = inet_addr(_listenIp.c_str());
 
-        if(bind(serverSocketDescriptor->descriptor, (struct sockaddr*)&localSock, sizeof(localSock)) == -1)
+        if(bind(serverSocketDescriptor->descriptor.load(), (struct sockaddr*)&localSock, sizeof(localSock)) == -1)
         {
             _out.printError("Error: Binding to address " + _listenIp + " failed: " + std::string(strerror(errno)));
             GD::bl->fileDescriptorManager.close(serverSocketDescriptor);
