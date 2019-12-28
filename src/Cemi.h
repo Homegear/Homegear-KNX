@@ -14,6 +14,11 @@ public:
     explicit InvalidKnxPacketException(const std::string& message) : Exception(message) {}
 };
 
+/**
+ * EMI stands for "External Message Interface".
+ *
+ * See chapter 3.6.3 of the KNX Standard.
+ */
 class Cemi : public BaseLib::Systems::Packet
 {
 public:
