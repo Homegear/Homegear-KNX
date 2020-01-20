@@ -102,7 +102,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
 
         if(deviceInfo.description && !deviceInfo.description->structValue->empty())
         {
-            for(auto groupVariable : deviceInfo.variables)
+            for(const auto& groupVariable : deviceInfo.variables)
             {
                 int32_t channel = 1;
                 std::string variableName;
@@ -115,7 +115,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
                 if(structIterator != variableIterator->second->structValue->end()) channel = structIterator->second->integerValue;
 
                 structIterator = variableIterator->second->structValue->find("variable");
-                if(structIterator != variableIterator->second->structValue->end()) variableName = _bl->hf.stringReplace(structIterator->second->stringValue, ".", "_");;
+                if(structIterator != variableIterator->second->structValue->end()) variableName = BaseLib::HelperFunctions::stringReplace(structIterator->second->stringValue, ".", "_");;
 
                 structIterator = variableIterator->second->structValue->find("unit");
                 if(structIterator != variableIterator->second->structValue->end()) unit = structIterator->second->stringValue;
@@ -1088,7 +1088,7 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
 
 Search::XmlData Search::extractXmlData(std::vector<PProjectData>& projectData)
 {
-	XmlData xmlData;
+	XmlData xmlData{};
 	for(auto& projectDataEntry : projectData)
     {
         std::unordered_map<std::string, Search::PManufacturerData> manufacturerData = extractManufacturerXmlData(projectDataEntry);
@@ -1242,11 +1242,11 @@ Search::XmlData Search::extractXmlData(std::vector<PProjectData>& projectData)
                                                     std::string referenceId = std::string(attribute->value());
 													std::vector<std::string> parts = BaseLib::HelperFunctions::splitAll(referenceId, '_');
 													if(parts.size() >= 3)
-													{
-													    fullReferenceId = referenceId;
-														auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(2), '-');
-														variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
-													}
+                                                    {
+                                                        fullReferenceId = referenceId;
+                                                        auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(2), '-');
+                                                        variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
+                                                    }
                                                     else if(parts.size() == 2) //>= ETS5.7
                                                     {
                                                         fullReferenceId = applicationProgramRefId + '_' + referenceId;
