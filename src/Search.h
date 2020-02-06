@@ -111,7 +111,7 @@ protected:
 	void createDirectories();
 	void createXmlMaintenanceChannel(PHomegearDevice& device);
 	void parseDatapointType(PFunction& function, std::string& datapointType, PParameter& parameter);
-	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
+	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, const std::unordered_map<uint64_t, Role>& roles, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
 	std::vector<PProjectData> extractKnxProjects();
 	void assignRoomsToDevices(xml_node<>* currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>>& devices);
     std::unordered_map<std::string, PManufacturerData> extractManufacturerXmlData(PProjectData& projectData);

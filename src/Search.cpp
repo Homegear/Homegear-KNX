@@ -107,6 +107,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
                 int32_t channel = 1;
                 std::string variableName;
                 std::string unit;
+                std::unordered_map<uint64_t, BaseLib::Role> roles;
 
                 auto variableIterator = deviceInfo.description->structValue->find(std::to_string(groupVariable.first));
                 if(variableIterator == deviceInfo.description->structValue->end()) continue;
@@ -120,6 +121,28 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
                 structIterator = variableIterator->second->structValue->find("unit");
                 if(structIterator != variableIterator->second->structValue->end()) unit = structIterator->second->stringValue;
 
+                structIterator = variableIterator->second->structValue->find("roles");
+                if(structIterator != variableIterator->second->structValue->end())
+                {
+                    for(auto& element : *structIterator->second->arrayValue)
+                    {
+                        auto roleIdIterator = element->structValue->find("id");
+                        if(roleIdIterator == element->structValue->end())
+                        {
+                            GD::out.printWarning(std::string("Warning: Role of device ") + Cemi::getFormattedPhysicalAddress(deviceInfo.address) + " has no key \"id\".");
+                            continue;
+                        }
+                        auto roleDirectionIterator = element->structValue->find("direction");
+                        auto roleInvertIterator = element->structValue->find("invert");
+
+                        Role role;
+                        role.id = roleIdIterator->second->integerValue64;
+                        if(roleDirectionIterator != element->structValue->end()) role.direction = (RoleDirection)roleDirectionIterator->second->integerValue;
+                        if(roleInvertIterator != element->structValue->end()) role.invert = roleInvertIterator->second->booleanValue;
+                        roles.emplace(role.id, std::move(role));
+                    }
+                }
+
                 PFunction function;
                 auto functionIterator = device->functions.find((uint32_t)channel);
                 if(functionIterator == device->functions.end())
@@ -132,7 +155,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
                 }
                 else function = functionIterator->second;
 
-                PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, groupVariable.second->address);
+                PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, groupVariable.second->datapointType, unit, IPhysical::OperationType::command, groupVariable.second->readFlag, groupVariable.second->writeFlag, roles, groupVariable.second->address);
                 if(!parameter) continue;
                 parameter->transmitted = groupVariable.second->transmitFlag;
 
@@ -190,6 +213,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 				std::string unit;
 				bool readable = true;
 				bool writeable = true;
+                std::unordered_map<uint64_t, BaseLib::Role> roles;
 
 				if(variableXml->description)
 				{
@@ -221,6 +245,28 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 
 					structIterator = variableXml->description->structValue->find("writeable");
 					if(structIterator != variableXml->description->structValue->end()) writeable = structIterator->second->booleanValue;
+
+                    structIterator = variableXml->description->structValue->find("roles");
+                    if(structIterator != variableXml->description->structValue->end())
+                    {
+                        for(auto& element : *structIterator->second->arrayValue)
+                        {
+                            auto roleIdIterator = element->structValue->find("id");
+                            if(roleIdIterator == element->structValue->end())
+                            {
+                                GD::out.printWarning("Warning: Role has no key \"id\".");
+                                continue;
+                            }
+                            auto roleDirectionIterator = element->structValue->find("direction");
+                            auto roleInvertIterator = element->structValue->find("invert");
+
+                            Role role;
+                            role.id = roleIdIterator->second->integerValue64;
+                            if(roleDirectionIterator != element->structValue->end()) role.direction = (RoleDirection)roleDirectionIterator->second->integerValue;
+                            if(roleInvertIterator != element->structValue->end()) role.invert = roleInvertIterator->second->booleanValue;
+                            roles.emplace(role.id, std::move(role));
+                        }
+                    }
 				}
 
 				if(id.empty())
@@ -242,7 +288,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					function->variablesId = "knx_values";
 					device->functions[function->channel] = function;
 
-					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, variableXml->datapointType, unit, IPhysical::OperationType::command, readable, writeable, variableXml->address);
+					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, variableXml->datapointType, unit, IPhysical::OperationType::command, readable, writeable, roles, variableXml->address);
 					if(!parameter) continue;
 
 					parseDatapointType(function, variableXml->datapointType, parameter);
@@ -295,7 +341,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					}
 					else function = functionIterator->second;
 
-					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, variableXml->datapointType, unit, IPhysical::OperationType::command, readable, writeable, variableXml->address);
+					PParameter parameter = createParameter(function, variableName.empty() ? "VALUE" : variableName, variableXml->datapointType, unit, IPhysical::OperationType::command, readable, writeable, roles, variableXml->address);
 					if(!parameter) continue;
 
 					parseDatapointType(function, variableXml->datapointType, parameter);
@@ -1575,7 +1621,7 @@ Search::XmlData Search::extractXmlData(std::vector<PProjectData>& projectData)
 	return xmlData;
 }
 
-PParameter Search::createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, uint16_t address, int32_t size, std::shared_ptr<ILogical> logical, bool noCast)
+PParameter Search::createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, const std::unordered_map<uint64_t, Role>& roles, uint16_t address, int32_t size, std::shared_ptr<ILogical> logical, bool noCast)
 {
 	try
 	{
@@ -1583,6 +1629,7 @@ PParameter Search::createParameter(PFunction& function, std::string name, std::s
 		parameter->id = std::move(name);
 		parameter->metadata = metadata;
 		parameter->unit = std::move(unit);
+		parameter->roles = roles;
 		parameter->readable = readable;
 		parameter->writeable = writeable;
 		if(logical) parameter->logical = logical;
@@ -1634,10 +1681,10 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
             std::string baseName = parameter->id;
             parameter->id = baseName + ".RAW";
-            if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, (uint16_t)parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+            if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, (uint16_t)parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-            additionalParameters.push_back(createParameter(function, baseName + ".CONTROL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-            additionalParameters.push_back(createParameter(function, baseName + ".STATE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+            additionalParameters.push_back(createParameter(function, baseName + ".CONTROL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+            additionalParameters.push_back(createParameter(function, baseName + ".STATE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
         }
             //3-bit controlled
         else if(datapointType == "DPT-3" || datapointType.compare(0, 7, "DPST-3-") == 0)
@@ -1650,14 +1697,14 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
             std::string baseName = parameter->id;
             parameter->id = baseName + ".RAW";
-            if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, (uint16_t)parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+            if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, (uint16_t)parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-            additionalParameters.push_back(createParameter(function, baseName + ".CONTROL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+            additionalParameters.push_back(createParameter(function, baseName + ".CONTROL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
             PLogicalInteger stepCode(new LogicalInteger(_bl));
             stepCode->minimumValue = 0;
             stepCode->minimumValue = 7;
-            additionalParameters.push_back(createParameter(function, baseName + ".STEP_CODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 3, stepCode));
+            additionalParameters.push_back(createParameter(function, baseName + ".STEP_CODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, stepCode));
         }
             //character
         else if(datapointType == "DPT-4" || datapointType.compare(0, 7, "DPST-4-") == 0)
@@ -1723,15 +1770,15 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_A", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_B", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_C", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_D", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_E", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_A", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_B", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_C", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_D", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_E", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
                 PLogicalEnumeration enumeration(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 3, enumeration));
+                additionalParameters.push_back(createParameter(function, baseName + ".MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, enumeration));
                 enumeration->minimumValue = 1;
                 enumeration->maximumValue = 4;
                 enumeration->values.emplace_back("Mode 0", 1);
@@ -1900,10 +1947,10 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalEnumeration weekDays(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".DAY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 3, weekDays));
+                additionalParameters.push_back(createParameter(function, baseName + ".DAY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 3, weekDays));
                 weekDays->minimumValue = 0;
                 weekDays->maximumValue = 7;
                 weekDays->values.emplace_back("No day", 0);
@@ -1918,17 +1965,17 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 PLogicalInteger hours(new LogicalInteger(_bl));
                 hours->minimumValue = 0;
                 hours->maximumValue = 23;
-                additionalParameters.push_back(createParameter(function, baseName + ".HOURS", "DPT-5", "h", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 5, hours));
+                additionalParameters.push_back(createParameter(function, baseName + ".HOURS", "DPT-5", "h", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 5, hours));
 
                 PLogicalInteger minutes(new LogicalInteger(_bl));
                 hours->minimumValue = 0;
                 hours->maximumValue = 59;
-                additionalParameters.push_back(createParameter(function, baseName + ".MINUTES", "DPT-5", "min", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 6, minutes));
+                additionalParameters.push_back(createParameter(function, baseName + ".MINUTES", "DPT-5", "min", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 6, minutes));
 
                 PLogicalInteger seconds(new LogicalInteger(_bl));
                 hours->minimumValue = 0;
                 hours->maximumValue = 59;
-                additionalParameters.push_back(createParameter(function, baseName + ".SECONDS", "DPT-5", "s", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 18, 6, minutes));
+                additionalParameters.push_back(createParameter(function, baseName + ".SECONDS", "DPT-5", "s", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 18, 6, minutes));
             }
         }
             //3-byte date
@@ -1944,22 +1991,22 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger day(new LogicalInteger(_bl));
                 day->minimumValue = 1;
                 day->maximumValue = 31;
-                additionalParameters.push_back(createParameter(function, baseName + ".DAY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 5, day));
+                additionalParameters.push_back(createParameter(function, baseName + ".DAY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 5, day));
 
                 PLogicalInteger month(new LogicalInteger(_bl));
                 month->minimumValue = 1;
                 month->maximumValue = 12;
-                additionalParameters.push_back(createParameter(function, baseName + ".MONTH", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 4, month));
+                additionalParameters.push_back(createParameter(function, baseName + ".MONTH", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 4, month));
 
                 PLogicalInteger year(new LogicalInteger(_bl));
                 year->minimumValue = 0;
                 year->maximumValue = 99;
-                additionalParameters.push_back(createParameter(function, baseName + ".YEAR", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 17, 7, year));
+                additionalParameters.push_back(createParameter(function, baseName + ".YEAR", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 17, 7, year));
             }
         }
             //4-byte unsigned value
@@ -2176,47 +2223,47 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger field1(new LogicalInteger(_bl));
                 field1->minimumValue = 0;
                 field1->maximumValue = 9;
-                additionalParameters.push_back(createParameter(function, baseName + ".DATA1", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 4, field1));
+                additionalParameters.push_back(createParameter(function, baseName + ".DATA1", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 4, field1));
 
                 PLogicalInteger field2(new LogicalInteger(_bl));
                 field2->minimumValue = 0;
                 field2->maximumValue = 9;
-                additionalParameters.push_back(createParameter(function, baseName + ".DATA2", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 4, field2));
+                additionalParameters.push_back(createParameter(function, baseName + ".DATA2", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 4, field2));
 
                 PLogicalInteger field3(new LogicalInteger(_bl));
                 field3->minimumValue = 0;
                 field3->maximumValue = 9;
-                additionalParameters.push_back(createParameter(function, baseName + ".DATA3", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 4, field3));
+                additionalParameters.push_back(createParameter(function, baseName + ".DATA3", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 4, field3));
 
                 PLogicalInteger field4(new LogicalInteger(_bl));
                 field4->minimumValue = 0;
                 field4->maximumValue = 9;
-                additionalParameters.push_back(createParameter(function, baseName + ".DATA4", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 4, field4));
+                additionalParameters.push_back(createParameter(function, baseName + ".DATA4", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 4, field4));
 
                 PLogicalInteger field5(new LogicalInteger(_bl));
                 field5->minimumValue = 0;
                 field5->maximumValue = 9;
-                additionalParameters.push_back(createParameter(function, baseName + ".DATA5", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 4, field5));
+                additionalParameters.push_back(createParameter(function, baseName + ".DATA5", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 4, field5));
 
                 PLogicalInteger field6(new LogicalInteger(_bl));
                 field6->minimumValue = 0;
                 field6->maximumValue = 9;
-                additionalParameters.push_back(createParameter(function, baseName + ".DATA6", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 20, 4, field6));
+                additionalParameters.push_back(createParameter(function, baseName + ".DATA6", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 20, 4, field6));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".DETECTION_ERROR", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".PERMISSION", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 25, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".READ_DIRECTION", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 26, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".ENCRYPTION", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 27, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DETECTION_ERROR", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".PERMISSION", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 25, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".READ_DIRECTION", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 26, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ENCRYPTION", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 27, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
                 PLogicalInteger codeIndex(new LogicalInteger(_bl));
                 codeIndex->minimumValue = 0;
                 codeIndex->maximumValue = 9;
-                additionalParameters.push_back(createParameter(function, baseName + ".CODE_INDEX", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 28, 4, codeIndex));
+                additionalParameters.push_back(createParameter(function, baseName + ".CODE_INDEX", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 28, 4, codeIndex));
             }
         }
             //character string
@@ -2250,14 +2297,14 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".LEARN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LEARN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
                 PLogicalInteger hours(new LogicalInteger(_bl));
                 hours->minimumValue = 0;
                 hours->maximumValue = 63;
-                additionalParameters.push_back(createParameter(function, baseName + ".SCENE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 6, hours));
+                additionalParameters.push_back(createParameter(function, baseName + ".SCENE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 6, hours));
             }
         }
             //Date time
@@ -2274,52 +2321,52 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger year(new LogicalInteger(_bl));
                 year->minimumValue = 0;
                 year->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".YEAR", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 8, year));
+                additionalParameters.push_back(createParameter(function, baseName + ".YEAR", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 8, year));
 
                 PLogicalInteger month(new LogicalInteger(_bl));
                 month->minimumValue = 1;
                 month->maximumValue = 12;
-                additionalParameters.push_back(createParameter(function, baseName + ".MONTH", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 4, month));
+                additionalParameters.push_back(createParameter(function, baseName + ".MONTH", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 4, month));
 
                 PLogicalInteger dayOfMonth(new LogicalInteger(_bl));
                 dayOfMonth->minimumValue = 0;
                 dayOfMonth->maximumValue = 31;
-                additionalParameters.push_back(createParameter(function, baseName + ".DAY_OF_MONTH", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 19, 5, dayOfMonth));
+                additionalParameters.push_back(createParameter(function, baseName + ".DAY_OF_MONTH", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 19, 5, dayOfMonth));
 
                 PLogicalInteger dayOfWeek(new LogicalInteger(_bl));
                 dayOfWeek->minimumValue = 0;
                 dayOfWeek->maximumValue = 7;
-                additionalParameters.push_back(createParameter(function, baseName + ".DAY_OF_WEEK", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 3, dayOfWeek));
+                additionalParameters.push_back(createParameter(function, baseName + ".DAY_OF_WEEK", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 3, dayOfWeek));
 
                 PLogicalInteger hours(new LogicalInteger(_bl));
                 hours->minimumValue = 0;
                 hours->maximumValue = 24;
-                additionalParameters.push_back(createParameter(function, baseName + ".HOURS", "DPT-5", "h", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 27, 5, hours));
+                additionalParameters.push_back(createParameter(function, baseName + ".HOURS", "DPT-5", "h", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 27, 5, hours));
 
                 PLogicalInteger minutes(new LogicalInteger(_bl));
                 minutes->minimumValue = 0;
                 minutes->maximumValue = 59;
-                additionalParameters.push_back(createParameter(function, baseName + ".MINUTES", "DPT-5", "min", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 34, 6, minutes));
+                additionalParameters.push_back(createParameter(function, baseName + ".MINUTES", "DPT-5", "min", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 34, 6, minutes));
 
                 PLogicalInteger seconds(new LogicalInteger(_bl));
                 seconds->minimumValue = 0;
                 seconds->maximumValue = 59;
-                additionalParameters.push_back(createParameter(function, baseName + ".SECONDS", "DPT-5", "s", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 42, 6, seconds));
+                additionalParameters.push_back(createParameter(function, baseName + ".SECONDS", "DPT-5", "s", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 42, 6, seconds));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 48, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".WORKING_DAY", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 49, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".WD_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 50, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".YEAR_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 51, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".MONTH_AND_DOM_FIELDS_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 52, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DOW_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 53, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TIME_FIELDS_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 54, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".SUMMERTIME", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 55, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".EXT_SYNC_SIGNAL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 56, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 48, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".WORKING_DAY", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 49, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".WD_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 50, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".YEAR_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 51, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".MONTH_AND_DOM_FIELDS_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 52, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DOW_FIELD_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 53, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TIME_FIELDS_INVALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 54, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SUMMERTIME", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 55, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".EXT_SYNC_SIGNAL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 56, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //1-byte
@@ -2945,13 +2992,13 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".NO_ALARM_ACK", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DP_IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_CORRUPTED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_OUT_OF_SERVICE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".NO_ALARM_ACK", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DP_IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_CORRUPTED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DP_VALUE_OUT_OF_SERVICE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Device control
             else if(datapointType == "DPST-21-2")
@@ -2960,27 +3007,27 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".VERIFY_MODE_ON", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OWN_ADDRESS_DATAGRAM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".USER_APPLICATION_STOPPED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".VERIFY_MODE_ON", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OWN_ADDRESS_DATAGRAM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".USER_APPLICATION_STOPPED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Forcing signal
             else if(datapointType == "DPST-21-100")
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".ROOM_H_MAX", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".ROOM_H_CONF", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DHW_LEGIO", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DHW_NORM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OVERRUN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OVERSUPPLY", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".PROTECTION", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FORCE_REQUEST", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ROOM_H_MAX", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ROOM_H_CONF", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DHW_LEGIO", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DHW_NORM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OVERRUN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OVERSUPPLY", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".PROTECTION", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FORCE_REQUEST", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Forcing signal cool
             else if(datapointType == "DPST-21-101")
@@ -2989,25 +3036,25 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".FORCE_REQUEST", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FORCE_REQUEST", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Room heating controller status
             else if(datapointType == "DPST-21-102")
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".SUMMER_MODE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_STOP_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_START_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_MORNING_BOOST", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_RETURN_LIMIT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_LIMIT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SUMMER_MODE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_STOP_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_START_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_MORNING_BOOST", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_RETURN_LIMIT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_LIMIT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Solar DHW controller status
             else if(datapointType == "DPST-21-103")
@@ -3016,11 +3063,11 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_LOAD_SUFFICIENT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".SDHW_LOAD_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_LOAD_SUFFICIENT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SDHW_LOAD_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Fuel type set
             else if(datapointType == "DPST-21-104")
@@ -3029,11 +3076,11 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".SOLID_STATE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".GAS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OIL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SOLID_STATE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".GAS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OIL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Room cooling controller status
             else if(datapointType == "DPST-21-105")
@@ -3042,9 +3089,9 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Ventilation controller status
             else if(datapointType == "DPST-21-106")
@@ -3053,12 +3100,12 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".COOL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".HEAT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FAN_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".COOL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".HEAT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAN_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Lighting actuator error information
             else if(datapointType == "DPST-21-601")
@@ -3067,15 +3114,15 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".OVERHEAT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DEFECTIVE_LOAD", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".UNDERLOAD", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OVERCURRENT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".UNDERVOLTAGE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".LOAD_DETECTION_ERROR", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OVERHEAT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DEFECTIVE_LOAD", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".UNDERLOAD", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OVERCURRENT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".UNDERVOLTAGE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LOAD_DETECTION_ERROR", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //RF communication mode info
             else if(datapointType == "DPST-21-1000")
@@ -3084,11 +3131,11 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".BI_BAT_SLAVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".BI_BAT_MASTER", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".ASYNCHRONOUS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".BI_BAT_SLAVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".BI_BAT_MASTER", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ASYNCHRONOUS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //cEMI server supported RF filtering modes
             else if(datapointType == "DPST-21-1001")
@@ -3097,27 +3144,27 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".DOA", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".KNX_SN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DOA_AND_KNX_SN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DOA", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".KNX_SN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DOA_AND_KNX_SN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Channel activation for 8 channels
             else if(datapointType == "DPST-21-1010")
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //16-bit set
@@ -3136,16 +3183,16 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_OPTIM_SHIFT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_ENERGY_SUPPORT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_ENERGY_ONLY", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OTHER_ENERGY_SOURCE_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DHW_PUSH_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".LEGIO_PROT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DHW_LOAD_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_OPTIM_SHIFT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_ENERGY_SUPPORT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SOLAR_ENERGY_ONLY", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OTHER_ENERGY_SOURCE_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DHW_PUSH_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LEGIO_PROT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DHW_LOAD_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //RHCC status
             else if(datapointType == "DPST-22-101")
@@ -3154,23 +3201,23 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".OVERHEAT_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FROST_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".DEW_POINT_STATUS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".COOLING_DISABLED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_PRE_COOL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO_C", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".HEAT_COOL_MODE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".HEATING_DISABLED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_STOP_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_START_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_MORNING_BOOST_H", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_RETURN_LIMIT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_LIMIT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO_H", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OVERHEAT_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FROST_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DEW_POINT_STATUS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".COOLING_DISABLED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_PRE_COOL", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO_C", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".HEAT_COOL_MODE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".HEATING_DISABLED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_STOP_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_START_OPTIM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_MORNING_BOOST_H", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_RETURN_LIMIT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TEMP_FLOW_LIMIT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATUS_ECO_H", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Media
             else if(datapointType == "DPST-22-1000")
@@ -3179,36 +3226,36 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".KNX_IP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".RF", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".PL110", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TP1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".KNX_IP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".RF", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".PL110", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TP1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
                 //Channel activation for 16 channels
             else if(datapointType == "DPST-22-1010")
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
         else if(datapointType == "DPT-23" || datapointType.compare(0, 8, "DPST-23-") == 0)
@@ -3277,17 +3324,17 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger nibble1(new LogicalInteger(_bl));
                 nibble1->minimumValue = 0;
                 nibble1->maximumValue = 3;
-                additionalParameters.push_back(createParameter(function, baseName + ".BUSY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 4, nibble1));
+                additionalParameters.push_back(createParameter(function, baseName + ".BUSY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 4, nibble1));
 
                 PLogicalInteger nibble2(new LogicalInteger(_bl));
                 nibble2->minimumValue = 0;
                 nibble2->maximumValue = 3;
-                additionalParameters.push_back(createParameter(function, baseName + ".NAK", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 4, nibble2));
+                additionalParameters.push_back(createParameter(function, baseName + ".NAK", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 4, nibble2));
             }
         }
             //8-bit set
@@ -3305,14 +3352,14 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
 
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".INACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".INACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
                 PLogicalInteger hours(new LogicalInteger(_bl));
                 hours->minimumValue = 0;
                 hours->maximumValue = 63;
-                additionalParameters.push_back(createParameter(function, baseName + ".SCENE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 6, hours));
+                additionalParameters.push_back(createParameter(function, baseName + ".SCENE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 6, hours));
             }
         }
             //32-bit set
@@ -3327,40 +3374,40 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_16_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_15_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_14_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_13_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_12_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_11_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_10_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_9_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_8_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_7_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_6_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_5_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_4_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_3_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_2_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_1_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 17, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 18, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 19, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 20, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 21, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 25, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 26, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 27, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 28, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 29, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 30, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 31, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_16_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_15_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_14_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_13_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_12_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_11_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_10_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_9_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_8_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_7_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_6_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_5_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_4_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_3_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_2_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUTPUT_1_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 17, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 18, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 19, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 20, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 21, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 25, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 26, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 27, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 28, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 29, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 30, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 31, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //Electrical energy
@@ -3395,32 +3442,32 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_17", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_18", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 17, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_19", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 18, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_20", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 19, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_21", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 20, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_22", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 21, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_23", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".STATE_24", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_1", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_2", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_3", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_4", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_5", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_6", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_7", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_8", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_9", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_10", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_11", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_12", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 11, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_13", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_14", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_15", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 14, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_16", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 15, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_17", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_18", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 17, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_19", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 18, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_20", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 19, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_21", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 20, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_22", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 21, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_23", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".STATE_24", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
         //16-bit unsigned value and 8-bit enumeration
@@ -3437,15 +3484,15 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger delay(new LogicalInteger(_bl));
                 delay->minimumValue = 0;
                 delay->maximumValue = 65535;
-                additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, delay));
+                additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, delay));
 
                 PLogicalEnumeration hvacMode(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".HVAC_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 8, hvacMode));
+                additionalParameters.push_back(createParameter(function, baseName + ".HVAC_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, hvacMode));
                 hvacMode->minimumValue = 0;
                 hvacMode->maximumValue = 4;
                 hvacMode->values.emplace_back("Undefined", 0);
@@ -3459,15 +3506,15 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger delay(new LogicalInteger(_bl));
                 delay->minimumValue = 0;
                 delay->maximumValue = 65535;
-                additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, delay));
+                additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, delay));
 
                 PLogicalEnumeration dhwMode(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".DHW_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 8, dhwMode));
+                additionalParameters.push_back(createParameter(function, baseName + ".DHW_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, dhwMode));
                 dhwMode->minimumValue = 0;
                 dhwMode->maximumValue = 4;
                 dhwMode->values.emplace_back("Undefined", 0);
@@ -3481,15 +3528,15 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger delay(new LogicalInteger(_bl));
                 delay->minimumValue = 0;
                 delay->maximumValue = 65535;
-                additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, delay));
+                additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, delay));
 
                 PLogicalEnumeration occupancyMode(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".OCCUPANCY_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 8, occupancyMode));
+                additionalParameters.push_back(createParameter(function, baseName + ".OCCUPANCY_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, occupancyMode));
                 occupancyMode->minimumValue = 0;
                 occupancyMode->maximumValue = 2;
                 occupancyMode->values.emplace_back("Occupied", 0);
@@ -3501,15 +3548,15 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger delay(new LogicalInteger(_bl));
                 delay->minimumValue = 0;
                 delay->maximumValue = 65535;
-                additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, delay));
+                additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, delay));
 
                 PLogicalEnumeration buildingMode(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".BUILDING_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 8, buildingMode));
+                additionalParameters.push_back(createParameter(function, baseName + ".BUILDING_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, buildingMode));
                 buildingMode->minimumValue = 0;
                 buildingMode->maximumValue = 2;
                 buildingMode->values.emplace_back("In use", 0);
@@ -3530,22 +3577,22 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger magic(new LogicalInteger(_bl));
                 magic->minimumValue = 0;
                 magic->maximumValue = 31;
-                additionalParameters.push_back(createParameter(function, baseName + ".MAGIC_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 5, magic));
+                additionalParameters.push_back(createParameter(function, baseName + ".MAGIC_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 5, magic));
 
                 PLogicalInteger version(new LogicalInteger(_bl));
                 version->minimumValue = 0;
                 version->maximumValue = 31;
-                additionalParameters.push_back(createParameter(function, baseName + ".VERSION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 5, version));
+                additionalParameters.push_back(createParameter(function, baseName + ".VERSION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 5, version));
 
                 PLogicalInteger revision(new LogicalInteger(_bl));
                 revision->minimumValue = 0;
                 revision->maximumValue = 63;
-                additionalParameters.push_back(createParameter(function, baseName + ".REVISION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 6, revision));
+                additionalParameters.push_back(createParameter(function, baseName + ".REVISION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 6, revision));
             }
         }
             //Alarm info
@@ -3565,15 +3612,15 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger logNumber(new LogicalInteger(_bl));
                 logNumber->minimumValue = 0;
                 logNumber->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".LOG_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 8, logNumber));
+                additionalParameters.push_back(createParameter(function, baseName + ".LOG_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 8, logNumber));
 
                 PLogicalEnumeration alarmPriority(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".PRIORITY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 8, alarmPriority));
+                additionalParameters.push_back(createParameter(function, baseName + ".PRIORITY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 8, alarmPriority));
                 alarmPriority->minimumValue = 0;
                 alarmPriority->maximumValue = 3;
                 alarmPriority->values.emplace_back("High", 0);
@@ -3582,7 +3629,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 alarmPriority->values.emplace_back("None", 3);
 
                 PLogicalEnumeration applicationArea(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 8, applicationArea));
+                additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, applicationArea));
                 applicationArea->minimumValue = 0;
                 applicationArea->maximumValue = 50;
                 applicationArea->values.emplace_back("No fault", 0);
@@ -3597,7 +3644,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 applicationArea->values.emplace_back("Shutters and blinds", 50);
 
                 PLogicalEnumeration errorClass(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CLASS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 8, errorClass));
+                additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CLASS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 8, errorClass));
                 errorClass->minimumValue = 0;
                 errorClass->maximumValue = 5;
                 errorClass->values.emplace_back("No fault", 0);
@@ -3607,14 +3654,14 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 errorClass->values.emplace_back("HW fault", 4);
                 errorClass->values.emplace_back("SW fault", 5);
 
-                additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CODE_SUP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 36, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".ALARM_TEXT_SUP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 37, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TIME_STAMP_SUP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 38, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".ACK_SUP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 39, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CODE_SUP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 36, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ALARM_TEXT_SUP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 37, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TIME_STAMP_SUP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 38, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ACK_SUP", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 39, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".LOCKED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 45, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".ALARM_UN_ACK", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 46, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 47, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LOCKED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 45, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ALARM_UN_ACK", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 46, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 47, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //3x 2-byte float value
@@ -3635,44 +3682,44 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalDecimal comfort(new LogicalDecimal(_bl));
                 comfort->minimumValue = -273.0;
                 comfort->maximumValue = 670760.0;
-                additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, comfort));
+                additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, comfort));
 
                 PLogicalDecimal standBy(new LogicalDecimal(_bl));
                 standBy->minimumValue = -273.0;
                 standBy->maximumValue = 670760.0;
-                additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 16, standBy));
+                additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 16, standBy));
 
                 PLogicalDecimal eco(new LogicalDecimal(_bl));
                 eco->minimumValue = -273.0;
                 eco->maximumValue = 670760.0;
-                additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 32, 16, eco));
+                additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 32, 16, eco));
             }
                 //Room temperature setpoint shift
             else if(datapointType == "DPST-222-101")
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalDecimal comfort(new LogicalDecimal(_bl));
                 comfort->minimumValue = -670760.0;
                 comfort->maximumValue = 670760.0;
-                additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, comfort));
+                additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, comfort));
 
                 PLogicalDecimal standBy(new LogicalDecimal(_bl));
                 standBy->minimumValue = -670760.0;
                 standBy->maximumValue = 670760.0;
-                additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 16, standBy));
+                additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 16, standBy));
 
                 PLogicalDecimal eco(new LogicalDecimal(_bl));
                 eco->minimumValue = -670760.0;
                 eco->maximumValue = 670760.0;
-                additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 32, 16, eco));
+                additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 32, 16, eco));
             }
         }
             //4-1-1 byte combined information
@@ -3693,13 +3740,13 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger counter(new LogicalInteger(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".COUNTER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 32, counter));
+                additionalParameters.push_back(createParameter(function, baseName + ".COUNTER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 32, counter));
 
                 PLogicalEnumeration valueInformation(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 32, 8, valueInformation));
+                additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 32, 8, valueInformation));
                 valueInformation->minimumValue = 0;
                 valueInformation->maximumValue = 177;
                 valueInformation->values.emplace_back("Energy, 0.001 Wh", 0);
@@ -3798,11 +3845,11 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 valueInformation->values.emplace_back("Power, 0.1 GJ/h", 176);
                 valueInformation->values.emplace_back("Power, 1 GJ/h", 177);
 
-                additionalParameters.push_back(createParameter(function, baseName + ".ALARM_UN_ACK", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 43, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 44, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 45, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 46, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OUT_OF_SERVICE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 47, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".ALARM_UN_ACK", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 43, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 44, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 45, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAULT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 46, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OUT_OF_SERVICE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 47, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //MBus address
@@ -3820,19 +3867,19 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger manufacturerId(new LogicalInteger(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".MANUFACTURER_ID", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, manufacturerId));
+                additionalParameters.push_back(createParameter(function, baseName + ".MANUFACTURER_ID", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, manufacturerId));
 
                 PLogicalInteger identNumber(new LogicalInteger(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 32, identNumber));
+                additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 32, identNumber));
 
                 PLogicalInteger version(new LogicalInteger(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 48, 8, version));
+                additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 48, 8, version));
 
                 PLogicalEnumeration medium(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".MEDIUM", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 56, 8, medium));
+                additionalParameters.push_back(createParameter(function, baseName + ".MEDIUM", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 56, 8, medium));
                 medium->minimumValue = 0;
                 medium->maximumValue = 55;
                 medium->values.emplace_back("Other", 0);
@@ -3874,22 +3921,22 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger red(new LogicalInteger(_bl));
                 red->minimumValue = 0;
                 red->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 8, red));
+                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 8, red));
 
                 PLogicalInteger green(new LogicalInteger(_bl));
                 green->minimumValue = 0;
                 green->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".GREEN", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 8, green));
+                additionalParameters.push_back(createParameter(function, baseName + ".GREEN", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 8, green));
 
                 PLogicalInteger blue(new LogicalInteger(_bl));
                 blue->minimumValue = 0;
                 blue->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".BLUE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 8, blue));
+                additionalParameters.push_back(createParameter(function, baseName + ".BLUE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, blue));
             }
         }
             //ISO 639-1 language code
@@ -3913,18 +3960,18 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_ERROR", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".BALLAST_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".READ", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".GROUP_ADDRESS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_ERROR", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".BALLAST_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".READ", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".GROUP_ADDRESS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 9, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
                 PLogicalInteger red(new LogicalInteger(_bl));
                 red->minimumValue = 0;
                 red->maximumValue = 63;
-                additionalParameters.push_back(createParameter(function, baseName + ".DALI_ADDRESS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 6, red));
+                additionalParameters.push_back(createParameter(function, baseName + ".DALI_ADDRESS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 6, red));
             }
         }
             //Configuration / diagnostics
@@ -3941,15 +3988,15 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".BALLAST_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".BALLAST_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LAMP_FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 1, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
                 PLogicalInteger red(new LogicalInteger(_bl));
                 red->minimumValue = 0;
                 red->maximumValue = 63;
-                additionalParameters.push_back(createParameter(function, baseName + ".DEVICE_ADDRESS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 2, 6, red));
+                additionalParameters.push_back(createParameter(function, baseName + ".DEVICE_ADDRESS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 6, red));
             }
         }
             //Combined position
@@ -3965,20 +4012,20 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger height(new LogicalInteger(_bl));
                 height->minimumValue = 0;
                 height->maximumValue = 100;
-                additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 8, height));
+                additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 8, height));
 
                 PLogicalInteger slats(new LogicalInteger(_bl));
                 slats->minimumValue = 0;
                 slats->maximumValue = 100;
-                additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 8, slats));
+                additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 8, slats));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //Sun blind and shutter actuator status
@@ -3992,32 +4039,32 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger height(new LogicalInteger(_bl));
                 height->minimumValue = 0;
                 height->maximumValue = 100;
-                additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 8, height));
+                additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 8, height));
 
                 PLogicalInteger slats(new LogicalInteger(_bl));
                 slats->minimumValue = 0;
                 slats->maximumValue = 100;
-                additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 8, slats));
+                additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 8, slats));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".UPPER_END_REACHED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".LOWER_END_REACHED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 17, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".LOWER_PREDEF_REACHED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 18, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TARGET_REACHED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 19, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".CANT_REACH_TARGET_POS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 20, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".CANT_REACH_SLATS_POS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 21, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".UP_DOWN_FORCED_INPUT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".LOCKED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 25, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 26, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".UPPER_END_REACHED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LOWER_END_REACHED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 17, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LOWER_PREDEF_REACHED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 18, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TARGET_REACHED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 19, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".CANT_REACH_TARGET_POS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 20, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".CANT_REACH_SLATS_POS", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 21, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".IN_ALARM", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".UP_DOWN_FORCED_INPUT", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".LOCKED", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".OVERRIDDEN", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 25, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".FAILURE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 26, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 30, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 30, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //DALI converter status
@@ -4031,10 +4078,10 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalEnumeration converterMode(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 4, converterMode));
+                additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 4, converterMode));
                 converterMode->minimumValue = 0;
                 converterMode->maximumValue = 9;
                 converterMode->values.emplace_back("Unknown", 0);
@@ -4048,11 +4095,11 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 converterMode->values.emplace_back("DT in progress", 8);
                 converterMode->values.emplace_back("PDT in progress", 9);
 
-                additionalParameters.push_back(createParameter(function, baseName + ".HARDWIRED_SWITCH_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".HARDWIRED_INHIBIT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".HARDWIRED_SWITCH_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 6, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".HARDWIRED_INHIBIT_ACTIVE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 7, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
                 PLogicalEnumeration functionTestPending(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".FUNCTION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 2, functionTestPending));
+                additionalParameters.push_back(createParameter(function, baseName + ".FUNCTION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 2, functionTestPending));
                 functionTestPending->minimumValue = 0;
                 functionTestPending->maximumValue = 2;
                 functionTestPending->values.emplace_back("Unknown", 0);
@@ -4060,7 +4107,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 functionTestPending->values.emplace_back("Test pending", 2);
 
                 PLogicalEnumeration durationTestPending(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".DURATION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 10, 2, durationTestPending));
+                additionalParameters.push_back(createParameter(function, baseName + ".DURATION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 2, durationTestPending));
                 durationTestPending->minimumValue = 0;
                 durationTestPending->maximumValue = 2;
                 durationTestPending->values.emplace_back("Unknown", 0);
@@ -4068,7 +4115,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 durationTestPending->values.emplace_back("Test pending", 2);
 
                 PLogicalEnumeration partialDurationTestPending(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".PARTIAL_DURATION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 2, partialDurationTestPending));
+                additionalParameters.push_back(createParameter(function, baseName + ".PARTIAL_DURATION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 2, partialDurationTestPending));
                 partialDurationTestPending->minimumValue = 0;
                 partialDurationTestPending->maximumValue = 2;
                 partialDurationTestPending->values.emplace_back("Unknown", 0);
@@ -4076,7 +4123,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 partialDurationTestPending->values.emplace_back("Test pending", 2);
 
                 PLogicalEnumeration converterFailure(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_FAILURE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 14, 2, converterFailure));
+                additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_FAILURE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 14, 2, converterFailure));
                 converterFailure->minimumValue = 0;
                 converterFailure->maximumValue = 2;
                 converterFailure->values.emplace_back("Unknown", 0);
@@ -4095,10 +4142,10 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalEnumeration ltrf(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 4, ltrf));
+                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 4, ltrf));
                 ltrf->minimumValue = 0;
                 ltrf->maximumValue = 5;
                 ltrf->values.emplace_back("Unknown", 0);
@@ -4109,7 +4156,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 ltrf->values.emplace_back("Test manually stopped", 5);
 
                 PLogicalEnumeration ltrd(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 4, ltrd));
+                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 4, ltrd));
                 ltrd->minimumValue = 0;
                 ltrd->maximumValue = 5;
                 ltrd->values.emplace_back("Unknown", 0);
@@ -4120,7 +4167,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 ltrd->values.emplace_back("Test manually stopped", 5);
 
                 PLogicalEnumeration ltrp(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 4, ltrp));
+                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 4, ltrp));
                 ltrp->minimumValue = 0;
                 ltrp->maximumValue = 5;
                 ltrp->values.emplace_back("Unknown", 0);
@@ -4131,7 +4178,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 ltrp->values.emplace_back("Test manually stopped", 5);
 
                 PLogicalEnumeration sf(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 2, sf));
+                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 2, sf));
                 sf->minimumValue = 0;
                 sf->maximumValue = 2;
                 sf->values.emplace_back("Unknown", 0);
@@ -4139,7 +4186,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 sf->values.emplace_back("Started by gateway", 2);
 
                 PLogicalEnumeration sd(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 18, 2, sd));
+                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 18, 2, sd));
                 sd->minimumValue = 0;
                 sd->maximumValue = 2;
                 sd->values.emplace_back("Unknown", 0);
@@ -4147,7 +4194,7 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 sd->values.emplace_back("Started by gateway", 2);
 
                 PLogicalEnumeration sp(new LogicalEnumeration(_bl));
-                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 20, 2, sp));
+                additionalParameters.push_back(createParameter(function, baseName + ".LTRF", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 20, 2, sp));
                 sp->minimumValue = 0;
                 sp->maximumValue = 2;
                 sp->values.emplace_back("Unknown", 0);
@@ -4157,12 +4204,12 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
                 PLogicalInteger ldtr(new LogicalInteger(_bl));
                 ldtr->minimumValue = 0;
                 ldtr->maximumValue = 510;
-                additionalParameters.push_back(createParameter(function, baseName + ".LDTR", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 16, ldtr));
+                additionalParameters.push_back(createParameter(function, baseName + ".LDTR", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 16, ldtr));
 
                 PLogicalInteger lpdtr(new LogicalInteger(_bl));
                 lpdtr->minimumValue = 0;
                 lpdtr->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".LPDTR", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 40, 8, lpdtr));
+                additionalParameters.push_back(createParameter(function, baseName + ".LPDTR", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 40, 8, lpdtr));
             }
         }
             //Brightness color temperature transition
@@ -4176,26 +4223,26 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger duration(new LogicalInteger(_bl));
                 duration->minimumValue = 0;
                 duration->maximumValue = 65535;
-                additionalParameters.push_back(createParameter(function, baseName + ".DURATION", "DPST-7-4", "100 ms", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 0, 16, duration));
+                additionalParameters.push_back(createParameter(function, baseName + ".DURATION", "DPST-7-4", "100 ms", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, duration));
 
                 PLogicalInteger temperature(new LogicalInteger(_bl));
                 temperature->minimumValue = 0;
                 temperature->maximumValue = 65535;
-                additionalParameters.push_back(createParameter(function, baseName + ".TEMPERATURE", "DPT-7", "K", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 16, temperature));
+                additionalParameters.push_back(createParameter(function, baseName + ".TEMPERATURE", "DPT-7", "K", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 16, temperature));
 
                 PLogicalInteger brightness(new LogicalInteger(_bl));
                 brightness->minimumValue = 0;
                 brightness->maximumValue = 100;
-                additionalParameters.push_back(createParameter(function, baseName + ".BRIGHTNESS", "DPST-5-1", "%", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 32, 8, brightness));
+                additionalParameters.push_back(createParameter(function, baseName + ".BRIGHTNESS", "DPST-5-1", "%", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 32, 8, brightness));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".DURATION_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 45, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".TEMPERATURE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 46, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".BRIGHTNESS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 47, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".DURATION_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 45, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".TEMPERATURE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 46, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".BRIGHTNESS_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 47, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //Brightness color temperature control
@@ -4209,24 +4256,24 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".CCT_INCREASE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".CCT_INCREASE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
                 PLogicalInteger cctStep(new LogicalInteger(_bl));
                 cctStep->minimumValue = 1;
                 cctStep->maximumValue = 7;
-                additionalParameters.push_back(createParameter(function, baseName + ".CCT_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 5, 3, cctStep));
+                additionalParameters.push_back(createParameter(function, baseName + ".CCT_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, cctStep));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".CB_INCREASE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".CB_INCREASE", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
                 PLogicalInteger cbStep(new LogicalInteger(_bl));
                 cbStep->minimumValue = 1;
                 cbStep->maximumValue = 7;
-                additionalParameters.push_back(createParameter(function, baseName + ".CB_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 13, 3, cbStep));
+                additionalParameters.push_back(createParameter(function, baseName + ".CB_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 3, cbStep));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".CCT_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".CB_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".CCT_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 22, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".CB_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 23, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
             }
         }
             //RGBW
@@ -4240,32 +4287,32 @@ void Search::parseDatapointType(PFunction& function, std::string& datapointType,
             {
                 std::string baseName = parameter->id;
                 parameter->id = baseName + ".RAW";
-                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, (uint16_t)parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
+                if(parameter->writeable) additionalParameters.push_back(createParameter(function, baseName + ".SUBMIT", "DPT-1", "", IPhysical::OperationType::command, parameter->readable, parameter->writeable, parameter->roles, (uint16_t)parameter->physical->address, -1, std::make_shared<BaseLib::DeviceDescription::LogicalAction>(_bl)));
 
                 PLogicalInteger red(new LogicalInteger(_bl));
                 red->minimumValue = 0;
                 red->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 8, 8, red));
+                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 8, red));
 
                 PLogicalInteger green(new LogicalInteger(_bl));
                 green->minimumValue = 0;
                 green->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 16, 8, green));
+                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, green));
 
                 PLogicalInteger blue(new LogicalInteger(_bl));
                 blue->minimumValue = 0;
                 blue->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 24, 8, blue));
+                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 8, blue));
 
                 PLogicalInteger white(new LogicalInteger(_bl));
                 white->minimumValue = 0;
                 white->maximumValue = 255;
-                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 32, 8, white));
+                additionalParameters.push_back(createParameter(function, baseName + ".RED", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 32, 8, white));
 
-                additionalParameters.push_back(createParameter(function, baseName + ".RED_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 44, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".GREEN_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 45, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".BLUE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 46, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
-                additionalParameters.push_back(createParameter(function, baseName + ".WHITE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, 47, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".RED_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 44, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".GREEN_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 45, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".BLUE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 46, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
+                additionalParameters.push_back(createParameter(function, baseName + ".WHITE_VALID", "DPT-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 47, 1, std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(_bl)));
 
             }
         }
