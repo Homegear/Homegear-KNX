@@ -691,6 +691,7 @@ std::vector<Search::PProjectData> Search::extractKnxProjects()
 				if((filename.compare(0, 2, "P-") == 0) || (filename.compare(0, 2, "p-") == 0))
                 {
 				    auto parts = BaseLib::HelperFunctions::splitFirst(filename, '/');
+				    if(parts.second.empty()) parts = BaseLib::HelperFunctions::splitFirst(filename, '.');
 				    currentProjectData->projectId = BaseLib::HelperFunctions::toUpper(parts.first);
 
                     isProjectXml = (filename.compare(filename.size() - 6, 6, "/0.xml") == 0);
@@ -794,7 +795,7 @@ std::vector<Search::PProjectData> Search::extractKnxProjects()
                 xml_document<> doc;
                 try
                 {
-                    char* startPos = (char*)memchr(projectFileIterator->second->data(), '<', 10);
+                    char* startPos = (!projectFileIterator->second || projectFileIterator->second->empty() ? nullptr : (char*)memchr(projectFileIterator->second->data(), '<', 10));
                     if(!startPos)
                     {
                         _bl->out.printError("Error: No '<' found in \"project.xml\".");
@@ -1142,7 +1143,7 @@ Search::XmlData Search::extractXmlData(std::vector<PProjectData>& projectData)
 		xml_document<> doc;
 		try
 		{
-			char* startPos = (char*)memchr(projectDataEntry->projectXml->data(), '<', 10);
+			char* startPos = (!projectDataEntry->projectXml || projectDataEntry->projectXml->empty()) ? nullptr : (char*)memchr(projectDataEntry->projectXml->data(), '<', 10);
 			if(!startPos)
 			{
 				_bl->out.printError("Error: No '<' found in KNX project XML.");
@@ -1311,8 +1312,14 @@ Search::XmlData Search::extractXmlData(std::vector<PProjectData>& projectData)
                                                 }
 												//}}}
 
-												//{{{ Overwrite default flags. In ETS versions before 5.7 the flags seem always to be set here. In ETS >= 5.7 the flags are only specified here, if they are different from the default.
+												//{{{ Overwrite default flags. In ETS versions before 5.7 the flags seem always to be set here in deviceNode (needs to be reverified). In ETS >= 5.7 the flags are specified in ComObjectInstanceRef, if they are different from the default.
                                                 attribute = deviceNode->first_attribute("WriteFlag");
+                                                if(attribute)
+                                                {
+                                                    attributeValue = std::string(attribute->value());
+                                                    variableInfo.writeFlag = attributeValue != "Disabled";
+                                                }
+                                                attribute = comInstanceRefNode->first_attribute("WriteFlag");
                                                 if(attribute)
                                                 {
                                                     attributeValue = std::string(attribute->value());
@@ -1325,8 +1332,20 @@ Search::XmlData Search::extractXmlData(std::vector<PProjectData>& projectData)
                                                     attributeValue = std::string(attribute->value());
                                                     variableInfo.readFlag = attributeValue != "Disabled";
                                                 }
+                                                attribute = comInstanceRefNode->first_attribute("ReadFlag");
+                                                if(attribute)
+                                                {
+                                                    attributeValue = std::string(attribute->value());
+                                                    variableInfo.readFlag = attributeValue != "Disabled";
+                                                }
 
                                                 attribute = deviceNode->first_attribute("TransmitFlag");
+                                                if(attribute)
+                                                {
+                                                    attributeValue = std::string(attribute->value());
+                                                    variableInfo.transmitFlag = attributeValue != "Disabled";
+                                                }
+                                                attribute = comInstanceRefNode->first_attribute("TransmitFlag");
                                                 if(attribute)
                                                 {
                                                     attributeValue = std::string(attribute->value());
