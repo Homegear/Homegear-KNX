@@ -115,6 +115,8 @@ protected:
 
 	virtual PParameterGroup getParameterSet(int32_t channel, ParameterGroup::Type::Enum type);
 
+	void sendPacket(const PCemi& packet);
+
 	// {{{ Hooks
 		/**
 		 * {@inheritDoc}

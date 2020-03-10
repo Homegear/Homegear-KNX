@@ -57,6 +57,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         if(deviceInfo.address == -1 || !deviceInfo.description || deviceInfo.description->structValue->empty()) return PHomegearDevice();
         std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(_bl);
         device->version = 1;
+        device->interface = deviceInfo.interface;
         PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(_bl);
         bool newDevice = true;
         auto typeNumberIterator = idTypeNumberMap.find(deviceInfo.id); //Backwards compatability
@@ -69,7 +70,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
         }
         else
         {
-            typeNumberIterator = idTypeNumberMap.find(Cemi::getFormattedPhysicalAddress(deviceInfo.address));
+            typeNumberIterator = idTypeNumberMap.find((device->interface.empty() ? "" : device->interface + "-") + Cemi::getFormattedPhysicalAddress(deviceInfo.address));
             if(typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0)
             {
                 supportedDevice->typeNumber = typeNumberIterator->second;
@@ -94,7 +95,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
             return PHomegearDevice();
         }
 
-        supportedDevice->id = Cemi::getFormattedPhysicalAddress(deviceInfo.address);
+        supportedDevice->id = (device->interface.empty() ? "" : device->interface + "-") + Cemi::getFormattedPhysicalAddress(deviceInfo.address);
         supportedDevice->description = deviceInfo.name;
         device->supportedDevices.push_back(supportedDevice);
 
@@ -271,7 +272,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 
 				if(id.empty())
 				{
-					PHomegearDevice device(new HomegearDevice(_bl));
+					auto device = std::make_shared<HomegearDevice>(_bl);
 					device->version = 1;
 					PSupportedDevice supportedDevice(new SupportedDevice(_bl));
 					supportedDevice->id = "KNX_" + std::to_string(variableXml->address >> 11) + "_" + std::to_string((variableXml->address >> 8) & 0x7) + "_" + std::to_string(variableXml->address & 0xFF);
@@ -305,7 +306,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 					auto deviceIterator = rpcDevicesJson.find(id);
 					if(deviceIterator == rpcDevicesJson.end())
 					{
-						device.reset(new HomegearDevice(_bl));
+						device = std::make_shared<HomegearDevice>(_bl);
 						device->version = 1;
 						PSupportedDevice supportedDevice(new SupportedDevice(_bl));
 						supportedDevice->id = id;
@@ -656,6 +657,7 @@ std::vector<Search::PProjectData> Search::extractKnxProjects()
 		for(auto& projectFilename : projectFilenames)
 		{
 		    auto currentProjectData = std::make_shared<ProjectData>();
+            currentProjectData->filename = BaseLib::HelperFunctions::splitLast(projectFilename, '/').second;
 
 			int32_t error = 0;
             zip_error_t zipError;
@@ -1190,6 +1192,20 @@ Search::XmlData Search::extractXmlData(std::vector<PProjectData>& projectData)
 									for(xml_node<>* deviceNode = lineNode->first_node("DeviceInstance"); deviceNode; deviceNode = deviceNode->next_sibling("DeviceInstance"))
 									{
 										std::shared_ptr<DeviceXmlData> device = std::make_shared<DeviceXmlData>();
+
+                                        //{{{ Assign interface
+                                        auto pos = projectDataEntry->filename.find("##");
+                                        if(pos != std::string::npos)
+                                        {
+                                            auto pos2 = projectDataEntry->filename.find("##", pos + 1);
+                                            if(pos2 != std::string::npos)
+                                            {
+                                                auto metadataString = projectDataEntry->filename.substr(pos + 2, pos2 - pos - 2);
+                                                auto metadataParts = BaseLib::HelperFunctions::splitFirst(metadataString, '=');
+                                                if(metadataParts.first == "if") device->interface = metadataParts.second;
+                                            }
+                                        }
+                                        //}}}
 
 										attribute = deviceNode->first_attribute("Address");
 										if(!attribute) continue;

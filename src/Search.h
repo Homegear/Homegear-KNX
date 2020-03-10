@@ -31,6 +31,7 @@ public:
 protected:
     struct ProjectData
     {
+        std::string filename;
         std::string projectId;
         std::string projectName;
 
@@ -89,6 +90,7 @@ protected:
 
 	struct DeviceXmlData
 	{
+	    std::string interface;
 		std::string id;
 		std::string name;
 		std::string room;

@@ -436,6 +436,34 @@ void KnxPeer::initParametersByGroupAddress()
     }
 }
 
+void KnxPeer::sendPacket(const PCemi& packet)
+{
+    try
+    {
+        if(_rpcDevice->interface.empty())
+        {
+            for(auto& interface : GD::physicalInterfaces)
+            {
+                interface.second->sendPacket(packet);
+            }
+        }
+        else
+        {
+            auto interfaceIterator = GD::physicalInterfaces.find(_rpcDevice->interface);
+            if(interfaceIterator == GD::physicalInterfaces.end())
+            {
+                GD::out.printError("Error: Communication interface \"" + _rpcDevice->interface + "\" required by peer " + std::to_string(_peerID) + " was not found. Could not send packet.");
+                return;
+            }
+            interfaceIterator->second->sendPacket(packet);
+        }
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+}
+
 void KnxPeer::packetReceived(PCemi& packet)
 {
 	try
@@ -560,10 +588,7 @@ void KnxPeer::packetReceived(PCemi& packet)
             if(_bl->debugLevel >= 4) GD::out.printInfo("Info: " + parameterId + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was requested. Current value is 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
             auto responsePacket = std::make_shared<Cemi>(Cemi::Operation::groupValueResponse, 0, parameter.rpcParameter->physical->address, fitsInFirstByte, parameterData);
-            for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
-            {
-                i->second->sendPacket(responsePacket);
-            }
+            sendPacket(responsePacket);
         }
 	}
 	catch(const std::exception& ex)
@@ -595,10 +620,7 @@ PVariable KnxPeer::getValueFromDevice(PParameter& parameter, int32_t channel, bo
 		_getValueFromDeviceInfo.mutexReady = false;
 
 		auto packet = std::make_shared<Cemi>(Cemi::Operation::groupValueRead, 0, valuesIterator->second.rpcParameter->physical->address);
-		for(std::map<std::string, std::shared_ptr<MainInterface>>::iterator i = GD::physicalInterfaces.begin(); i != GD::physicalInterfaces.end(); ++i)
-		{
-			i->second->sendPacket(packet);
-		}
+		sendPacket(packet);
 
 		if(!_getValueFromDeviceInfo.conditionVariable.wait_for(lock, std::chrono::milliseconds(2000), [&] { return _getValueFromDeviceInfo.mutexReady; }))
 		{
@@ -909,10 +931,7 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
 		}
 		else cemi = std::make_shared<Cemi>(Cemi::Operation::groupValueWrite, 0, rpcParameter->physical->address, fitsInFirstByte, parameterData);
 
-		for(auto& interface : GD::physicalInterfaces)
-		{
-			interface.second->sendPacket(cemi);
-		}
+		sendPacket(cemi);
 
 		if(!valueKeys->empty())
 		{

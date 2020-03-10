@@ -264,7 +264,7 @@ PGroupAddressPeers KnxCentral::getPeer(uint16_t groupAddress)
     return PGroupAddressPeers();
 }
 
-bool KnxCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib::Systems::Packet> packet)
+bool KnxCentral::onPacketReceived(std::string& senderId, std::shared_ptr<BaseLib::Systems::Packet> packet)
 {
 	try
 	{
