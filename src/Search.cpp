@@ -186,19 +186,31 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 	std::vector<Search::PeerInfo> peerInfo;
 	try
 	{
-		auto knxProjectData = extractKnxProjects();
-		if(knxProjectData.empty())
-		{
-			GD::out.printError("Error: Could not search for KNX devices. No KNX project files were found.");
-			return peerInfo;
-		}
+	    auto projectFilenames = getKnxProjectFilenames();
+        if(projectFilenames.empty())
+        {
+            GD::out.printError("Error: Could not find any KNX project in " + GD::bl->settings.deviceDescriptionPath() + std::to_string(MY_FAMILY_ID) + "/.");
+            return peerInfo;
+        }
 
-		auto xmlData = extractXmlData(knxProjectData);
-		if(xmlData.groupVariableXmlData.empty() && xmlData.deviceXmlData.empty())
-		{
-			GD::out.printError("Error: Could not search for KNX devices. No group addresses were found in KNX project file.");
-			return peerInfo;
-		}
+        XmlData xmlData{};
+        for(auto& projectFilename : projectFilenames)
+        {
+            auto knxProjectData = extractKnxProject(projectFilename);
+            if(!knxProjectData)
+            {
+                GD::out.printWarning("Warning: Aborting processing of project file " + projectFilename);
+                continue;
+            }
+
+            extractXmlData(xmlData, knxProjectData);
+        }
+
+        if(xmlData.groupVariableXmlData.empty() && xmlData.deviceXmlData.empty())
+        {
+            GD::out.printError("Error: Could not search for KNX devices. No group addresses were found in KNX project file.");
+            return peerInfo;
+        }
 
 		createDirectories();
 
@@ -633,226 +645,224 @@ void Search::createXmlMaintenanceChannel(PHomegearDevice& device)
 	// }}}
 }
 
-std::vector<Search::PProjectData> Search::extractKnxProjects()
+std::vector<std::string> Search::getKnxProjectFilenames()
 {
-    std::vector<PProjectData> data;
+    std::string projectPath = _bl->settings.deviceDescriptionPath() + std::to_string(GD::family->getFamily()) + '/';
+    std::vector<std::string> files = _bl->io.getFiles(projectPath);
+    std::vector<std::string> projectFilenames;
+    projectFilenames.reserve(files.size());
+    for(auto& file : files)
+    {
+        if(file.size() > 8 && file.compare(file.size() - 8, 8, ".knxproj") == 0)
+        {
+            projectFilenames.push_back(projectPath + file);
+        }
+    }
+    return projectFilenames;
+}
+
+Search::PProjectData Search::extractKnxProject(const std::string& projectFilename)
+{
 	try
 	{
-		std::string projectPath = _bl->settings.deviceDescriptionPath() + std::to_string(GD::family->getFamily()) + '/';
-		std::vector<std::string> files = _bl->io.getFiles(projectPath);
-		std::vector<std::string> projectFilenames;
-		for(auto& file : files)
-		{
-			if(file.size() > 8 && file.compare(file.size() - 8, 8, ".knxproj") == 0)
-			{
-				projectFilenames.push_back(projectPath + file);
-			}
-		}
-		if(projectFilenames.empty())
-		{
-			GD::out.printError("Error: Could not find any project archive in " + GD::bl->settings.deviceDescriptionPath() + std::to_string(MY_FAMILY_ID) + "/.");
-			return data;
-		}
+        auto currentProjectData = std::make_shared<ProjectData>();
+        currentProjectData->filename = BaseLib::HelperFunctions::splitLast(projectFilename, '/').second;
 
-		for(auto& projectFilename : projectFilenames)
-		{
-		    auto currentProjectData = std::make_shared<ProjectData>();
-            currentProjectData->filename = BaseLib::HelperFunctions::splitLast(projectFilename, '/').second;
+        int32_t error = 0;
+        zip_error_t zipError;
+        zip* projectArchive = zip_open(projectFilename.c_str(), 0, &error);
+        if(!projectArchive)
+        {
+            if(error == ZIP_ER_OPEN) GD::out.printError("Error: Could not open project archive. Please check file permissions and make sure, Homegear as read access.");
+            else if(error == ZIP_ER_NOZIP) GD::out.printError("Error: Could not open project archive. The file is no valid KNX project (not a valid ZIP archive).");
+            else GD::out.printError("Error: Could not open project archive. Error code: " + std::to_string(error));
+            return PProjectData();
+        }
 
-			int32_t error = 0;
-            zip_error_t zipError;
-			zip* projectArchive = zip_open(projectFilename.c_str(), 0, &error);
-			if(!projectArchive)
-			{
-				GD::out.printError("Error: Could not open project archive. Error code: " + std::to_string(error));
-				continue;
-			}
+        zip_int64_t filesInArchive = zip_get_num_entries(projectArchive, 0);
+        for(zip_uint64_t i = 0; i < (zip_uint64_t)filesInArchive; ++i)
+        {
+            auto content = std::make_shared<std::vector<char>>();
 
-			zip_int64_t filesInArchive = zip_get_num_entries(projectArchive, 0);
-			for(zip_uint64_t i = 0; i < (zip_uint64_t)filesInArchive; ++i)
-			{
-                auto content = std::make_shared<std::vector<char>>();
+            struct zip_stat st{};
+            zip_stat_init(&st);
+            if(zip_stat_index(projectArchive, i, 0, &st) == -1)
+            {
+                GD::out.printError("Error: Could not get information for project file at index " + std::to_string(i));
+                continue;
+            }
+            if(!(st.valid & ZIP_STAT_NAME) || !(st.valid & ZIP_STAT_SIZE))
+            {
+                GD::out.printError("Error: Could not get name or size for project file at index " + std::to_string(i));
+                continue;
+            }
 
-				struct zip_stat st{};
-				zip_stat_init(&st);
-				if(zip_stat_index(projectArchive, i, 0, &st) == -1)
-				{
-					GD::out.printError("Error: Could not get information for project file at index " + std::to_string(i));
-					continue;
-				}
-				if(!(st.valid & ZIP_STAT_NAME) || !(st.valid & ZIP_STAT_SIZE))
-				{
-					GD::out.printError("Error: Could not get name or size for project file at index " + std::to_string(i));
-					continue;
-				}
+            std::string filename(st.name);
+            if(filename.size() < 6) continue;
+            bool isProjectXml = false;
+            bool isProjectZip = false;
+            if((filename.compare(0, 2, "P-") == 0) || (filename.compare(0, 2, "p-") == 0))
+            {
+                auto parts = BaseLib::HelperFunctions::splitFirst(filename, '/');
+                if(parts.second.empty()) parts = BaseLib::HelperFunctions::splitFirst(filename, '.');
+                currentProjectData->projectId = BaseLib::HelperFunctions::toUpper(parts.first);
 
-				std::string filename(st.name);
-				if(filename.size() < 6) continue;
-                bool isProjectXml = false;
-                bool isProjectZip = false;
-				if((filename.compare(0, 2, "P-") == 0) || (filename.compare(0, 2, "p-") == 0))
+                isProjectXml = (filename.compare(filename.size() - 6, 6, "/0.xml") == 0);
+                isProjectZip = (filename.compare(filename.size() - 4, 4, ".zip") == 0);
+            }
+            if(isProjectZip)
+            {
+                std::vector<char> projectZip;
+                projectZip.resize(st.size);
+                zip_file* projectZipFile = zip_fopen(projectArchive, filename.c_str(), 0);
+                if(zip_fread(projectZipFile, projectZip.data(), st.size) != (signed)st.size)
                 {
-				    auto parts = BaseLib::HelperFunctions::splitFirst(filename, '/');
-				    if(parts.second.empty()) parts = BaseLib::HelperFunctions::splitFirst(filename, '.');
-				    currentProjectData->projectId = BaseLib::HelperFunctions::toUpper(parts.first);
-
-                    isProjectXml = (filename.compare(filename.size() - 6, 6, "/0.xml") == 0);
-                    isProjectZip = (filename.compare(filename.size() - 4, 4, ".zip") == 0);
+                    GD::out.printError("Error: Could not read project zip file in archive. Error code: " + std::to_string(error));
+                    continue;
                 }
-                if(isProjectZip)
+                zip_fclose(projectZipFile);
+
+                auto projectZipSource = zip_source_buffer_create(projectZip.data(), projectZip.size(), 0, &zipError);
+                if(!projectZipSource)
                 {
-                    std::vector<char> projectZip;
-                    projectZip.resize(st.size);
-                    zip_file* projectZipFile = zip_fopen(projectArchive, filename.c_str(), 0);
-                    if(zip_fread(projectZipFile, projectZip.data(), st.size) != (signed)st.size)
-                    {
-                        GD::out.printError("Error: Could not read project zip file in archive. Error code: " + std::to_string(error));
-                        continue;
-                    }
-                    zip_fclose(projectZipFile);
-
-                    auto projectZipSource = zip_source_buffer_create(projectZip.data(), projectZip.size(), 0, &zipError);
-                    if(!projectZipSource)
-                    {
-                        GD::out.printError("Error: Could not create buffer for project zip file. Error: " + std::string(zipError.str));
-                        continue;
-                    }
-
-                    auto projectZipArchive = zip_open_from_source(projectZipSource, 0, &zipError);
-                    if(!projectZipArchive)
-                    {
-                        GD::out.printError("Error: Could not open project zip file. Error: " + std::string(zipError.str));
-                        continue;
-                    }
-
-                    zip_int64_t filesInProjectArchive = zip_get_num_entries(projectZipArchive, 0);
-                    for(zip_uint64_t j = 0; j < (zip_uint64_t)filesInProjectArchive; ++j)
-                    {
-                        struct zip_stat projectSt{};
-                        zip_stat_init(&projectSt);
-                        if(zip_stat_index(projectZipArchive, j, 0, &projectSt) == -1)
-                        {
-                            GD::out.printError("Error: Could not get information for project file at index " + std::to_string(j));
-                            continue;
-                        }
-                        if(!(projectSt.valid & ZIP_STAT_NAME) || !(projectSt.valid & ZIP_STAT_SIZE))
-                        {
-                            GD::out.printError("Error: Could not get name or size for project file at index " + std::to_string(j));
-                            continue;
-                        }
-
-                        std::string projectZipFilename(projectSt.name);
-                        if(projectZipFilename != "0.xml") continue;
-
-                        std::string settingName = "knxProjectPassword";
-                        auto password = GD::family->getFamilySetting(settingName);
-                        if(password && !password->stringValue.empty()) zip_set_default_password(projectZipArchive, password->stringValue.c_str());
-
-                        content->resize(projectSt.size + 1);
-                        zip_file* projectFile = zip_fopen(projectZipArchive, projectZipFilename.c_str(), 0);
-                        if(!projectFile)
-                        {
-                            GD::out.printError("Error: Could not open project file in ZIP archive. Wrong password?");
-                            continue;
-                        }
-                        if(zip_fread(projectFile, &content->at(0), projectSt.size) != (signed)projectSt.size)
-                        {
-                            GD::out.printError("Error: Could not read project file in ZIP archive.");
-                            continue;
-                        }
-                        content->push_back(0);
-                        zip_fclose(projectFile);
-                    }
+                    GD::out.printError("Error: Could not create buffer for project zip file. Error: " + std::string(zipError.str));
+                    continue;
                 }
-                else
+
+                auto projectZipArchive = zip_open_from_source(projectZipSource, 0, &zipError);
+                if(!projectZipArchive)
                 {
-                    content->resize(st.size + 1);
-                    zip_file* projectFile = zip_fopen(projectArchive, filename.c_str(), 0);
+                    GD::out.printError("Error: Could not open project zip file. Error: " + std::string(zipError.str));
+                    continue;
+                }
+
+                zip_int64_t filesInProjectArchive = zip_get_num_entries(projectZipArchive, 0);
+                for(zip_uint64_t j = 0; j < (zip_uint64_t)filesInProjectArchive; ++j)
+                {
+                    struct zip_stat projectSt{};
+                    zip_stat_init(&projectSt);
+                    if(zip_stat_index(projectZipArchive, j, 0, &projectSt) == -1)
+                    {
+                        GD::out.printError("Error: Could not get information for project file at index " + std::to_string(j));
+                        continue;
+                    }
+                    if(!(projectSt.valid & ZIP_STAT_NAME) || !(projectSt.valid & ZIP_STAT_SIZE))
+                    {
+                        GD::out.printError("Error: Could not get name or size for project file at index " + std::to_string(j));
+                        continue;
+                    }
+
+                    std::string projectZipFilename(projectSt.name);
+                    if(projectZipFilename != "0.xml") continue;
+
+                    std::string settingName = "knxProjectPassword";
+                    auto password = GD::family->getFamilySetting(settingName);
+                    if(password && !password->stringValue.empty()) zip_set_default_password(projectZipArchive, password->stringValue.c_str());
+
+                    content->resize(projectSt.size + 1);
+                    zip_file* projectFile = zip_fopen(projectZipArchive, projectZipFilename.c_str(), 0);
                     if(!projectFile)
                     {
-                        GD::out.printError("Error: Could not open project file in archive.");
+                        GD::out.printError("Error: Could not open project file in ZIP archive. Wrong password?");
                         continue;
                     }
-                    if(zip_fread(projectFile, &content->at(0), st.size) != (signed)st.size)
+                    if(zip_fread(projectFile, content->data(), projectSt.size) != (signed)projectSt.size)
                     {
-                        GD::out.printError("Error: Could not read project file in archive.");
+                        GD::out.printError("Error: Could not read project file in ZIP archive.");
                         continue;
                     }
-                    content->push_back(0);
+                    content->back() = '\0';
                     zip_fclose(projectFile);
-
-                    if(isProjectXml) currentProjectData->projectXml = std::move(content);
-                    else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), std::move(content));
                 }
-			}
-
-			zip_close(projectArchive);
-
-			//{{{ Get project name
-			auto projectFileName = currentProjectData->projectId + "/project.xml";
-			BaseLib::HelperFunctions::toLower(projectFileName);
-			auto projectFileIterator = currentProjectData->xmlFiles.find(projectFileName);
-			if(projectFileIterator != currentProjectData->xmlFiles.end())
+            }
+            else
             {
-                xml_document<> doc;
-                try
+                content->resize(st.size + 1);
+                zip_file* projectFile = zip_fopen(projectArchive, filename.c_str(), 0);
+                if(!projectFile)
                 {
-                    char* startPos = (!projectFileIterator->second || projectFileIterator->second->empty() ? nullptr : (char*)memchr(projectFileIterator->second->data(), '<', 10));
-                    if(!startPos)
+                    GD::out.printError("Error: Could not open project file in archive.");
+                    continue;
+                }
+                if(zip_fread(projectFile, content->data(), st.size) != (signed)st.size)
+                {
+                    GD::out.printError("Error: Could not read project file in archive.");
+                    continue;
+                }
+                content->back() = '\0';
+                zip_fclose(projectFile);
+
+                if(isProjectXml) currentProjectData->projectXml = std::move(content);
+                else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), std::move(content));
+            }
+        }
+
+        zip_close(projectArchive);
+
+        //{{{ Get project name
+        auto projectFileName = currentProjectData->projectId + "/project.xml";
+        BaseLib::HelperFunctions::toLower(projectFileName);
+        auto projectFileIterator = currentProjectData->xmlFiles.find(projectFileName);
+        if(projectFileIterator != currentProjectData->xmlFiles.end())
+        {
+            xml_document<> doc;
+            try
+            {
+                char* startPos = (!projectFileIterator->second || projectFileIterator->second->empty() ? nullptr : (char*)memchr(projectFileIterator->second->data(), '<', 10));
+                if(!startPos)
+                {
+                    _bl->out.printError("Error: No '<' found in \"project.xml\".");
+                    doc.clear();
+                    return PProjectData();
+                }
+                doc.parse<parse_no_entity_translation | parse_validate_closing_tags>(startPos);
+                xml_node<>* rootNode = doc.first_node("KNX");
+                if(!rootNode)
+                {
+                    _bl->out.printError("Error: \"project.xml\" does not start with \"KNX\".");
+                    doc.clear();
+                    return PProjectData();
+                }
+                xml_node<>* projectNode = rootNode->first_node("Project");
+                if(projectNode)
+                {
+                    xml_node<>* projectInformationNode = projectNode->first_node("ProjectInformation");
+                    if(projectInformationNode)
                     {
-                        _bl->out.printError("Error: No '<' found in \"project.xml\".");
-                        doc.clear();
-                        continue;
-                    }
-                    doc.parse<parse_no_entity_translation | parse_validate_closing_tags>(startPos);
-                    xml_node<>* rootNode = doc.first_node("KNX");
-                    if(!rootNode)
-                    {
-                        _bl->out.printError("Error: \"project.xml\" does not start with \"KNX\".");
-                        doc.clear();
-                        continue;
-                    }
-                    xml_node<>* projectNode = rootNode->first_node("Project");
-                    if(projectNode)
-                    {
-                        xml_node<>* projectInformationNode = projectNode->first_node("ProjectInformation");
-                        if(projectInformationNode)
+                        auto nameAttribute = projectInformationNode->first_attribute("Name");
+                        if(nameAttribute) currentProjectData->projectName = std::string(nameAttribute->value(), nameAttribute->value_size());
+                        auto styleAttribute = projectInformationNode->first_attribute("GroupAddressStyle");
+                        if(styleAttribute)
                         {
-                            auto nameAttribute = projectInformationNode->first_attribute("Name");
-                            if(nameAttribute) currentProjectData->projectName = std::string(nameAttribute->value(), nameAttribute->value_size());
-                            auto styleAttribute = projectInformationNode->first_attribute("GroupAddressStyle");
-                            if(styleAttribute)
+                            std::string groupAddressStyle = std::string(styleAttribute->value(), styleAttribute->value_size());
+                            if(groupAddressStyle != "ThreeLevel")
                             {
-                                std::string groupAddressStyle = std::string(styleAttribute->value(), styleAttribute->value_size());
-                                if(groupAddressStyle != "ThreeLevel")
-                                {
-                                    _bl->out.printError("Error: Group address style is not set to \"three level\".");
-                                    doc.clear();
-                                    continue;
-                                }
+                                _bl->out.printError("Error: Group address style is not set to \"three level\".");
+                                doc.clear();
+                                return PProjectData();
                             }
                         }
                     }
                 }
-                catch(const std::exception& ex)
-                {
-                    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-                    doc.clear();
-                    continue;
-                }
-                doc.clear();
             }
-            else _bl->out.printWarning("Warning: No file \"project.xml\" found.");
-			//}}}
+            catch(const std::exception& ex)
+            {
+                GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+                doc.clear();
+                return PProjectData();
+            }
+            doc.clear();
+        }
+        else _bl->out.printWarning("Warning: No file \"project.xml\" found.");
+        //}}}
 
-            data.emplace_back(currentProjectData);
-		}
-	}
+        return currentProjectData;
+    }
 	catch(const std::exception& ex)
 	{
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	return data;
+	return PProjectData();
 }
 
 void Search::assignRoomsToDevices(xml_node<>* currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>>& devices)
@@ -897,7 +907,7 @@ void Search::assignRoomsToDevices(xml_node<>* currentNode, std::string currentRo
 	}
 }
 
-std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufacturerXmlData(Search::PProjectData& projectData)
+std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufacturerXmlData(const Search::PProjectData& projectData)
 {
     try
     {
@@ -1135,525 +1145,520 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
     return std::unordered_map<std::string, Search::PManufacturerData>();
 }
 
-Search::XmlData Search::extractXmlData(std::vector<PProjectData>& projectData)
+void Search::extractXmlData(XmlData& xmlData, const PProjectData& projectData)
 {
-	XmlData xmlData{};
-	for(auto& projectDataEntry : projectData)
+    std::unordered_map<std::string, Search::PManufacturerData> manufacturerData = extractManufacturerXmlData(projectData);
+
+    xml_document<> doc;
+    try
     {
-        std::unordered_map<std::string, Search::PManufacturerData> manufacturerData = extractManufacturerXmlData(projectDataEntry);
+        char* startPos = (!projectData->projectXml || projectData->projectXml->empty()) ? nullptr : (char*)memchr(projectData->projectXml->data(), '<', 10);
+        if(!startPos)
+        {
+            _bl->out.printError("Error: No '<' found in KNX project XML.");
+            doc.clear();
+            return;
+        }
+        doc.parse<parse_no_entity_translation | parse_validate_closing_tags>(startPos);
+        xml_node<>* rootNode = doc.first_node("KNX");
+        if(!rootNode)
+        {
+            _bl->out.printError("Error: KNX project XML does not start with \"KNX\".");
+            doc.clear();
+            return;
+        }
 
-		xml_document<> doc;
-		try
-		{
-			char* startPos = (!projectDataEntry->projectXml || projectDataEntry->projectXml->empty()) ? nullptr : (char*)memchr(projectDataEntry->projectXml->data(), '<', 10);
-			if(!startPos)
-			{
-				_bl->out.printError("Error: No '<' found in KNX project XML.");
-				doc.clear();
-				continue;
-			}
-			doc.parse<parse_no_entity_translation | parse_validate_closing_tags>(startPos);
-			xml_node<>* rootNode = doc.first_node("KNX");
-			if(!rootNode)
-			{
-				_bl->out.printError("Error: KNX project XML does not start with \"KNX\".");
-				doc.clear();
-				continue;
-			}
+        std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>> deviceById;
+        std::unordered_map<std::string, std::set<std::shared_ptr<DeviceXmlData>>> deviceByGroupVariable;
+        for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
+        {
+            for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
+            {
+                for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
+                {
+                    for(xml_node<>* topologyNode = installationNode->first_node("Topology"); topologyNode; topologyNode = topologyNode->next_sibling("Topology"))
+                    {
+                        int32_t currentArea = -1;
+                        int32_t currentLine = -1;
+                        int32_t currentAddress = -1;
+                        for(xml_node<>* areaNode = topologyNode->first_node("Area"); areaNode; areaNode = areaNode->next_sibling("Area"))
+                        {
+                            std::string attributeValue;
+                            xml_attribute<>* attribute = areaNode->first_attribute("Address");
+                            if(!attribute) continue;
+                            attributeValue = std::string(attribute->value());
+                            currentArea = Math::getNumber(attributeValue) & 0x0F;
 
-			std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>> deviceById;
-			std::unordered_map<std::string, std::set<std::shared_ptr<DeviceXmlData>>> deviceByGroupVariable;
-			for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
-			{
-				for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
-				{
-					for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
-					{
-						for(xml_node<>* topologyNode = installationNode->first_node("Topology"); topologyNode; topologyNode = topologyNode->next_sibling("Topology"))
-						{
-							int32_t currentArea = -1;
-							int32_t currentLine = -1;
-							int32_t currentAddress = -1;
-							for(xml_node<>* areaNode = topologyNode->first_node("Area"); areaNode; areaNode = areaNode->next_sibling("Area"))
-							{
-								std::string attributeValue;
-								xml_attribute<>* attribute = areaNode->first_attribute("Address");
-								if(!attribute) continue;
-								attributeValue = std::string(attribute->value());
-								currentArea = Math::getNumber(attributeValue) & 0x0F;
+                            for(xml_node<>* lineNode = areaNode->first_node("Line"); lineNode; lineNode = lineNode->next_sibling("Line"))
+                            {
+                                attribute = lineNode->first_attribute("Address");
+                                if(!attribute) continue;
+                                attributeValue = std::string(attribute->value());
+                                currentLine = Math::getNumber(attributeValue) & 0x0F;
 
-								for(xml_node<>* lineNode = areaNode->first_node("Line"); lineNode; lineNode = lineNode->next_sibling("Line"))
-								{
-									attribute = lineNode->first_attribute("Address");
-									if(!attribute) continue;
-									attributeValue = std::string(attribute->value());
-									currentLine = Math::getNumber(attributeValue) & 0x0F;
+                                for(xml_node<>* deviceNode = lineNode->first_node("DeviceInstance"); deviceNode; deviceNode = deviceNode->next_sibling("DeviceInstance"))
+                                {
+                                    std::shared_ptr<DeviceXmlData> device = std::make_shared<DeviceXmlData>();
 
-									for(xml_node<>* deviceNode = lineNode->first_node("DeviceInstance"); deviceNode; deviceNode = deviceNode->next_sibling("DeviceInstance"))
-									{
-										std::shared_ptr<DeviceXmlData> device = std::make_shared<DeviceXmlData>();
-
-                                        //{{{ Assign interface
-                                        auto pos = projectDataEntry->filename.find("##");
-                                        if(pos != std::string::npos)
+                                    //{{{ Assign interface
+                                    auto pos = projectData->filename.find("##");
+                                    if(pos != std::string::npos)
+                                    {
+                                        auto pos2 = projectData->filename.find("##", pos + 1);
+                                        if(pos2 != std::string::npos)
                                         {
-                                            auto pos2 = projectDataEntry->filename.find("##", pos + 1);
-                                            if(pos2 != std::string::npos)
-                                            {
-                                                auto metadataString = projectDataEntry->filename.substr(pos + 2, pos2 - pos - 2);
-                                                auto metadataParts = BaseLib::HelperFunctions::splitFirst(metadataString, '=');
-                                                if(metadataParts.first == "if") device->interface = metadataParts.second;
-                                            }
+                                            auto metadataString = projectData->filename.substr(pos + 2, pos2 - pos - 2);
+                                            auto metadataParts = BaseLib::HelperFunctions::splitFirst(metadataString, '=');
+                                            if(metadataParts.first == "if") device->interface = metadataParts.second;
                                         }
-                                        //}}}
+                                    }
+                                    //}}}
 
-										attribute = deviceNode->first_attribute("Address");
-										if(!attribute) continue;
-										attributeValue = std::string(attribute->value());
-										currentAddress = Math::getNumber(attributeValue) & 0xFF;
-										device->address = (currentArea << 12) | (currentLine << 8) | currentAddress;
+                                    attribute = deviceNode->first_attribute("Address");
+                                    if(!attribute) continue;
+                                    attributeValue = std::string(attribute->value());
+                                    currentAddress = Math::getNumber(attributeValue) & 0xFF;
+                                    device->address = (currentArea << 12) | (currentLine << 8) | currentAddress;
 
-                                        GD::out.printDebug("Debug: Found device " + Cemi::getFormattedPhysicalAddress(device->address));
-										attribute = deviceNode->first_attribute("Id");
-										if(!attribute) continue;
-										device->id = std::string(attribute->value());
+                                    GD::out.printDebug("Debug: Found device " + Cemi::getFormattedPhysicalAddress(device->address));
+                                    attribute = deviceNode->first_attribute("Id");
+                                    if(!attribute) continue;
+                                    device->id = std::string(attribute->value());
 
-										attribute = deviceNode->first_attribute("Name");
-										if(attribute) device->name = std::string(attribute->value());
+                                    attribute = deviceNode->first_attribute("Name");
+                                    if(attribute) device->name = std::string(attribute->value());
 
-										attribute = deviceNode->first_attribute("Description");
-										if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
-										std::string::size_type jsonStartPos = attributeValue.find("$${");
-										if(jsonStartPos != std::string::npos)
-										{
-                                            GD::out.printDebug("Debug: Found JSON for device " + Cemi::getFormattedPhysicalAddress(device->address));
-											xmlData.jsonExists = true;
-											attributeValue = attributeValue.substr(jsonStartPos + 2);
-											std::string jsonString;
-											BaseLib::Html::unescapeHtmlEntities(attributeValue, jsonString);
-											try
-											{
-												BaseLib::PVariable json = BaseLib::Rpc::JsonDecoder::decode(jsonString);
-												device->description = json;
-											}
-											catch(const std::exception& ex)
-											{
-												_bl->out.printError("Error decoding JSON of device \"" + device->name + "\" with ID \"" + device->id + "\": " + ex.what());
-												continue;
-											}
-                                            GD::out.printDebug("Debug: Successfully parsed JSON of device " + Cemi::getFormattedPhysicalAddress(device->address));
-										}
-
-										//{{{ Get product data and application program reference ID
-                                        PManufacturerProductData productData;
-										std::string applicationProgramRefId;
-
+                                    attribute = deviceNode->first_attribute("Description");
+                                    if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
+                                    std::string::size_type jsonStartPos = attributeValue.find("$${");
+                                    if(jsonStartPos != std::string::npos)
+                                    {
+                                        GD::out.printDebug("Debug: Found JSON for device " + Cemi::getFormattedPhysicalAddress(device->address));
+                                        xmlData.jsonExists = true;
+                                        attributeValue = attributeValue.substr(jsonStartPos + 2);
+                                        std::string jsonString;
+                                        BaseLib::Html::unescapeHtmlEntities(attributeValue, jsonString);
+                                        try
                                         {
-                                            std::string hardware2ProgramRefId;
-                                            attribute = deviceNode->first_attribute("Hardware2ProgramRefId");
-                                            if(attribute) hardware2ProgramRefId = std::string(attribute->value(), attribute->value_size());
-                                            else GD::out.printWarning("Warning: Hardware2ProgramRefId not found.");
+                                            BaseLib::PVariable json = BaseLib::Rpc::JsonDecoder::decode(jsonString);
+                                            device->description = json;
+                                        }
+                                        catch(const std::exception& ex)
+                                        {
+                                            _bl->out.printError("Error decoding JSON of device \"" + device->name + "\" with ID \"" + device->id + "\": " + ex.what());
+                                            continue;
+                                        }
+                                        GD::out.printDebug("Debug: Successfully parsed JSON of device " + Cemi::getFormattedPhysicalAddress(device->address));
+                                    }
 
-                                            std::string manufacturerId = BaseLib::HelperFunctions::splitFirst(hardware2ProgramRefId, '_').first;
-                                            auto manufacturerDataIterator = manufacturerData.find(manufacturerId);
-                                            if(manufacturerDataIterator == manufacturerData.end())
+                                    //{{{ Get product data and application program reference ID
+                                    PManufacturerProductData productData;
+                                    std::string applicationProgramRefId;
+
+                                    {
+                                        std::string hardware2ProgramRefId;
+                                        attribute = deviceNode->first_attribute("Hardware2ProgramRefId");
+                                        if(attribute) hardware2ProgramRefId = std::string(attribute->value(), attribute->value_size());
+                                        else GD::out.printWarning("Warning: Hardware2ProgramRefId not found.");
+
+                                        std::string manufacturerId = BaseLib::HelperFunctions::splitFirst(hardware2ProgramRefId, '_').first;
+                                        auto manufacturerDataIterator = manufacturerData.find(manufacturerId);
+                                        if(manufacturerDataIterator == manufacturerData.end())
+                                        {
+                                            GD::out.printError("Error: Manufacturer " + manufacturerId + " not found in XML file.");
+                                            continue;
+                                        }
+
+                                        auto applicationProgramRefIdsIterator = manufacturerDataIterator->second->hardware2programRefs.find(hardware2ProgramRefId);
+                                        if(applicationProgramRefIdsIterator == manufacturerDataIterator->second->hardware2programRefs.end() || applicationProgramRefIdsIterator->second.empty())
+                                        {
+                                            GD::out.printError("Error: No application program found for device " + device->id);
+                                            continue;
+                                        }
+
+                                        if(applicationProgramRefIdsIterator->second.size() > 1)
+                                        {
+                                            GD::out.printWarning("Warning: There is more than one application program for device " + device->id + ". This is currently only partly supported.");
+                                        }
+
+                                        applicationProgramRefId = applicationProgramRefIdsIterator->second.at(0);
+
+                                        auto productDataIterator = manufacturerDataIterator->second->productData.find(applicationProgramRefId);
+                                        if(productDataIterator != manufacturerDataIterator->second->productData.end())
+                                        {
+                                            productData = productDataIterator->second;
+                                        }
+                                        else
+                                        {
+                                            GD::out.printError("Error: No application program dound for device (2) " + device->id);
+                                            continue;
+                                        }
+                                    }
+                                    //}}}
+
+                                    for(xml_node<>* comInstanceRefsNode = deviceNode->first_node("ComObjectInstanceRefs"); comInstanceRefsNode; comInstanceRefsNode = comInstanceRefsNode->next_sibling("ComObjectInstanceRefs"))
+                                    {
+                                        for(xml_node<>* comInstanceRefNode = comInstanceRefsNode->first_node("ComObjectInstanceRef"); comInstanceRefNode; comInstanceRefNode = comInstanceRefNode->next_sibling("ComObjectInstanceRef"))
+                                        {
+                                            GroupVariableInfo variableInfo;
+
+                                            attribute = comInstanceRefNode->first_attribute("DatapointType");
+                                            if(attribute) variableInfo.datapointType = std::string(attribute->value());
+
+                                            std::string fullReferenceId;
+                                            attribute = comInstanceRefNode->first_attribute("RefId");
+                                            if(attribute)
                                             {
-                                                GD::out.printError("Error: Manufacturer " + manufacturerId + " not found in XML file.");
-                                                continue;
+                                                std::string referenceId = std::string(attribute->value());
+                                                std::vector<std::string> parts = BaseLib::HelperFunctions::splitAll(referenceId, '_');
+                                                if(parts.size() >= 3)
+                                                {
+                                                    fullReferenceId = referenceId;
+                                                    auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(2), '-');
+                                                    variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
+                                                }
+                                                else if(parts.size() == 2) //>= ETS5.7
+                                                {
+                                                    fullReferenceId = applicationProgramRefId + '_' + referenceId;
+                                                    auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(0), '-');
+                                                    variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
+                                                }
                                             }
 
-                                            auto applicationProgramRefIdsIterator = manufacturerDataIterator->second->hardware2programRefs.find(hardware2ProgramRefId);
-                                            if(applicationProgramRefIdsIterator == manufacturerDataIterator->second->hardware2programRefs.end() || applicationProgramRefIdsIterator->second.empty())
+                                            //{{{ Get default flags from application program.
+                                            auto productDataIterator = productData->comObjectData.find(fullReferenceId);
+                                            if(productDataIterator != productData->comObjectData.end())
                                             {
-                                                GD::out.printError("Error: No application program found for device " + device->id);
-                                                continue;
+                                                variableInfo.writeFlag = productDataIterator->second->writeFlag;
+                                                variableInfo.readFlag = productDataIterator->second->readFlag;
+                                                variableInfo.transmitFlag = productDataIterator->second->transmitFlag;
+                                            }
+                                            //}}}
+
+                                            //{{{ Overwrite default flags. In ETS versions before 5.7 the flags seem always to be set here in deviceNode (needs to be reverified). In ETS >= 5.7 the flags are specified in ComObjectInstanceRef, if they are different from the default.
+                                            attribute = deviceNode->first_attribute("WriteFlag");
+                                            if(attribute)
+                                            {
+                                                attributeValue = std::string(attribute->value());
+                                                variableInfo.writeFlag = attributeValue != "Disabled";
+                                            }
+                                            attribute = comInstanceRefNode->first_attribute("WriteFlag");
+                                            if(attribute)
+                                            {
+                                                attributeValue = std::string(attribute->value());
+                                                variableInfo.writeFlag = attributeValue != "Disabled";
                                             }
 
-                                            if(applicationProgramRefIdsIterator->second.size() > 1)
+                                            attribute = deviceNode->first_attribute("ReadFlag");
+                                            if(attribute)
                                             {
-                                                GD::out.printWarning("Warning: There is more than one application program for device " + device->id + ". This is currently only partly supported.");
+                                                attributeValue = std::string(attribute->value());
+                                                variableInfo.readFlag = attributeValue != "Disabled";
+                                            }
+                                            attribute = comInstanceRefNode->first_attribute("ReadFlag");
+                                            if(attribute)
+                                            {
+                                                attributeValue = std::string(attribute->value());
+                                                variableInfo.readFlag = attributeValue != "Disabled";
                                             }
 
-                                            applicationProgramRefId = applicationProgramRefIdsIterator->second.at(0);
-
-                                            auto productDataIterator = manufacturerDataIterator->second->productData.find(applicationProgramRefId);
-                                            if(productDataIterator != manufacturerDataIterator->second->productData.end())
+                                            attribute = deviceNode->first_attribute("TransmitFlag");
+                                            if(attribute)
                                             {
-                                                productData = productDataIterator->second;
+                                                attributeValue = std::string(attribute->value());
+                                                variableInfo.transmitFlag = attributeValue != "Disabled";
+                                            }
+                                            attribute = comInstanceRefNode->first_attribute("TransmitFlag");
+                                            if(attribute)
+                                            {
+                                                attributeValue = std::string(attribute->value());
+                                                variableInfo.transmitFlag = attributeValue != "Disabled";
+                                            }
+                                            //}}}
+
+                                            if(variableInfo.index == -1) continue;
+
+                                            attribute = comInstanceRefNode->first_attribute("Links");
+                                            if(attribute) //>= ETS5.7
+                                            {
+                                                attributeValue = std::string(attribute->value());
+                                                std::vector<std::string> groupAddresses = BaseLib::HelperFunctions::splitAll(attributeValue, ' ');
+                                                for(int32_t i = 0; i < (signed)groupAddresses.size(); i++)
+                                                {
+                                                    auto& groupAddress = groupAddresses[i];
+                                                    if(groupAddress.empty()) continue;
+                                                    GD::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " has group address " + groupAddress);
+                                                    deviceByGroupVariable[groupAddress].emplace(device);
+
+                                                    if(i > 0)
+                                                    {
+                                                        //Only first entry is writeable
+                                                        GroupVariableInfo receiveVariableInfo = variableInfo;
+                                                        receiveVariableInfo.writeFlag = false;
+                                                        device->variableInfo[groupAddress].push_back(receiveVariableInfo);
+                                                    }
+                                                    else
+                                                    {
+                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                        device->variableInfo[groupAddress].push_back(variableInfo);
+                                                    }
+                                                }
                                             }
                                             else
                                             {
-                                                GD::out.printError("Error: No application program dound for device (2) " + device->id);
+                                                for(xml_node<>* connectorsNode = comInstanceRefNode->first_node("Connectors"); connectorsNode; connectorsNode = connectorsNode->next_sibling("Connectors"))
+                                                {
+                                                    for(xml_node<>* sendNode = connectorsNode->first_node("Send"); sendNode; sendNode = sendNode->next_sibling("Send"))
+                                                    {
+                                                        attribute = sendNode->first_attribute("GroupAddressRefId");
+                                                        if(!attribute) continue;
+                                                        attributeValue = std::string(attribute->value());
+                                                        if(attributeValue.empty()) continue;
+                                                        deviceByGroupVariable[attributeValue].emplace(device);
+                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                        device->variableInfo[attributeValue].push_back(variableInfo);
+                                                    }
+
+                                                    for(xml_node<>* receiveNode = connectorsNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
+                                                    {
+                                                        attribute = receiveNode->first_attribute("GroupAddressRefId");
+                                                        if(!attribute) continue;
+                                                        attributeValue = std::string(attribute->value());
+                                                        if(attributeValue.empty()) continue;
+                                                        deviceByGroupVariable[attributeValue].emplace(device);
+                                                        GroupVariableInfo receiveVariableInfo = variableInfo;
+                                                        receiveVariableInfo.writeFlag = false;
+                                                        //Needs to be a list, because the same group variable might be assigned to one device more than once
+                                                        device->variableInfo[attributeValue].push_back(receiveVariableInfo);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    deviceById.emplace(device->id, device);
+                                    xmlData.deviceXmlData.emplace(device);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
+        {
+            for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
+            {
+                for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
+                {
+                    for(xml_node<>* buildingsNode = installationNode->first_node("Buildings"); buildingsNode; buildingsNode = buildingsNode->next_sibling("Buildings"))
+                    {
+                        assignRoomsToDevices(buildingsNode, "", deviceById);
+                    }
+                }
+            }
+        }
+
+        for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
+        {
+            for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
+            {
+                xml_node<>* installationNode = installationsNode->first_node("Installation");
+                if(!installationNode) GD::out.printWarning("Warning: No element \"Installation\" found.");
+                for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
+                {
+                    xml_node<>* groupAdressesNode = installationNode->first_node("GroupAddresses");
+                    if(!groupAdressesNode)
+                    {
+                        xml_node<>* topologyNode = installationNode->first_node("Topology");
+                        if(topologyNode) groupAdressesNode = topologyNode->first_node("GroupAddresses");
+                    }
+                    if(!groupAdressesNode) GD::out.printWarning("Warning: No element \"GroupAddresses\" found.");
+                    for(; groupAdressesNode; groupAdressesNode = groupAdressesNode->next_sibling("GroupAddresses"))
+                    {
+                        xml_node<>* groupRangesNode = groupAdressesNode->first_node("GroupRanges");
+                        if(!groupRangesNode) GD::out.printWarning("Warning: No element \"GroupRanges\" found.");
+                        for(xml_node<>* groupRangesNode = groupAdressesNode->first_node("GroupRanges"); groupRangesNode; groupRangesNode = groupRangesNode->next_sibling("GroupRanges"))
+                        {
+                            xml_node<>* mainGroupNode = groupRangesNode->first_node("GroupRange");
+                            if(!mainGroupNode) GD::out.printDebug("Debug: No element \"GroupRange\" (1) found.");
+                            for(xml_node<>* mainGroupNode = groupRangesNode->first_node("GroupRange"); mainGroupNode; mainGroupNode = mainGroupNode->next_sibling("GroupRange"))
+                            {
+                                xml_attribute<>* attribute = mainGroupNode->first_attribute("Name");
+                                if(!attribute)
+                                {
+                                    GD::out.printWarning("Warning: Main GroupRange has no name.");
+                                    continue;
+                                }
+                                std::string mainGroupName(attribute->value());
+
+                                xml_node<>* middleGroupNode = mainGroupNode->first_node("GroupRange");
+                                if(!middleGroupNode) GD::out.printDebug("Debug: No element \"GroupRange\" (2) found.");
+                                for(xml_node<>* middleGroupNode = mainGroupNode->first_node("GroupRange"); middleGroupNode; middleGroupNode = middleGroupNode->next_sibling("GroupRange"))
+                                {
+                                    attribute = middleGroupNode->first_attribute("Name");
+                                    if(!attribute)
+                                    {
+                                        GD::out.printWarning("Warning: Middle GroupRange has no name.");
+                                        continue;
+                                    }
+                                    std::string middleGroupName(attribute->value());
+
+                                    xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress");
+                                    if(!groupAddressNode) GD::out.printDebug("Debug: No element \"GroupRange\" (3) found.");
+                                    for(xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress"); groupAddressNode; groupAddressNode = groupAddressNode->next_sibling("GroupAddress"))
+                                    {
+                                        std::shared_ptr<GroupVariableXmlData> element = std::make_shared<GroupVariableXmlData>();
+                                        element->mainGroupName = mainGroupName;
+                                        element->middleGroupName = middleGroupName;
+
+                                        attribute = groupAddressNode->first_attribute("Id");
+                                        if(!attribute) continue;
+                                        std::string id = std::string(attribute->value());
+                                        if(id.empty()) continue;
+
+                                        GD::out.printDebug("Debug: Found for group address " + id);
+
+                                        std::string shortId = BaseLib::HelperFunctions::splitLast(id, '_').second;
+                                        if(shortId.empty()) continue;
+
+                                        GD::out.printDebug("Debug: Short ID of group address " + id + ": " + shortId);
+
+                                        attribute = groupAddressNode->first_attribute("Name");
+                                        if(attribute) element->groupVariableName = std::string(attribute->value());
+
+                                        attribute = groupAddressNode->first_attribute("Address");
+                                        if(!attribute) continue;
+
+                                        std::string attributeValue(attribute->value());
+                                        element->address = (uint16_t)BaseLib::Math::getNumber(attributeValue);
+
+                                        GD::out.printDebug("Debug: Address of group address with ID " + id + ": " + Cemi::getFormattedGroupAddress(element->address));
+
+                                        //Try to add datapoint type from group variable. If the attribute doesn't exist, we try to get the
+                                        //datapoint type from the device further below. So don't throw an error here.
+                                        attribute = groupAddressNode->first_attribute("DatapointType");
+                                        if(attribute)
+                                        {
+                                            element->datapointType = std::string(attribute->value());
+                                            GD::out.printDebug("Debug: DPT of group address with ID " + id + ": " + element->datapointType);
+                                        }
+
+                                        attribute = groupAddressNode->first_attribute("Description");
+                                        if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
+                                        std::string::size_type jsonStartPos = attributeValue.find("$${");
+                                        if(jsonStartPos != std::string::npos)
+                                        {
+                                            xmlData.jsonExists = true;
+                                            attributeValue = attributeValue.substr(jsonStartPos + 2);
+                                            std::string jsonString;
+                                            BaseLib::Html::unescapeHtmlEntities(attributeValue, jsonString);
+                                            try
+                                            {
+                                                BaseLib::PVariable json = BaseLib::Rpc::JsonDecoder::decode(jsonString);
+                                                element->description = json;
+                                            }
+                                            catch(const std::exception& ex)
+                                            {
+                                                _bl->out.printError("Error decoding JSON of group variable \"" + element->groupVariableName + "\": " + ex.what());
                                                 continue;
                                             }
                                         }
-                                        //}}}
 
-                                        for(xml_node<>* comInstanceRefsNode = deviceNode->first_node("ComObjectInstanceRefs"); comInstanceRefsNode; comInstanceRefsNode = comInstanceRefsNode->next_sibling("ComObjectInstanceRefs"))
-										{
-											for(xml_node<>* comInstanceRefNode = comInstanceRefsNode->first_node("ComObjectInstanceRef"); comInstanceRefNode; comInstanceRefNode = comInstanceRefNode->next_sibling("ComObjectInstanceRef"))
-											{
-												GroupVariableInfo variableInfo;
-
-                                                attribute = comInstanceRefNode->first_attribute("DatapointType");
-                                                if(attribute) variableInfo.datapointType = std::string(attribute->value());
-
-                                                std::string fullReferenceId;
-												attribute = comInstanceRefNode->first_attribute("RefId");
-												if(attribute)
-												{
-                                                    std::string referenceId = std::string(attribute->value());
-													std::vector<std::string> parts = BaseLib::HelperFunctions::splitAll(referenceId, '_');
-													if(parts.size() >= 3)
-                                                    {
-                                                        fullReferenceId = referenceId;
-                                                        auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(2), '-');
-                                                        variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
-                                                    }
-                                                    else if(parts.size() == 2) //>= ETS5.7
-                                                    {
-                                                        fullReferenceId = applicationProgramRefId + '_' + referenceId;
-                                                        auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(0), '-');
-                                                        variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
-                                                    }
-												}
-
-												//{{{ Get default flags from application program.
-												auto productDataIterator = productData->comObjectData.find(fullReferenceId);
-												if(productDataIterator != productData->comObjectData.end())
-                                                {
-												    variableInfo.writeFlag = productDataIterator->second->writeFlag;
-                                                    variableInfo.readFlag = productDataIterator->second->readFlag;
-                                                    variableInfo.transmitFlag = productDataIterator->second->transmitFlag;
-                                                }
-												//}}}
-
-												//{{{ Overwrite default flags. In ETS versions before 5.7 the flags seem always to be set here in deviceNode (needs to be reverified). In ETS >= 5.7 the flags are specified in ComObjectInstanceRef, if they are different from the default.
-                                                attribute = deviceNode->first_attribute("WriteFlag");
-                                                if(attribute)
-                                                {
-                                                    attributeValue = std::string(attribute->value());
-                                                    variableInfo.writeFlag = attributeValue != "Disabled";
-                                                }
-                                                attribute = comInstanceRefNode->first_attribute("WriteFlag");
-                                                if(attribute)
-                                                {
-                                                    attributeValue = std::string(attribute->value());
-                                                    variableInfo.writeFlag = attributeValue != "Disabled";
-                                                }
-
-                                                attribute = deviceNode->first_attribute("ReadFlag");
-                                                if(attribute)
-                                                {
-                                                    attributeValue = std::string(attribute->value());
-                                                    variableInfo.readFlag = attributeValue != "Disabled";
-                                                }
-                                                attribute = comInstanceRefNode->first_attribute("ReadFlag");
-                                                if(attribute)
-                                                {
-                                                    attributeValue = std::string(attribute->value());
-                                                    variableInfo.readFlag = attributeValue != "Disabled";
-                                                }
-
-                                                attribute = deviceNode->first_attribute("TransmitFlag");
-                                                if(attribute)
-                                                {
-                                                    attributeValue = std::string(attribute->value());
-                                                    variableInfo.transmitFlag = attributeValue != "Disabled";
-                                                }
-                                                attribute = comInstanceRefNode->first_attribute("TransmitFlag");
-                                                if(attribute)
-                                                {
-                                                    attributeValue = std::string(attribute->value());
-                                                    variableInfo.transmitFlag = attributeValue != "Disabled";
-                                                }
-                                                //}}}
-
-												if(variableInfo.index == -1) continue;
-
-                                                attribute = comInstanceRefNode->first_attribute("Links");
-                                                if(attribute) //>= ETS5.7
-                                                {
-                                                    attributeValue = std::string(attribute->value());
-                                                    std::vector<std::string> groupAddresses = BaseLib::HelperFunctions::splitAll(attributeValue, ' ');
-                                                    for(int32_t i = 0; i < (signed)groupAddresses.size(); i++)
-                                                    {
-                                                        auto& groupAddress = groupAddresses[i];
-                                                        if(groupAddress.empty()) continue;
-                                                        GD::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " has group address " + groupAddress);
-                                                        deviceByGroupVariable[groupAddress].emplace(device);
-
-                                                        if(i > 0)
-                                                        {
-                                                            //Only first entry is writeable
-                                                            GroupVariableInfo receiveVariableInfo = variableInfo;
-                                                            receiveVariableInfo.writeFlag = false;
-                                                            device->variableInfo[groupAddress].push_back(receiveVariableInfo);
-                                                        }
-                                                        else
-                                                        {
-                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
-                                                            device->variableInfo[groupAddress].push_back(variableInfo);
-                                                        }
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    for(xml_node<>* connectorsNode = comInstanceRefNode->first_node("Connectors"); connectorsNode; connectorsNode = connectorsNode->next_sibling("Connectors"))
-                                                    {
-                                                        for(xml_node<>* sendNode = connectorsNode->first_node("Send"); sendNode; sendNode = sendNode->next_sibling("Send"))
-                                                        {
-                                                            attribute = sendNode->first_attribute("GroupAddressRefId");
-                                                            if(!attribute) continue;
-                                                            attributeValue = std::string(attribute->value());
-                                                            if(attributeValue.empty()) continue;
-                                                            deviceByGroupVariable[attributeValue].emplace(device);
-                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
-                                                            device->variableInfo[attributeValue].push_back(variableInfo);
-                                                        }
-
-                                                        for(xml_node<>* receiveNode = connectorsNode->first_node("Receive"); receiveNode; receiveNode = receiveNode->next_sibling("Receive"))
-                                                        {
-                                                            attribute = receiveNode->first_attribute("GroupAddressRefId");
-                                                            if(!attribute) continue;
-                                                            attributeValue = std::string(attribute->value());
-                                                            if(attributeValue.empty()) continue;
-                                                            deviceByGroupVariable[attributeValue].emplace(device);
-                                                            GroupVariableInfo receiveVariableInfo = variableInfo;
-                                                            receiveVariableInfo.writeFlag = false;
-                                                            //Needs to be a list, because the same group variable might be assigned to one device more than once
-                                                            device->variableInfo[attributeValue].push_back(receiveVariableInfo);
-                                                        }
-                                                    }
-                                                }
-											}
-										}
-
-										deviceById.emplace(device->id, device);
-										xmlData.deviceXmlData.emplace(device);
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
-			for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
-			{
-				for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
-				{
-					for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
-					{
-						for(xml_node<>* buildingsNode = installationNode->first_node("Buildings"); buildingsNode; buildingsNode = buildingsNode->next_sibling("Buildings"))
-						{
-							assignRoomsToDevices(buildingsNode, "", deviceById);
-						}
-					}
-				}
-			}
-
-			for(xml_node<>* projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project"))
-			{
-				for(xml_node<>* installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations"))
-				{
-                    xml_node<>* installationNode = installationsNode->first_node("Installation");
-                    if(!installationNode) GD::out.printWarning("Warning: No element \"Installation\" found.");
-					for(xml_node<>* installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation"))
-					{
-                        xml_node<>* groupAdressesNode = installationNode->first_node("GroupAddresses");
-                        if(!groupAdressesNode)
-                        {
-                            xml_node<>* topologyNode = installationNode->first_node("Topology");
-                            if(topologyNode) groupAdressesNode = topologyNode->first_node("GroupAddresses");
-                        }
-                        if(!groupAdressesNode) GD::out.printWarning("Warning: No element \"GroupAddresses\" found.");
-						for(; groupAdressesNode; groupAdressesNode = groupAdressesNode->next_sibling("GroupAddresses"))
-						{
-                            xml_node<>* groupRangesNode = groupAdressesNode->first_node("GroupRanges");
-                            if(!groupRangesNode) GD::out.printWarning("Warning: No element \"GroupRanges\" found.");
-							for(xml_node<>* groupRangesNode = groupAdressesNode->first_node("GroupRanges"); groupRangesNode; groupRangesNode = groupRangesNode->next_sibling("GroupRanges"))
-							{
-                                xml_node<>* mainGroupNode = groupRangesNode->first_node("GroupRange");
-                                if(!mainGroupNode) GD::out.printDebug("Debug: No element \"GroupRange\" (1) found.");
-								for(xml_node<>* mainGroupNode = groupRangesNode->first_node("GroupRange"); mainGroupNode; mainGroupNode = mainGroupNode->next_sibling("GroupRange"))
-								{
-									xml_attribute<>* attribute = mainGroupNode->first_attribute("Name");
-									if(!attribute)
-                                    {
-                                        GD::out.printWarning("Warning: Main GroupRange has no name.");
-                                        continue;
-                                    }
-									std::string mainGroupName(attribute->value());
-
-                                    xml_node<>* middleGroupNode = mainGroupNode->first_node("GroupRange");
-                                    if(!middleGroupNode) GD::out.printDebug("Debug: No element \"GroupRange\" (2) found.");
-									for(xml_node<>* middleGroupNode = mainGroupNode->first_node("GroupRange"); middleGroupNode; middleGroupNode = middleGroupNode->next_sibling("GroupRange"))
-									{
-										attribute = middleGroupNode->first_attribute("Name");
-										if(!attribute)
-                                        {
-                                            GD::out.printWarning("Warning: Middle GroupRange has no name.");
-                                            continue;
-                                        }
-										std::string middleGroupName(attribute->value());
-
-                                        xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress");
-                                        if(!groupAddressNode) GD::out.printDebug("Debug: No element \"GroupRange\" (3) found.");
-										for(xml_node<>* groupAddressNode = middleGroupNode->first_node("GroupAddress"); groupAddressNode; groupAddressNode = groupAddressNode->next_sibling("GroupAddress"))
-										{
-											std::shared_ptr<GroupVariableXmlData> element = std::make_shared<GroupVariableXmlData>();
-											element->mainGroupName = mainGroupName;
-											element->middleGroupName = middleGroupName;
-
-											attribute = groupAddressNode->first_attribute("Id");
-											if(!attribute) continue;
-											std::string id = std::string(attribute->value());
-											if(id.empty()) continue;
-
-                                            GD::out.printDebug("Debug: Found for group address " + id);
-
-											std::string shortId = BaseLib::HelperFunctions::splitLast(id, '_').second;
-											if(shortId.empty()) continue;
-
-                                            GD::out.printDebug("Debug: Short ID of group address " + id + ": " + shortId);
-
-											attribute = groupAddressNode->first_attribute("Name");
-											if(attribute) element->groupVariableName = std::string(attribute->value());
-
-											attribute = groupAddressNode->first_attribute("Address");
-											if(!attribute) continue;
-
-											std::string attributeValue(attribute->value());
-											element->address = (uint16_t)BaseLib::Math::getNumber(attributeValue);
-
-                                            GD::out.printDebug("Debug: Address of group address with ID " + id + ": " + Cemi::getFormattedGroupAddress(element->address));
-
-                                            //Try to add datapoint type from group variable. If the attribute doesn't exist, we try to get the
-                                            //datapoint type from the device further below. So don't throw an error here.
-											attribute = groupAddressNode->first_attribute("DatapointType");
-											if(attribute)
+                                        //{{{ Assign group variable to device
+                                            auto variableIterator = deviceByGroupVariable.find(id);
+                                            if(variableIterator == deviceByGroupVariable.end()) variableIterator = deviceByGroupVariable.find(shortId);
+                                            if(variableIterator != deviceByGroupVariable.end())
                                             {
-                                                element->datapointType = std::string(attribute->value());
-                                                GD::out.printDebug("Debug: DPT of group address with ID " + id + ": " + element->datapointType);
-                                            }
-
-											attribute = groupAddressNode->first_attribute("Description");
-											if(attribute) attributeValue = std::string(attribute->value()); else attributeValue = "";
-											std::string::size_type jsonStartPos = attributeValue.find("$${");
-											if(jsonStartPos != std::string::npos)
-											{
-												xmlData.jsonExists = true;
-												attributeValue = attributeValue.substr(jsonStartPos + 2);
-												std::string jsonString;
-												BaseLib::Html::unescapeHtmlEntities(attributeValue, jsonString);
-												try
-												{
-													BaseLib::PVariable json = BaseLib::Rpc::JsonDecoder::decode(jsonString);
-													element->description = json;
-												}
-												catch(const std::exception& ex)
-												{
-													_bl->out.printError("Error decoding JSON of group variable \"" + element->groupVariableName + "\": " + ex.what());
-													continue;
-												}
-											}
-
-											//{{{ Assign group variable to device
-												auto variableIterator = deviceByGroupVariable.find(id);
-												if(variableIterator == deviceByGroupVariable.end()) variableIterator = deviceByGroupVariable.find(shortId);
-												if(variableIterator != deviceByGroupVariable.end())
-												{
-													for(auto& device : variableIterator->second)
-													{
-                                                        GD::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " found for group address " + id);
-														auto infoIterator = device->variableInfo.find(id);
-														if(infoIterator == device->variableInfo.end()) infoIterator = device->variableInfo.find(shortId);
-														if(infoIterator != device->variableInfo.end())
-														{
-                                                            for(auto& variableInfoElement : infoIterator->second)
-                                                            {
-                                                                if(element->datapointType.empty() && !variableInfoElement.datapointType.empty())
-                                                                {
-                                                                    element->datapointType = variableInfoElement.datapointType;
-                                                                    GD::out.printDebug("Debug: DPT of group address with ID " + id + " (assigned from device): " + element->datapointType);
-                                                                }
-
-                                                                if(element->datapointType.empty())
-                                                                {
-                                                                    GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
-                                                                    break;
-                                                                }
-
-                                                                {
-                                                                    //Delete old element if necessary
-
-                                                                    auto deviceVariableElement = device->variables.find((uint32_t)variableInfoElement.index);
-                                                                    if(deviceVariableElement != device->variables.end())
-                                                                    {
-                                                                        if(!deviceVariableElement->second->autocreated && !variableInfoElement.writeFlag) continue; //Ignore
-
-                                                                        //If current element has write flag (= sending variable) delete old variable to be able to insert the sending variable.
-                                                                        //Also delete an autocreated variable to overwrite it with the current one.
-                                                                        device->variables.erase(deviceVariableElement);
-                                                                    }
-                                                                }
-
-                                                                std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
-                                                                *variableInfo = *element;
-
-                                                                variableInfo->readFlag = variableInfoElement.readFlag;
-                                                                variableInfo->writeFlag = variableInfoElement.writeFlag;
-                                                                variableInfo->transmitFlag = variableInfoElement.transmitFlag;
-                                                                variableInfo->index = variableInfoElement.index;
-
-                                                                device->variables.emplace(variableInfo->index, variableInfo);
-                                                            }
-														}
-														else
+                                                for(auto& device : variableIterator->second)
+                                                {
+                                                    GD::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " found for group address " + id);
+                                                    auto infoIterator = device->variableInfo.find(id);
+                                                    if(infoIterator == device->variableInfo.end()) infoIterator = device->variableInfo.find(shortId);
+                                                    if(infoIterator != device->variableInfo.end())
+                                                    {
+                                                        for(auto& variableInfoElement : infoIterator->second)
                                                         {
+                                                            if(element->datapointType.empty() && !variableInfoElement.datapointType.empty())
+                                                            {
+                                                                element->datapointType = variableInfoElement.datapointType;
+                                                                GD::out.printDebug("Debug: DPT of group address with ID " + id + " (assigned from device): " + element->datapointType);
+                                                            }
+
                                                             if(element->datapointType.empty())
                                                             {
                                                                 GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
                                                                 break;
                                                             }
 
+                                                            {
+                                                                //Delete old element if necessary
+
+                                                                auto deviceVariableElement = device->variables.find((uint32_t)variableInfoElement.index);
+                                                                if(deviceVariableElement != device->variables.end())
+                                                                {
+                                                                    if(!deviceVariableElement->second->autocreated && !variableInfoElement.writeFlag) continue; //Ignore
+
+                                                                    //If current element has write flag (= sending variable) delete old variable to be able to insert the sending variable.
+                                                                    //Also delete an autocreated variable to overwrite it with the current one.
+                                                                    device->variables.erase(deviceVariableElement);
+                                                                }
+                                                            }
+
                                                             std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
                                                             *variableInfo = *element;
-                                                            variableInfo->autocreated = true;
+
+                                                            variableInfo->readFlag = variableInfoElement.readFlag;
+                                                            variableInfo->writeFlag = variableInfoElement.writeFlag;
+                                                            variableInfo->transmitFlag = variableInfoElement.transmitFlag;
+                                                            variableInfo->index = variableInfoElement.index;
+
                                                             device->variables.emplace(variableInfo->index, variableInfo);
                                                         }
-													}
-												}
-                                                else
-                                                {
-                                                    GD::out.printDebug("Debug: No device found for group address " + id);
+                                                    }
+                                                    else
+                                                    {
+                                                        if(element->datapointType.empty())
+                                                        {
+                                                            GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
+                                                            break;
+                                                        }
+
+                                                        std::shared_ptr<GroupVariableXmlData> variableInfo = std::make_shared<GroupVariableXmlData>();
+                                                        *variableInfo = *element;
+                                                        variableInfo->autocreated = true;
+                                                        device->variables.emplace(variableInfo->index, variableInfo);
+                                                    }
                                                 }
-											//}}}
-
-											if(element->datapointType.empty())
-                                            {
-                                                GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
-                                                continue;
                                             }
+                                            else
+                                            {
+                                                GD::out.printDebug("Debug: No device found for group address " + id);
+                                            }
+                                        //}}}
 
-                                            xmlData.groupVariableXmlData.emplace(element);
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		catch(const std::exception& ex)
-		{
-			_bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-		}
-		doc.clear();
-	}
-	return xmlData;
+                                        if(element->datapointType.empty())
+                                        {
+                                            GD::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF) + ". The group variable does not work.");
+                                            continue;
+                                        }
+
+                                        xmlData.groupVariableXmlData.emplace(element);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch(const std::exception& ex)
+    {
+        _bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    doc.clear();
 }
 
 PParameter Search::createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, const std::unordered_map<uint64_t, Role>& roles, uint16_t address, int32_t size, std::shared_ptr<ILogical> logical, bool noCast)

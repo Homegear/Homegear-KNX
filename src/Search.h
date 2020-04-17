@@ -114,10 +114,11 @@ protected:
 	void createXmlMaintenanceChannel(PHomegearDevice& device);
 	void parseDatapointType(PFunction& function, std::string& datapointType, PParameter& parameter);
 	PParameter createParameter(PFunction& function, std::string name, std::string metadata, std::string unit, IPhysical::OperationType::Enum operationType, bool readable, bool writeable, const std::unordered_map<uint64_t, Role>& roles, uint16_t address, int32_t size = -1, std::shared_ptr<ILogical> logical = std::shared_ptr<ILogical>(), bool noCast = false);
-	std::vector<PProjectData> extractKnxProjects();
+	std::vector<std::string> getKnxProjectFilenames();
+	PProjectData extractKnxProject(const std::string& projectFilename);
 	void assignRoomsToDevices(xml_node<>* currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>>& devices);
-    std::unordered_map<std::string, PManufacturerData> extractManufacturerXmlData(PProjectData& projectData);
-	XmlData extractXmlData(std::vector<PProjectData>& projectData);
+    std::unordered_map<std::string, PManufacturerData> extractManufacturerXmlData(const PProjectData& projectData);
+	void extractXmlData(XmlData& xmlData, const PProjectData& projectData);
     std::shared_ptr<HomegearDevice> createHomegearDevice(const DeviceXmlData& deviceXml, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap);
 	void addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
 };
