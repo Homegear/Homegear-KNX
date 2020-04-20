@@ -788,7 +788,7 @@ PVariable KnxCentral::invokeFamilyMethod(BaseLib::PRpcClientInfo clientInfo, std
     return Variable::createError(-32502, "Unknown application error.");
 }
 
-PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
+PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const std::string& interfaceId)
 {
 	try
 	{
