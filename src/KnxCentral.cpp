@@ -676,7 +676,7 @@ std::string KnxCentral::handleCliCommand(std::string command)
 				index++;
 			}
 
-			PVariable result = searchDevices(nullptr);
+			PVariable result = searchDevices(nullptr, "");
 			if(result->errorStruct) stringStream << "Error: " << result->structValue->at("faultString")->stringValue << std::endl;
 			else stringStream << "Search completed successfully." << std::endl;
 			return stringStream.str();
