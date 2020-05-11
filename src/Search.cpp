@@ -4,8 +4,7 @@
 #include "GD.h"
 #include "Cemi.h"
 #include "DatapointTypeParsers/DpstParser.h"
-
-#include <iomanip>
+#include "KnxCentral.h"
 
 #include <sys/stat.h>
 #include <zip.h>
@@ -17,7 +16,13 @@ Search::Search(BaseLib::SharedObjects* baseLib) : _bl(baseLib)
 {
 }
 
-void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes)
+uint64_t Search::getRoomIdByName(std::string& name)
+{
+    auto central = std::dynamic_pointer_cast<KnxCentral>(GD::family->getCentral());
+    return central->getRoomIdByName(name);
+}
+
+void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes)
 {
 	try
 	{
@@ -42,7 +47,7 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::
 		info.serialNumber = "KNX" + paddedType;
 		info.address = address;
 		info.name = std::move(name);
-		info.room = std::move(room);
+		info.roomId = roomId;
 		peerInfo.push_back(info);
 	}
 	catch(const std::exception& ex)
@@ -51,7 +56,7 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::
 	}
 }
 
-std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::DeviceXmlData& deviceInfo, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap)
+std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlData& deviceInfo, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap)
 {
     try
     {
@@ -123,7 +128,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
                     variableName = groupVariable.second->groupVariableName.substr(0, homegearInfoStartPos) + groupVariable.second->groupVariableName.substr(homegearInfoEndPos + 1);
                     auto homegearInfo = groupVariable.second->groupVariableName.substr(homegearInfoStartPos + 1, homegearInfoEndPos - homegearInfoStartPos - 1);
                     auto homegearInfoParts = BaseLib::HelperFunctions::splitAll(homegearInfo, ';');
-                    //1. channel, 2. unit, 3. comma-seperated roles
+                    //1. channel, 2. room ID, 3. unit, 4. comma-seperated roles
                     if(!homegearInfoParts.empty())
                     {
                         channel = BaseLib::Math::getUnsignedNumber(homegearInfoParts.at(0));
@@ -135,7 +140,11 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(const Search::Devic
                     }
                     if(homegearInfoParts.size() >= 3)
                     {
-                        auto roleParts = BaseLib::HelperFunctions::splitAll(homegearInfoParts.at(2), ',');
+                        deviceInfo.roomId = BaseLib::Math::getUnsignedNumber64(homegearInfoParts.at(2));
+                    }
+                    if(homegearInfoParts.size() >= 4)
+                    {
+                        auto roleParts = BaseLib::HelperFunctions::splitAll(homegearInfoParts.at(3), ',');
                         for(auto& rolePart : roleParts)
                         {
                             Role role;
@@ -389,13 +398,15 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 		//}}}
 
 		///{{{ Devices
+        std::unordered_map<std::string, PHomegearDevice> rpcDevicesDevice;
+        std::unordered_map<std::string, uint64_t> rooms;
+        std::unordered_map<std::string, int32_t> addresses;
+
+        {
             auto jsonOnly = GD::family->getFamilySetting("importJsonOnly");
-			std::unordered_map<std::string, PHomegearDevice> rpcDevicesDevice;
-			std::unordered_map<std::string, std::string> rooms;
-			std::unordered_map<std::string, int32_t> addresses;
-			for(auto& deviceXml : xmlData.deviceXmlData)
-			{
-			    if(deviceXml->address == -1)
+            for(auto& deviceXml : xmlData.deviceXmlData)
+            {
+                if(deviceXml->address == -1)
                 {
                     GD::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", because it has no physical address.");
                     continue;
@@ -407,19 +418,20 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
                 }
                 auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap);
                 if(device)
-				{
-					auto typeId = (*device->supportedDevices.begin())->id;
-					rooms[typeId] = deviceXml->room;
-					addresses[typeId] = deviceXml->address;
-					rpcDevicesDevice[typeId] = device;
-				}
-			}
+                {
+                    auto typeId = (*device->supportedDevices.begin())->id;
+                    rooms[typeId] = deviceXml->roomId;
+                    addresses[typeId] = deviceXml->address;
+                    rpcDevicesDevice[typeId] = device;
+                }
+            }
+        }
 		//}}}
 
 		std::map<int32_t, std::string> usedTypeIds;
 		for(auto& i : rpcDevicesJson)
 		{
-			addDeviceToPeerInfo(i.second, -1, "", "", peerInfo, usedTypeIds);
+			addDeviceToPeerInfo(i.second, -1, "", 0, peerInfo, usedTypeIds);
 		}
 
 		for(auto& device : rpcDevicesDevice)
@@ -464,7 +476,7 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
             GD::out.printError("Error: Could not create KNX device information: Field \"room\" is missing.");
             return PeerInfo();
         }
-        deviceXml.room = structIterator->second->stringValue;
+        deviceXml.roomId = getRoomIdByName(structIterator->second->stringValue);
 
         structIterator = deviceInfo->structValue->find("address");
         if(structIterator == deviceInfo->structValue->end() || structIterator->second->integerValue == -1)
@@ -574,7 +586,7 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
         std::vector<PeerInfo> peerInfo;
         std::map<int32_t, std::string> usedTypeIds;
 
-        addDeviceToPeerInfo(device, deviceXml.address, (*device->supportedDevices.begin())->description, deviceXml.room, peerInfo, usedTypeIds);
+        addDeviceToPeerInfo(device, deviceXml.address, (*device->supportedDevices.begin())->description, deviceXml.roomId, peerInfo, usedTypeIds);
 
         if(!peerInfo.empty()) return *peerInfo.begin();
     }
@@ -909,7 +921,7 @@ void Search::assignRoomsToDevices(xml_node* currentNode, std::string currentRoom
 				if(deviceId.empty()) continue;
 				auto devicesIterator = devices.find(deviceId);
 				if(devicesIterator == devices.end()) continue;
-				devicesIterator->second->room = currentRoom;
+				devicesIterator->second->roomId = getRoomIdByName(currentRoom);
 			}
 		}
 	}

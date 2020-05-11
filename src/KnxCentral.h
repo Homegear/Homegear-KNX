@@ -34,6 +34,8 @@ public:
 	PMyPeer getPeer(std::string serialNumber);
 	PGroupAddressPeers getPeer(uint16_t groupAddress);
 
+	uint64_t getRoomIdByName(std::string& name);
+
 	virtual PVariable deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::string serialNumber, int32_t flags);
 	virtual PVariable deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, int32_t flags);
     virtual PVariable invokeFamilyMethod(BaseLib::PRpcClientInfo clientInfo, std::string& method, PArray parameters);

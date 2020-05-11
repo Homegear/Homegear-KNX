@@ -264,6 +264,11 @@ PGroupAddressPeers KnxCentral::getPeer(uint16_t groupAddress)
     return PGroupAddressPeers();
 }
 
+uint64_t KnxCentral::getRoomIdByName(std::string& name)
+{
+    return raiseGetRoomIdByName(name);
+}
+
 bool KnxCentral::onPacketReceived(std::string& senderId, std::shared_ptr<BaseLib::Systems::Packet> packet)
 {
 	try
@@ -821,11 +826,7 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
                 if(peersIterator != _peersBySerial.end())
                 {
                     auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
-                    if(!i->room.empty())
-                    {
-                        uint64_t roomId = raiseGetRoomIdByName(i->room);
-                        if(roomId > 0) peersIterator->second->setRoom(roomId, -1);
-                    }
+                    if(i->roomId != 0) peersIterator->second->setRoom(i->roomId, -1);
                     if(!i->name.empty()) peersIterator->second->setName(i->name);
                     else if(myPeer->getName().empty()) peersIterator->second->setName(myPeer->getFormattedAddress());
                     continue;
@@ -843,11 +844,7 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
 
             if(!i->name.empty()) peer->setName(i->name);
             else peer->setName(peer->getFormattedAddress());
-			if(!i->room.empty())
-			{
-				uint64_t roomId = raiseGetRoomIdByName(i->room);
-				if(roomId > 0) peer->setRoom(roomId, -1);
-			}
+            if(i->roomId != 0) peer->setRoom(i->roomId, -1);
 
             std::lock_guard<std::mutex> peersGuard(_peersMutex);
             if(peer->getAddress() != -1) _peers[peer->getAddress()] = peer;
@@ -982,11 +979,7 @@ PVariable KnxCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t 
 
             if(!peerInfo.name.empty()) peer->setName(peerInfo.name);
             else peer->setName(peer->getFormattedAddress());
-            if(!peerInfo.room.empty())
-            {
-                uint64_t roomId = raiseGetRoomIdByName(peerInfo.room);
-                if(roomId > 0) peer->setRoom(roomId, -1);
-            }
+            if(peerInfo.roomId != 0) peer->setRoom(peerInfo.roomId, -1);
 
             lockGuard.lock();
             if(peer->getAddress() != -1) _peers[peer->getAddress()] = peer;

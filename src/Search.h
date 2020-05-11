@@ -20,7 +20,7 @@ public:
 		int32_t address = -1;
 		int32_t type = -1;
 		std::string name;
-		std::string room;
+		uint64_t roomId;
 	};
 
 	explicit Search(BaseLib::SharedObjects* baseLib);
@@ -99,7 +99,7 @@ protected:
 	    std::string interface;
 		std::string id;
 		std::string name;
-		std::string room;
+		uint64_t roomId = 0;
 		int32_t address;
 		BaseLib::PVariable description;
 		std::unordered_map<std::string, std::list<GroupVariableInfo>> variableInfo;
@@ -115,6 +115,7 @@ protected:
 	std::string _xmlPath;
 	BaseLib::SharedObjects* _bl = nullptr;
 
+    uint64_t getRoomIdByName(std::string& name);
 	void createDirectories();
 	void createXmlMaintenanceChannel(PHomegearDevice& device);
 	void parseDatapointType(PFunction& function, std::string& datapointType, PParameter& parameter);
@@ -123,8 +124,8 @@ protected:
 	void assignRoomsToDevices(xml_node* currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>>& devices);
     std::unordered_map<std::string, PManufacturerData> extractManufacturerXmlData(const PProjectData& projectData);
 	void extractXmlData(XmlData& xmlData, const PProjectData& projectData);
-    std::shared_ptr<HomegearDevice> createHomegearDevice(const DeviceXmlData& deviceXml, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap);
-	void addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, std::string room, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
+    std::shared_ptr<HomegearDevice> createHomegearDevice(DeviceXmlData& deviceXml, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap);
+	void addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
 };
 
 }
