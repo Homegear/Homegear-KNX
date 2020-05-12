@@ -131,12 +131,12 @@ protected:
 		/**
 		 * {@inheritDoc}
 		 */
-		virtual bool convertFromPacketHook(PParameter parameter, std::vector<uint8_t>& data, PVariable& result);
+		bool convertFromPacketHook(BaseLib::Systems::RpcConfigurationParameter& parameter, std::vector<uint8_t>& data, PVariable& result) override;
 
 		/**
 		 * {@inheritDoc}
 		 */
-		virtual bool convertToPacketHook(PParameter parameter, PVariable data, std::vector<uint8_t>& result);
+		bool convertToPacketHook(BaseLib::Systems::RpcConfigurationParameter& parameter, PVariable& data, std::vector<uint8_t>& result) override;
 	// }}}
 };
 

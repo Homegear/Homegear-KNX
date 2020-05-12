@@ -140,7 +140,10 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
                     }
                     if(homegearInfoParts.size() >= 3)
                     {
-                        deviceInfo.roomId = BaseLib::Math::getUnsignedNumber64(homegearInfoParts.at(2));
+                        uint64_t roomId = 0;
+                        if(BaseLib::Math::isNumber(homegearInfoParts.at(2))) roomId = BaseLib::Math::getUnsignedNumber64(homegearInfoParts.at(2));
+                        else roomId = getRoomIdByName(homegearInfoParts.at(2));
+                        deviceInfo.roomId = roomId;
                     }
                     if(homegearInfoParts.size() >= 4)
                     {

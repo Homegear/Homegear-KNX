@@ -31,11 +31,16 @@ bool DptConverter::fitsInFirstByte(const std::string& type)
 	return false;
 }
 
-std::vector<uint8_t> DptConverter::getDpt(const std::string& type, const PVariable& value)
+std::vector<uint8_t> DptConverter::getDpt(const std::string& type, PVariable& value, bool invert)
 {
 	std::vector<uint8_t> dpt;
 	try
 	{
+	    if(invert && value->type == BaseLib::VariableType::tBoolean)
+        {
+            value->booleanValue = !value->booleanValue;
+        }
+
 		if(type == "DPT-1")
 		{
 			dpt.push_back(value->booleanValue ? 1 : 0);
@@ -352,7 +357,7 @@ std::vector<uint8_t> DptConverter::getDpt(const std::string& type, const PVariab
 	return dpt;
 }
 
-PVariable DptConverter::getVariable(const std::string& type, const std::vector<uint8_t>& value)
+PVariable DptConverter::getVariable(const std::string& type, std::vector<uint8_t>& value, bool invert)
 {
 	try
 	{
@@ -363,7 +368,8 @@ PVariable DptConverter::getVariable(const std::string& type, const std::vector<u
 				_bl->out.printError("Error: DPT-1 vector is empty.");
 				return std::make_shared<Variable>(false);
 			}
-			return std::make_shared<Variable>((bool)(value.at(0) & 1));
+			bool dptValue = (bool)(value.at(0) & 1);
+			return std::make_shared<Variable>(invert ? !dptValue : dptValue);
 		}
 		else if(type == "DPT-2" || type.compare(0, 7, "DPST-2-") == 0)
 		{
