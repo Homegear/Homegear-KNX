@@ -21,6 +21,7 @@ public:
 		int32_t type = -1;
 		std::string name;
 		uint64_t roomId;
+		std::unordered_map<int32_t, std::unordered_map<std::string, uint64_t>> variableRoomIds;
 	};
 
 	explicit Search(BaseLib::SharedObjects* baseLib);
@@ -37,6 +38,8 @@ protected:
 
         std::unordered_map<std::string, std::shared_ptr<std::vector<char>>> xmlFiles;
         std::shared_ptr<std::vector<char>> projectXml;
+        BaseLib::PVariable homegearInfo;
+        BaseLib::PVariable groupVariableInfo;
     };
     typedef std::shared_ptr<ProjectData> PProjectData;
 
@@ -81,6 +84,7 @@ protected:
         std::string comObjectName;
         std::string functionText;
 		BaseLib::PVariable description;
+        BaseLib::PVariable homegearInfo;
 	};
 
 	struct GroupVariableInfo
@@ -100,6 +104,7 @@ protected:
 		std::string id;
 		std::string name;
 		uint64_t roomId = 0;
+        std::unordered_map<int32_t, std::unordered_map<std::string, uint64_t>> variableRoomIds;
 		int32_t address;
 		BaseLib::PVariable description;
 		std::unordered_map<std::string, std::list<GroupVariableInfo>> variableInfo;
@@ -125,6 +130,19 @@ protected:
     std::unordered_map<std::string, PManufacturerData> extractManufacturerXmlData(const PProjectData& projectData);
 	void extractXmlData(XmlData& xmlData, const PProjectData& projectData);
     std::shared_ptr<HomegearDevice> createHomegearDevice(DeviceXmlData& deviceXml, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& typeNumberIdMap);
+    void addDeviceToPeerInfo(const DeviceXmlData& deviceXml, const PHomegearDevice& device, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
+
+    /**
+     * Signature used for JSON information in group variable description.
+     *
+     * @deprecated
+     * @param device
+     * @param address
+     * @param name
+     * @param roomId
+     * @param peerInfo
+     * @param usedTypes
+     */
 	void addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes);
 };
 

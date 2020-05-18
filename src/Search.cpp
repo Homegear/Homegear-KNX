@@ -22,11 +22,46 @@ uint64_t Search::getRoomIdByName(std::string& name)
     return central->getRoomIdByName(name);
 }
 
+void Search::addDeviceToPeerInfo(const DeviceXmlData& deviceXml, const PHomegearDevice& device, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes)
+{
+    try
+    {
+        std::string filename = _xmlPath + BaseLib::HelperFunctions::stringReplace(device->supportedDevices.at(0)->id, "/", "_") + ".xml";
+        device->save(filename);
+
+        PeerInfo info;
+        info.type = device->supportedDevices.at(0)->typeNumber;
+        if(info.type == 0)
+        {
+            GD::out.printError("Error: Not adding device \"" + device->supportedDevices.at(0)->id + "\" as no type ID was specified in the JSON defined in ETS. Please add a unique type ID there.");
+            return;
+        }
+        if(usedTypes.find(info.type) != usedTypes.end())
+        {
+            GD::out.printError("Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + device->supportedDevices.at(0)->id + " and " + usedTypes[info.type] + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
+            return;
+        }
+        usedTypes.emplace(info.type, device->supportedDevices.at(0)->id);
+        std::string paddedType = std::to_string(info.type);
+        if(paddedType.size() < 9) paddedType.insert(0, 9 - paddedType.size(), '0');
+        info.serialNumber = "KNX" + paddedType;
+        info.address = deviceXml.address;
+        info.name = deviceXml.name;
+        info.roomId = deviceXml.roomId;
+        info.variableRoomIds = deviceXml.variableRoomIds;
+        peerInfo.push_back(info);
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+}
+
 void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo>& peerInfo, std::map<int32_t, std::string>& usedTypes)
 {
 	try
 	{
-		std::string filename = _xmlPath + GD::bl->hf.stringReplace(device->supportedDevices.at(0)->id, "/", "_") + ".xml";
+		std::string filename = _xmlPath + BaseLib::HelperFunctions::stringReplace(device->supportedDevices.at(0)->id, "/", "_") + ".xml";
 		device->save(filename);
 
 		PeerInfo info;
@@ -72,7 +107,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
             supportedDevice->typeNumber = typeNumberIterator->second;
             newDevice = false;
             std::string deviceId = deviceInfo.id;
-            BaseLib::Io::deleteFile(_xmlPath + GD::bl->hf.stringReplace(deviceId, "/", "_") + ".xml");
+            BaseLib::Io::deleteFile(_xmlPath + BaseLib::HelperFunctions::stringReplace(deviceId, "/", "_") + ".xml");
         }
         else
         {
@@ -116,51 +151,99 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
 
             if(!deviceInfo.description || deviceInfo.description->structValue->empty())
             {
-                //No JSON in description => use group variable name and parse channel, unit and roles from group variable
-                auto homegearInfoStartPos = groupVariable.second->groupVariableName.find('{');
-                auto homegearInfoEndPos = groupVariable.second->groupVariableName.find('}');
-                if(homegearInfoStartPos == std::string::npos || homegearInfoEndPos == std::string::npos)
+                //No JSON in description
+                if(groupVariable.second->homegearInfo)
                 {
-                    variableName = groupVariable.second->groupVariableName;
+                    //Get variable data from Homegear info
+
+                    auto& infoStruct = groupVariable.second->homegearInfo->structValue;
+
+                    auto infoIterator = infoStruct->find("name");
+                    if(infoIterator != infoStruct->end() && !infoIterator->second->stringValue.empty()) variableName = infoIterator->second->stringValue;
+                    else variableName = groupVariable.second->groupVariableName;
+
+                    infoIterator = infoStruct->find("channel");
+                    if(infoIterator != infoStruct->end() && infoIterator->second->integerValue > 0)
+                    {
+                        channel = infoIterator->second->integerValue;
+                    }
+
+                    infoIterator = infoStruct->find("room");
+                    if(infoIterator != infoStruct->end() && (uint64_t)infoIterator->second->integerValue64 > 0)
+                    {
+                        if(GD::bl->db->roomExists((uint64_t)infoIterator->second->integerValue64)) deviceInfo.variableRoomIds[channel][variableName] = (uint64_t)infoIterator->second->integerValue64;
+                    }
+
+                    infoIterator = infoStruct->find("role");
+                    if(infoIterator != infoStruct->end())
+                    {
+                        auto roleIterator = infoIterator->second->structValue->find("id");
+                        if(roleIterator != infoIterator->second->structValue->end())
+                        {
+                            Role role;
+                            role.id = (uint64_t)roleIterator->second->integerValue64;
+
+                            if(role.id != 0)
+                            {
+                                roleIterator = infoIterator->second->structValue->find("invert");
+                                if(roleIterator != infoIterator->second->structValue->end()) role.invert = roleIterator->second->booleanValue;
+
+                                if(groupVariable.second->readFlag && groupVariable.second->writeFlag) role.direction = RoleDirection::both;
+                                else if(groupVariable.second->readFlag) role.direction = RoleDirection::input;
+                                else if(groupVariable.second->writeFlag) role.direction = RoleDirection::output;
+                                roles.emplace(role.id, role);
+                            }
+                        }
+                    }
                 }
                 else
                 {
-                    variableName = groupVariable.second->groupVariableName.substr(0, homegearInfoStartPos) + groupVariable.second->groupVariableName.substr(homegearInfoEndPos + 1);
-                    auto homegearInfo = groupVariable.second->groupVariableName.substr(homegearInfoStartPos + 1, homegearInfoEndPos - homegearInfoStartPos - 1);
-                    auto homegearInfoParts = BaseLib::HelperFunctions::splitAll(homegearInfo, ';');
-                    //1. channel, 2. room ID, 3. unit, 4. comma-seperated roles
-                    if(!homegearInfoParts.empty())
+                    //Use group variable name and parse channel, unit and roles from group variable
+                    auto homegearInfoStartPos = groupVariable.second->groupVariableName.find('{');
+                    auto homegearInfoEndPos = groupVariable.second->groupVariableName.find('}');
+                    if(homegearInfoStartPos == std::string::npos || homegearInfoEndPos == std::string::npos)
                     {
-                        channel = BaseLib::Math::getUnsignedNumber(homegearInfoParts.at(0));
-                        if(channel == 0) channel = 1;
+                        variableName = groupVariable.second->groupVariableName;
                     }
-                    if(homegearInfoParts.size() >= 2)
+                    else
                     {
-                        unit = homegearInfoParts.at(1);
-                    }
-                    if(homegearInfoParts.size() >= 3)
-                    {
-                        uint64_t roomId = 0;
-                        if(BaseLib::Math::isNumber(homegearInfoParts.at(2))) roomId = BaseLib::Math::getUnsignedNumber64(homegearInfoParts.at(2));
-                        else roomId = getRoomIdByName(homegearInfoParts.at(2));
-                        deviceInfo.roomId = roomId;
-                    }
-                    if(homegearInfoParts.size() >= 4)
-                    {
-                        auto roleParts = BaseLib::HelperFunctions::splitAll(homegearInfoParts.at(3), ',');
-                        for(auto& rolePart : roleParts)
+                        variableName = groupVariable.second->groupVariableName.substr(0, homegearInfoStartPos) + groupVariable.second->groupVariableName.substr(homegearInfoEndPos + 1);
+                        auto homegearInfo = groupVariable.second->groupVariableName.substr(homegearInfoStartPos + 1, homegearInfoEndPos - homegearInfoStartPos - 1);
+                        auto homegearInfoParts = BaseLib::HelperFunctions::splitAll(homegearInfo, ';');
+                        //1. channel, 2. room ID, 3. unit, 4. comma-seperated roles
+                        if(!homegearInfoParts.empty())
                         {
-                            Role role;
+                            channel = BaseLib::Math::getUnsignedNumber(homegearInfoParts.at(0));
+                            if(channel == 0) channel = 1;
+                        }
+                        if(homegearInfoParts.size() >= 2)
+                        {
+                            unit = homegearInfoParts.at(1);
+                        }
+                        if(homegearInfoParts.size() >= 3)
+                        {
+                            uint64_t roomId = 0;
+                            if(BaseLib::Math::isNumber(homegearInfoParts.at(2))) roomId = BaseLib::Math::getUnsignedNumber64(homegearInfoParts.at(2));
+                            else roomId = getRoomIdByName(homegearInfoParts.at(2));
+                            if(GD::bl->db->roomExists(roomId)) deviceInfo.variableRoomIds[channel][variableName] = roomId;
+                        }
+                        if(homegearInfoParts.size() >= 4)
+                        {
+                            auto roleParts = BaseLib::HelperFunctions::splitAll(homegearInfoParts.at(3), ',');
+                            for(auto& rolePart : roleParts)
+                            {
+                                Role role;
 
-                            if(rolePart.empty()) continue;
-                            if(rolePart.back() == 'i') role.invert = true;
-                            role.id = BaseLib::Math::getUnsignedNumber64(rolePart);
-                            if(role.id == 0) continue;
+                                if(rolePart.empty()) continue;
+                                if(rolePart.back() == 'i') role.invert = true;
+                                role.id = BaseLib::Math::getUnsignedNumber64(rolePart);
+                                if(role.id == 0) continue;
 
-                            if(groupVariable.second->readFlag && groupVariable.second->writeFlag) role.direction = RoleDirection::both;
-                            else if(groupVariable.second->readFlag) role.direction = RoleDirection::input;
-                            else if(groupVariable.second->writeFlag) role.direction = RoleDirection::output;
-                            roles.emplace(role.id, role);
+                                if(groupVariable.second->readFlag && groupVariable.second->writeFlag) role.direction = RoleDirection::both;
+                                else if(groupVariable.second->readFlag) role.direction = RoleDirection::input;
+                                else if(groupVariable.second->writeFlag) role.direction = RoleDirection::output;
+                                roles.emplace(role.id, role);
+                            }
                         }
                     }
                 }
@@ -400,11 +483,9 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 			}
 		//}}}
 
-		///{{{ Devices
-        std::unordered_map<std::string, PHomegearDevice> rpcDevicesDevice;
-        std::unordered_map<std::string, uint64_t> rooms;
-        std::unordered_map<std::string, int32_t> addresses;
+        std::map<int32_t, std::string> usedTypeIds;
 
+		///{{{ Devices
         {
             auto jsonOnly = GD::family->getFamilySetting("importJsonOnly");
             for(auto& deviceXml : xmlData.deviceXmlData)
@@ -423,23 +504,15 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
                 if(device)
                 {
                     auto typeId = (*device->supportedDevices.begin())->id;
-                    rooms[typeId] = deviceXml->roomId;
-                    addresses[typeId] = deviceXml->address;
-                    rpcDevicesDevice[typeId] = device;
+                    addDeviceToPeerInfo(*deviceXml, device, peerInfo, usedTypeIds);
                 }
             }
         }
 		//}}}
 
-		std::map<int32_t, std::string> usedTypeIds;
 		for(auto& i : rpcDevicesJson)
 		{
 			addDeviceToPeerInfo(i.second, -1, "", 0, peerInfo, usedTypeIds);
-		}
-
-		for(auto& device : rpcDevicesDevice)
-		{
-			addDeviceToPeerInfo(device.second, addresses[device.first], device.second->supportedDevices.at(0)->description, rooms[device.first], peerInfo, usedTypeIds);
 		}
 	}
 	catch(const std::exception& ex)
@@ -693,6 +766,8 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
 {
 	try
 	{
+        BaseLib::Rpc::RpcDecoder rpcDecoder;
+
         auto currentProjectData = std::make_shared<ProjectData>();
         currentProjectData->filename = BaseLib::HelperFunctions::splitLast(projectFilename, '/').second;
 
@@ -728,6 +803,8 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
             std::string filename(st.name);
             if(filename.size() < 6) continue;
             bool isProjectXml = false;
+            bool isHomegearInfo = false;
+            bool isGroupVariableInfo = false;
             bool isProjectZip = false;
             if((filename.compare(0, 2, "P-") == 0) || (filename.compare(0, 2, "p-") == 0))
             {
@@ -736,6 +813,8 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                 currentProjectData->projectId = BaseLib::HelperFunctions::toUpper(parts.first);
 
                 isProjectXml = (filename.compare(filename.size() - 6, 6, "/0.xml") == 0);
+                if(filename.size() >= 17) isHomegearInfo = (filename.compare(filename.size() - 17, 17, "/homegearInfo.dat") == 0);
+                if(filename.size() >= 30) isGroupVariableInfo = (filename.compare(filename.size() - 30, 30, "/homegearGroupVariableInfo.dat") == 0);
                 isProjectZip = (filename.compare(filename.size() - 4, 4, ".zip") == 0);
             }
             if(isProjectZip)
@@ -781,7 +860,6 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                     }
 
                     std::string projectZipFilename(projectSt.name);
-                    if(projectZipFilename != "0.xml") continue;
 
                     auto password = GD::family->getFamilySetting("knxProjectPassword");
                     if(password && !password->stringValue.empty()) zip_set_default_password(projectZipArchive, password->stringValue.c_str());
@@ -800,7 +878,22 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                     }
                     content->back() = '\0';
                     zip_fclose(projectFile);
+
+                    if(projectZipFilename == "0.xml") currentProjectData->projectXml = std::move(content);
+                    else if(projectZipFilename.size() >= 17 && projectZipFilename.compare(projectZipFilename.size() - 17, 17, "/homegearInfo.dat") == 0)
+                    {
+                        GD::out.printInfo("Info: Project contains generic Homegear-specific data.");
+                        currentProjectData->homegearInfo = rpcDecoder.decodeResponse(*content);
+                    }
+                    else if(projectZipFilename.size() >= 30 && projectZipFilename.compare(projectZipFilename.size() - 30, 30, "/homegearGroupVariableInfo.dat") == 0)
+                    {
+                        GD::out.printInfo("Info: Project contains Homegear-specific group variable data.");
+                        currentProjectData->groupVariableInfo = rpcDecoder.decodeResponse(*content);
+                    }
+                    else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), std::move(content));
                 }
+
+                zip_close(projectZipArchive);
             }
             else
             {
@@ -820,6 +913,17 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                 zip_fclose(projectFile);
 
                 if(isProjectXml) currentProjectData->projectXml = std::move(content);
+                else if(isHomegearInfo)
+                {
+                    GD::out.printInfo("Project contains generic Homegear-specific data.");
+                    currentProjectData->homegearInfo = rpcDecoder.decodeResponse(*content);
+                }
+                else if(isGroupVariableInfo)
+                {
+                    GD::out.printInfo("Project contains Homegear-specific group variable info.");
+                    currentProjectData->groupVariableInfo = rpcDecoder.decodeResponse(*content);
+                    currentProjectData->groupVariableInfo->print(true, false);
+                }
                 else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), std::move(content));
             }
         }
@@ -1268,6 +1372,16 @@ void Search::extractXmlData(XmlData& xmlData, const PProjectData& projectData)
                                     std::shared_ptr<DeviceXmlData> device = std::make_shared<DeviceXmlData>();
 
                                     //{{{ Assign interface
+                                    if(projectData->homegearInfo)
+                                    {
+                                        auto interfaceIterator = projectData->homegearInfo->structValue->find("interface");
+                                        if(interfaceIterator != projectData->homegearInfo->structValue->end())
+                                        {
+                                            device->interface = interfaceIterator->second->stringValue;
+                                        }
+                                    }
+
+                                    //Interface name from filename overwrites interface name from config
                                     auto pos = projectData->filename.find("##");
                                     if(pos != std::string::npos)
                                     {
@@ -1632,6 +1746,17 @@ void Search::extractXmlData(XmlData& xmlData, const PProjectData& projectData)
                                                 continue;
                                             }
                                         }
+
+                                        //{{{ Find Homegear info
+                                        if(projectData->groupVariableInfo)
+                                        {
+                                            auto infoIterator = projectData->groupVariableInfo->structValue->find(Cemi::getFormattedGroupAddress(element->address));
+                                            if(infoIterator != projectData->groupVariableInfo->structValue->end())
+                                            {
+                                                element->homegearInfo = infoIterator->second;
+                                            }
+                                        }
+                                        //}}
 
                                         //{{{ Assign group variable to device
                                             auto variableIterator = deviceByGroupVariable.find(id);
