@@ -922,7 +922,6 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                 {
                     GD::out.printInfo("Project contains Homegear-specific group variable info.");
                     currentProjectData->groupVariableInfo = rpcDecoder.decodeResponse(*content);
-                    currentProjectData->groupVariableInfo->print(true, false);
                 }
                 else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), std::move(content));
             }

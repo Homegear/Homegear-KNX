@@ -829,6 +829,16 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
                     if(peerInfoElement.roomId != 0) peersIterator->second->setRoom(peerInfoElement.roomId, -1);
                     if(!peerInfoElement.name.empty()) peersIterator->second->setName(peerInfoElement.name);
                     else if(myPeer->getName().empty()) peersIterator->second->setName(myPeer->getFormattedAddress());
+
+                    for(auto& roomChannel : peerInfoElement.variableRoomIds)
+                    {
+                        for(auto& variableRoom : roomChannel.second)
+                        {
+                            auto variableName = variableRoom.first;
+                            myPeer->setVariableRoom(roomChannel.first, variableName, variableRoom.second);
+                        }
+                    }
+
                     continue;
                 }
             }

@@ -41,7 +41,7 @@ std::vector<uint8_t> DptConverter::getDpt(const std::string& type, PVariable& va
             value->booleanValue = !value->booleanValue;
         }
 
-		if(type == "DPT-1")
+		if(type == "DPT-1" || type.compare(0, 7, "DPST-1-") == 0)
 		{
 			dpt.push_back(value->booleanValue ? 1 : 0);
 		}
