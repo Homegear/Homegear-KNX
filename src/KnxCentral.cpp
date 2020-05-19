@@ -857,7 +857,7 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
                         }
                     }
 
-                    raiseRPCUpdateDevice(myPeer->getID(), 0, myPeer->getSerialNumber() + ":" + std::to_string(0), 0);
+                    if(deviceUpdated) raiseRPCUpdateDevice(myPeer->getID(), 0, myPeer->getSerialNumber() + ":" + std::to_string(0), 0);
 
                     continue;
                 }
