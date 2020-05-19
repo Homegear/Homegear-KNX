@@ -825,19 +825,39 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
                 auto peersIterator = _peersBySerial.find(peerInfoElement.serialNumber);
                 if(peersIterator != _peersBySerial.end())
                 {
+                    bool deviceUpdated = false;
                     auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
-                    if(peerInfoElement.roomId != 0) peersIterator->second->setRoom(peerInfoElement.roomId, -1);
-                    if(!peerInfoElement.name.empty()) peersIterator->second->setName(peerInfoElement.name);
-                    else if(myPeer->getName().empty()) peersIterator->second->setName(myPeer->getFormattedAddress());
+                    if(peerInfoElement.roomId != 0 && peersIterator->second->getRoom(-1) != peerInfoElement.roomId)
+                    {
+                        peersIterator->second->setRoom(peerInfoElement.roomId, -1);
+                        deviceUpdated = true;
+                    }
+                    if(!peerInfoElement.name.empty() && peersIterator->second->getName() != peerInfoElement.name)
+                    {
+                        peersIterator->second->setName(peerInfoElement.name);
+                        deviceUpdated = true;
+                    }
+                    else if(myPeer->getName().empty())
+                    {
+                        peersIterator->second->setName(myPeer->getFormattedAddress());
+                        deviceUpdated = true;
+                    }
 
                     for(auto& roomChannel : peerInfoElement.variableRoomIds)
                     {
                         for(auto& variableRoom : roomChannel.second)
                         {
                             auto variableName = variableRoom.first;
-                            myPeer->setVariableRoom(roomChannel.first, variableName, variableRoom.second);
+                            auto roomId = myPeer->getVariableRoom(roomChannel.first, variableName);
+                            if(roomId != variableRoom.second)
+                            {
+                                myPeer->setVariableRoom(roomChannel.first, variableName, variableRoom.second);
+                                deviceUpdated = true;
+                            }
                         }
                     }
+
+                    raiseRPCUpdateDevice(myPeer->getID(), 0, myPeer->getSerialNumber() + ":" + std::to_string(0), 0);
 
                     continue;
                 }
