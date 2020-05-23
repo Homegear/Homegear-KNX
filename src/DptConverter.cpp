@@ -361,7 +361,7 @@ PVariable DptConverter::getVariable(const std::string& type, std::vector<uint8_t
 {
 	try
 	{
-		if(type == "DPT-1")
+		if(type == "DPT-1" || type.compare(0, 7, "DPST-1-") == 0)
 		{
 			if(value.empty())
 			{

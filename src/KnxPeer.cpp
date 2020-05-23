@@ -497,18 +497,18 @@ void KnxPeer::packetReceived(PCemi& packet)
                 if(pos != std::string::npos)
                 {
                     std::string baseName = parameterIterator.parameter->id.substr(0, pos);
-                    std::unordered_map<uint32_t, std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>>::iterator channelIterator = valuesCentral.find(parameterIterator.channel);
+                    auto channelIterator = valuesCentral.find(parameterIterator.channel);
                     if(channelIterator != valuesCentral.end())
                     {
-                        std::map<int32_t, std::map<std::string, GroupedParametersInfo>>::iterator groupedParametersChannelIterator = _groupedParameters.find(parameterIterator.channel);
+                        auto groupedParametersChannelIterator = _groupedParameters.find(parameterIterator.channel);
                         if(groupedParametersChannelIterator != _groupedParameters.end())
                         {
-                            std::map<std::string, GroupedParametersInfo>::iterator groupedParametersIterator = groupedParametersChannelIterator->second.find(baseName);
+                            auto groupedParametersIterator = groupedParametersChannelIterator->second.find(baseName);
                             if(groupedParametersIterator != groupedParametersChannelIterator->second.end())
                             {
                                 for(std::vector<PParameter>::iterator i = groupedParametersIterator->second.parameters.begin(); i != groupedParametersIterator->second.parameters.end(); ++i)
                                 {
-                                    std::unordered_map<std::string, BaseLib::Systems::RpcConfigurationParameter>::iterator groupedParameterIterator = channelIterator->second.find((*i)->id);
+                                    auto groupedParameterIterator = channelIterator->second.find((*i)->id);
                                     if(groupedParameterIterator != channelIterator->second.end())
                                     {
                                         BaseLib::Systems::RpcConfigurationParameter& groupedParameter = groupedParameterIterator->second;
