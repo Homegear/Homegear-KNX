@@ -577,8 +577,7 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
             BaseLib::Html::unescapeHtmlEntities(description, jsonString);
             try
             {
-                BaseLib::Rpc::JsonDecoder jsonDecoder(_bl);
-                deviceXml.description = jsonDecoder.decode(jsonString);
+                deviceXml.description = BaseLib::Rpc::JsonDecoder::decode(jsonString);
             }
             catch(const std::exception& ex)
             {
@@ -646,6 +645,10 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
             }
             variable->transmitFlag = variableIterator->second->booleanValue;
 
+            //Contains "name", "channel", "room" and "roles"
+            variableIterator = variableElement.second->structValue->find("homegearInfo");
+            if(variableIterator != variableElement.second->structValue->end()) variable->homegearInfo = variableIterator->second;
+
             variable->index = BaseLib::Math::getNumber(variableElement.first);
 
             deviceXml.variables.emplace(variable->index, std::move(variable));
@@ -662,7 +665,7 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
         std::vector<PeerInfo> peerInfo;
         std::map<int32_t, std::string> usedTypeIds;
 
-        addDeviceToPeerInfo(device, deviceXml.address, (*device->supportedDevices.begin())->description, deviceXml.roomId, peerInfo, usedTypeIds);
+        addDeviceToPeerInfo(deviceXml, device, peerInfo, usedTypeIds);
 
         if(!peerInfo.empty()) return *peerInfo.begin();
     }

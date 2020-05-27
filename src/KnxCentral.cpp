@@ -688,7 +688,7 @@ std::string KnxCentral::handleCliCommand(std::string command)
 		}
 		else if(command == "test")
 		{
-			auto rawPacket = _bl->hf.getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
+			auto rawPacket = BaseLib::HelperFunctions::getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
 			PKnxIpPacket packet = std::make_shared<KnxIpPacket>(KnxIpPacket(rawPacket));
 			std::string interface = "MyInterface";
 			auto packetData = packet->getTunnelingRequest();
@@ -715,7 +715,7 @@ std::shared_ptr<KnxPeer> KnxCentral::createPeer(uint32_t deviceType, int32_t add
 		std::shared_ptr<KnxPeer> peer(new KnxPeer(_deviceId, this));
 		peer->setDeviceType(deviceType);
         peer->setAddress(address);
-		peer->setSerialNumber(serialNumber);
+		peer->setSerialNumber(std::move(serialNumber));
 		peer->setRpcDevice(GD::family->getRpcDevices()->find(deviceType, 0x10, -1));
 		if(!peer->getRpcDevice()) return std::shared_ptr<KnxPeer>();
 		if(save) peer->save(true, true, false); //Save and create peerID
@@ -738,7 +738,7 @@ PVariable KnxCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::stri
 
         {
             std::shared_ptr<KnxPeer> peer = getPeer(serialNumber);
-            if(!peer) return PVariable(new Variable(VariableType::tVoid));
+            if(!peer) return std::make_shared<Variable>(VariableType::tVoid);
             peerId = peer->getID();
         }
 
@@ -759,14 +759,14 @@ PVariable KnxCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t 
 
         {
             std::shared_ptr<KnxPeer> peer = getPeer(peerId);
-            if(!peer) return PVariable(new Variable(VariableType::tVoid));
+            if(!peer) return std::make_shared<Variable>(VariableType::tVoid);
         }
 
 		deletePeer(peerId);
 
 		if(peerExists(peerId)) return Variable::createError(-1, "Error deleting peer. See log for more details.");
 
-		return PVariable(new Variable(VariableType::tVoid));
+		return std::make_shared<Variable>(VariableType::tVoid);
 	}
 	catch(const std::exception& ex)
     {
@@ -1015,9 +1015,18 @@ PVariable KnxCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t 
             peer->initializeCentralConfig();
             peer->initParametersByGroupAddress();
 
-            if(!peerInfo.name.empty()) peer->setName(peerInfo.name);
-            else peer->setName(peer->getFormattedAddress());
-            if(peerInfo.roomId != 0) peer->setRoom(peerInfo.roomId, -1);
+            if(!peerInfo.name.empty() && peerInfo.name != peer->getName()) peer->setName(peerInfo.name);
+            else if(peer->getName().empty()) peer->setName(peer->getFormattedAddress());
+            if(peerInfo.roomId != 0 && peerInfo.roomId != peer->getRoom(-1)) peer->setRoom(peerInfo.roomId, -1);
+            for(auto& roomChannel : peerInfo.variableRoomIds)
+            {
+                for(auto& variableRoom : roomChannel.second)
+                {
+                    auto variableName = variableRoom.first;
+                    auto roomId = peer->getVariableRoom(roomChannel.first, variableName);
+                    if(roomId != variableRoom.second) peer->setVariableRoom(roomChannel.first, variableName, variableRoom.second);
+                }
+            }
 
             lockGuard.lock();
             if(peer->getAddress() != -1) _peers[peer->getAddress()] = peer;
