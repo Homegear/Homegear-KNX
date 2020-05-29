@@ -62,9 +62,10 @@ protected:
 	void deletePeer(uint64_t id);
 	void removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId);
     void interfaceReconnected();
+    size_t reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, const std::vector<Search::PeerInfo>& peerInfo);
 
 	//{{{ Family RPC methods
-		BaseLib::PVariable updateDevice(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters);
+		BaseLib::PVariable updateDevices(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters);
 	//}}}
 };
 
