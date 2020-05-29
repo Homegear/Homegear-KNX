@@ -977,7 +977,7 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
                 if(peerInfo.address == -1 || peerInfo.type == -1)
                 {
                     GD::out.printError("Could not create peer. Probably there is an error in the provided data structure. Check previous log messages for more details.");
-                    return BaseLib::Variable::createError(-2, "Could not create peer. Probably there is an error in the provided data structure. Check the Homegear log for more details.");
+                    continue;
                 }
 
                 GD::out.printInfo("Info: Successfully created peer structure for peer with physical address " + Cemi::getFormattedPhysicalAddress(peerInfo.address) + " and name " + peerInfo.name + ". Type number is 0x" + BaseLib::HelperFunctions::getHexString(peerInfo.type, 4));
