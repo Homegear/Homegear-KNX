@@ -605,7 +605,15 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumb
 
             auto variable = std::make_shared<GroupVariableXmlData>();
 
-            auto variableIterator = variableElement.second->structValue->find("address");
+            auto variableIterator = variableElement.second->structValue->find("name");
+            if(variableIterator == variableElement.second->structValue->end() || variableIterator->second->stringValue.empty())
+            {
+                GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"name\" or the name is empty.");
+                return PeerInfo();
+            }
+            variable->groupVariableName = variableIterator->second->stringValue;
+
+            variableIterator = variableElement.second->structValue->find("address");
             if(variableIterator == variableElement.second->structValue->end() || variableIterator->second->integerValue == -1)
             {
                 GD::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"address\" or the address is invalid.");

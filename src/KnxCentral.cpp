@@ -961,7 +961,7 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
 		try
 		{
             if(parameters->empty()) return BaseLib::Variable::createError(-1, "Wrong parameter count.");
-            if(parameters->at(0)->type != BaseLib::VariableType::tStruct) return BaseLib::Variable::createError(-1, "Parameter is not of type Struct.");
+            if(parameters->at(0)->type != BaseLib::VariableType::tArray) return BaseLib::Variable::createError(-1, "Parameter is not of type Array.");
 
             std::lock_guard<std::mutex> searchGuard(_searchMutex);
 
