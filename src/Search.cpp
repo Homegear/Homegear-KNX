@@ -1078,7 +1078,7 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
                     xml_node* rootNode = doc.first_node("KNX");
                     if(!rootNode)
                     {
-                        _bl->out.printError("Error: \"" + file.first + "\" does not start with \"KNX\".");
+                        _bl->out.printError("Error: \"" + file.first + R"(" does not start with "KNX".)");
                         doc.clear();
                         continue;
                     }
@@ -1442,7 +1442,7 @@ void Search::extractXmlData(XmlData& xmlData, const PProjectData& projectData)
                                     }
 
                                     //{{{ Get product data and application program reference ID
-                                    PManufacturerProductData productData;
+                                    std::vector<PManufacturerProductData> productData;
                                     std::string applicationProgramRefId;
 
                                     {
@@ -1466,19 +1466,18 @@ void Search::extractXmlData(XmlData& xmlData, const PProjectData& projectData)
                                             continue;
                                         }
 
-                                        if(applicationProgramRefIdsIterator->second.size() > 1)
+                                        productData.reserve(applicationProgramRefIdsIterator->second.size());
+
+                                        for(auto& applicationProgramRefId : applicationProgramRefIdsIterator->second)
                                         {
-                                            GD::out.printWarning("Warning: There is more than one application program for device " + device->id + ". This is currently only partly supported.");
+                                            auto productDataIterator = manufacturerDataIterator->second->productData.find(applicationProgramRefId);
+                                            if(productDataIterator != manufacturerDataIterator->second->productData.end())
+                                            {
+                                                productData.emplace_back(productDataIterator->second);
+                                            }
                                         }
 
-                                        applicationProgramRefId = applicationProgramRefIdsIterator->second.at(0);
-
-                                        auto productDataIterator = manufacturerDataIterator->second->productData.find(applicationProgramRefId);
-                                        if(productDataIterator != manufacturerDataIterator->second->productData.end())
-                                        {
-                                            productData = productDataIterator->second;
-                                        }
-                                        else
+                                        if(productData.empty())
                                         {
                                             GD::out.printError("Error: No application program dound for device (2) " + device->id);
                                             continue;
@@ -1516,14 +1515,18 @@ void Search::extractXmlData(XmlData& xmlData, const PProjectData& projectData)
                                             }
 
                                             //{{{ Get default flags from application program.
-                                            auto productDataIterator = productData->comObjectData.find(fullReferenceId);
-                                            if(productDataIterator != productData->comObjectData.end())
+                                            for(auto& productDataEntry : productData)
                                             {
-                                                variableInfo.name = productDataIterator->second->name;
-                                                variableInfo.functionText = productDataIterator->second->functionText;
-                                                variableInfo.writeFlag = productDataIterator->second->writeFlag;
-                                                variableInfo.readFlag = productDataIterator->second->readFlag;
-                                                variableInfo.transmitFlag = productDataIterator->second->transmitFlag;
+                                                auto productDataIterator = productDataEntry->comObjectData.find(fullReferenceId);
+                                                if(productDataIterator != productDataEntry->comObjectData.end())
+                                                {
+                                                    variableInfo.name = productDataIterator->second->name;
+                                                    variableInfo.functionText = productDataIterator->second->functionText;
+                                                    variableInfo.writeFlag = productDataIterator->second->writeFlag;
+                                                    variableInfo.readFlag = productDataIterator->second->readFlag;
+                                                    variableInfo.transmitFlag = productDataIterator->second->transmitFlag;
+                                                    break;
+                                                }
                                             }
                                             //}}}
 
