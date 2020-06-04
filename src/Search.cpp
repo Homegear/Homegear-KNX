@@ -890,7 +890,7 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                     content->back() = '\0';
                     zip_fclose(projectFile);
 
-                    if(projectZipFilename == "0.xml") currentProjectData->projectXml = std::move(content);
+                    if(projectZipFilename == "0.xml") currentProjectData->projectXml = content;
                     else if(projectZipFilename.size() >= 17 && projectZipFilename.compare(projectZipFilename.size() - 17, 17, "/homegearInfo.dat") == 0)
                     {
                         GD::out.printInfo("Info: Project contains generic Homegear-specific data.");
@@ -901,7 +901,7 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                         GD::out.printInfo("Info: Project contains Homegear-specific group variable data.");
                         currentProjectData->groupVariableInfo = rpcDecoder.decodeResponse(*content);
                     }
-                    else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), std::move(content));
+                    else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), content);
                 }
 
                 zip_close(projectZipArchive);
@@ -923,7 +923,7 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                 content->back() = '\0';
                 zip_fclose(projectFile);
 
-                if(isProjectXml) currentProjectData->projectXml = std::move(content);
+                if(isProjectXml) currentProjectData->projectXml = content;
                 else if(isHomegearInfo)
                 {
                     GD::out.printInfo("Project contains generic Homegear-specific data.");
@@ -934,7 +934,7 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                     GD::out.printInfo("Project contains Homegear-specific group variable info.");
                     currentProjectData->groupVariableInfo = rpcDecoder.decodeResponse(*content);
                 }
-                else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), std::move(content));
+                else currentProjectData->xmlFiles.emplace(BaseLib::HelperFunctions::toLower(filename), content);
             }
         }
 
@@ -960,7 +960,7 @@ Search::PProjectData Search::extractKnxProject(const std::string& projectFilenam
                 xml_node* rootNode = doc.first_node("KNX");
                 if(!rootNode)
                 {
-                    _bl->out.printError("Error: \"project.xml\" does not start with \"KNX\".");
+                    _bl->out.printError(R"(Error: "project.xml" does not start with "KNX".)");
                     doc.clear();
                     return PProjectData();
                 }
