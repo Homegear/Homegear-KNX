@@ -853,22 +853,18 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
                 auto peersIterator = _peersBySerial.find(peerInfoElement.serialNumber);
                 if(peersIterator != _peersBySerial.end())
                 {
-                    bool deviceUpdated = false;
                     auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
                     if(peerInfoElement.roomId != 0 && peersIterator->second->getRoom(-1) != peerInfoElement.roomId)
                     {
                         peersIterator->second->setRoom(peerInfoElement.roomId, -1);
-                        deviceUpdated = true;
                     }
                     if(!peerInfoElement.name.empty() && peersIterator->second->getName() != peerInfoElement.name)
                     {
                         peersIterator->second->setName(peerInfoElement.name);
-                        deviceUpdated = true;
                     }
                     else if(myPeer->getName().empty())
                     {
                         peersIterator->second->setName(myPeer->getFormattedAddress());
-                        deviceUpdated = true;
                     }
 
                     for(auto& roomChannel : peerInfoElement.variableRoomIds)
@@ -880,12 +876,12 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
                             if(roomId != variableRoom.second)
                             {
                                 myPeer->setVariableRoom(roomChannel.first, variableName, variableRoom.second);
-                                deviceUpdated = true;
                             }
                         }
                     }
 
-                    if(deviceUpdated) raiseRPCUpdateDevice(myPeer->getID(), 0, myPeer->getSerialNumber() + ":" + std::to_string(0), 0);
+                    //Always assume that device was updated - we don't know if variables were added or deleted
+                    raiseRPCUpdateDevice(myPeer->getID(), 0, myPeer->getSerialNumber() + ":" + std::to_string(0), 0);
 
                     continue;
                 }
