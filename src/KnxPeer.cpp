@@ -882,7 +882,7 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
                 if(rpcParameter->physical->bitSize < 1) return Variable::createError(-10, rawParameterName + " has no valid bit size defined.");
 
 				std::vector<uint8_t> rawParameterData = rawParameter.getBinaryData();
-				BaseLib::BitReaderWriter::setPosition(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameterData, parameterData);
+				BaseLib::BitReaderWriter::setPositionBE(rpcParameter->physical->address, rpcParameter->physical->bitSize, rawParameterData, parameterData);
 				rawParameter.setBinaryData(rawParameterData);
 				if(rawParameter.databaseId > 0) saveParameter(rawParameter.databaseId, rawParameterData);
 				else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, rawParameterName, rawParameterData);
