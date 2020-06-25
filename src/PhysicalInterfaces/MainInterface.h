@@ -6,7 +6,8 @@
 #include <homegear-base/BaseLib.h>
 #include "../KnxIpPacket.h"
 
-namespace Knx {
+namespace Knx
+{
 
 class MainInterface : public BaseLib::Systems::IPhysicalInterface
 {

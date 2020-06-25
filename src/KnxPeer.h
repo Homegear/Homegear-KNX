@@ -63,8 +63,9 @@ public:
     virtual void homegearShuttingDown();
 
 	//RPC methods
-	virtual PVariable putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t channel, ParameterGroup::Type::Enum type, uint64_t remoteID, int32_t remoteChannel, PVariable variables, bool checkAcls, bool onlyPushing = false);
-	virtual PVariable setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel, std::string valueKey, PVariable value, bool wait);
+    PVariable getDeviceInfo(BaseLib::PRpcClientInfo clientInfo, std::map<std::string, bool> fields) override;
+	PVariable putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t channel, ParameterGroup::Type::Enum type, uint64_t remoteID, int32_t remoteChannel, PVariable variables, bool checkAcls, bool onlyPushing = false) override;
+	PVariable setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel, std::string valueKey, PVariable value, bool wait) override;
 	//End RPC methods
 protected:
 	struct ParametersByGroupAddressInfo
@@ -115,6 +116,8 @@ protected:
 
 	virtual PParameterGroup getParameterSet(int32_t channel, ParameterGroup::Type::Enum type);
 
+	void sendPacket(const PCemi& packet);
+
 	// {{{ Hooks
 		/**
 		 * {@inheritDoc}
@@ -129,12 +132,12 @@ protected:
 		/**
 		 * {@inheritDoc}
 		 */
-		virtual bool convertFromPacketHook(PParameter parameter, std::vector<uint8_t>& data, PVariable& result);
+		bool convertFromPacketHook(BaseLib::Systems::RpcConfigurationParameter& parameter, std::vector<uint8_t>& data, PVariable& result) override;
 
 		/**
 		 * {@inheritDoc}
 		 */
-		virtual bool convertToPacketHook(PParameter parameter, PVariable data, std::vector<uint8_t>& result);
+		bool convertToPacketHook(BaseLib::Systems::RpcConfigurationParameter& parameter, PVariable& data, std::vector<uint8_t>& result) override;
 	// }}}
 };
 

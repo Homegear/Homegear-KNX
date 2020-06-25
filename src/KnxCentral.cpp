@@ -64,7 +64,7 @@ void KnxCentral::init()
         if (_initialized) return; //Prevent running init two times
         _initialized = true;
 
-		_localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PRpcClientInfo& clientInfo, BaseLib::PArray& parameters)>>("updateDevice", std::bind(&KnxCentral::updateDevice, this, std::placeholders::_1, std::placeholders::_2)));
+		_localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PRpcClientInfo& clientInfo, BaseLib::PArray& parameters)>>("updateDevices", std::bind(&KnxCentral::updateDevices, this, std::placeholders::_1, std::placeholders::_2)));
 
         _search.reset(new Search(GD::bl));
 
@@ -264,7 +264,12 @@ PGroupAddressPeers KnxCentral::getPeer(uint16_t groupAddress)
     return PGroupAddressPeers();
 }
 
-bool KnxCentral::onPacketReceived(std::string& senderID, std::shared_ptr<BaseLib::Systems::Packet> packet)
+uint64_t KnxCentral::getRoomIdByName(std::string& name)
+{
+    return raiseGetRoomIdByName(name);
+}
+
+bool KnxCentral::onPacketReceived(std::string& senderId, std::shared_ptr<BaseLib::Systems::Packet> packet)
 {
 	try
 	{
@@ -676,14 +681,14 @@ std::string KnxCentral::handleCliCommand(std::string command)
 				index++;
 			}
 
-			PVariable result = searchDevices(nullptr);
+			PVariable result = searchDevices(nullptr, "");
 			if(result->errorStruct) stringStream << "Error: " << result->structValue->at("faultString")->stringValue << std::endl;
 			else stringStream << "Search completed successfully." << std::endl;
 			return stringStream.str();
 		}
 		else if(command == "test")
 		{
-			auto rawPacket = _bl->hf.getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
+			auto rawPacket = BaseLib::HelperFunctions::getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
 			PKnxIpPacket packet = std::make_shared<KnxIpPacket>(KnxIpPacket(rawPacket));
 			std::string interface = "MyInterface";
 			auto packetData = packet->getTunnelingRequest();
@@ -710,7 +715,7 @@ std::shared_ptr<KnxPeer> KnxCentral::createPeer(uint32_t deviceType, int32_t add
 		std::shared_ptr<KnxPeer> peer(new KnxPeer(_deviceId, this));
 		peer->setDeviceType(deviceType);
         peer->setAddress(address);
-		peer->setSerialNumber(serialNumber);
+		peer->setSerialNumber(std::move(serialNumber));
 		peer->setRpcDevice(GD::family->getRpcDevices()->find(deviceType, 0x10, -1));
 		if(!peer->getRpcDevice()) return std::shared_ptr<KnxPeer>();
 		if(save) peer->save(true, true, false); //Save and create peerID
@@ -733,7 +738,7 @@ PVariable KnxCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::stri
 
         {
             std::shared_ptr<KnxPeer> peer = getPeer(serialNumber);
-            if(!peer) return PVariable(new Variable(VariableType::tVoid));
+            if(!peer) return std::make_shared<Variable>(VariableType::tVoid);
             peerId = peer->getID();
         }
 
@@ -754,14 +759,14 @@ PVariable KnxCentral::deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t 
 
         {
             std::shared_ptr<KnxPeer> peer = getPeer(peerId);
-            if(!peer) return PVariable(new Variable(VariableType::tVoid));
+            if(!peer) return std::make_shared<Variable>(VariableType::tVoid);
         }
 
 		deletePeer(peerId);
 
 		if(peerExists(peerId)) return Variable::createError(-1, "Error deleting peer. See log for more details.");
 
-		return PVariable(new Variable(VariableType::tVoid));
+		return std::make_shared<Variable>(VariableType::tVoid);
 	}
 	catch(const std::exception& ex)
     {
@@ -788,7 +793,7 @@ PVariable KnxCentral::invokeFamilyMethod(BaseLib::PRpcClientInfo clientInfo, std
     return Variable::createError(-32502, "Unknown application error.");
 }
 
-PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
+PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const std::string& interfaceId)
 {
 	try
 	{
@@ -808,82 +813,7 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo)
 		std::vector<Search::PeerInfo> peerInfo = _search->search(usedTypeNumbers, idTypeNumberMap);
 		GD::out.printInfo("Info: Search completed. Found " + std::to_string(peerInfo.size()) + " devices.");
 
-		GD::family->reloadRpcDevices();
-
-		loadPeers();
-
-		std::vector<std::shared_ptr<KnxPeer>> newPeers;
-		for(std::vector<Search::PeerInfo>::iterator i = peerInfo.begin(); i != peerInfo.end(); ++i)
-        {
-            {
-                std::lock_guard<std::mutex> peersGuard(_peersMutex);
-                auto peersIterator = _peersBySerial.find(i->serialNumber);
-                if(peersIterator != _peersBySerial.end())
-                {
-                    auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
-                    if(!i->room.empty())
-                    {
-                        uint64_t roomId = raiseGetRoomIdByName(i->room);
-                        if(roomId > 0) peersIterator->second->setRoom(roomId, -1);
-                    }
-                    if(!i->name.empty()) peersIterator->second->setName(i->name);
-                    else if(myPeer->getName().empty()) peersIterator->second->setName(myPeer->getFormattedAddress());
-                    continue;
-                }
-            }
-			std::shared_ptr<KnxPeer> peer = createPeer(i->type, i->address, i->serialNumber, true);
-			if(!peer)
-			{
-				GD::out.printError("Error: Could not add device with type " + BaseLib::HelperFunctions::getHexString(i->type) + ". No matching XML file was found.");
-				continue;
-			}
-
-			peer->initializeCentralConfig();
-			peer->initParametersByGroupAddress();
-
-            if(!i->name.empty()) peer->setName(i->name);
-            else peer->setName(peer->getFormattedAddress());
-			if(!i->room.empty())
-			{
-				uint64_t roomId = raiseGetRoomIdByName(i->room);
-				if(roomId > 0) peer->setRoom(roomId, -1);
-			}
-
-            std::lock_guard<std::mutex> peersGuard(_peersMutex);
-            if(peer->getAddress() != -1) _peers[peer->getAddress()] = peer;
-			_peersBySerial[peer->getSerialNumber()] = peer;
-			_peersById[peer->getID()] = peer;
-			std::vector<uint16_t> groupAddresses = peer->getGroupAddresses();
-			for(std::vector<uint16_t>::iterator j = groupAddresses.begin(); j != groupAddresses.end(); ++j)
-			{
-				auto peersIterator = _peersByGroupAddress.find(*j);
-				if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(*j, std::make_shared<std::map<uint64_t, PMyPeer>>());
-				_peersByGroupAddress[*j]->emplace(peer->getID(), peer);
-			}
-			newPeers.push_back(peer);
-		}
-
-		GD::out.printInfo("Info: Found " + std::to_string(newPeers.size()) + " new devices.");
-
-		if(newPeers.size() > 0)
-		{
-            std::vector<uint64_t> newIds;
-            newIds.reserve(newPeers.size());
-			PVariable deviceDescriptions(new Variable(VariableType::tArray));
-			for(std::vector<std::shared_ptr<KnxPeer>>::iterator i = newPeers.begin(); i != newPeers.end(); ++i)
-			{
-				std::shared_ptr<std::vector<PVariable>> descriptions = (*i)->getDeviceDescriptions(clientInfo, true, std::map<std::string, bool>());
-				if(!descriptions) continue;
-                newIds.push_back((*i)->getID());
-				for(std::vector<PVariable>::iterator j = descriptions->begin(); j != descriptions->end(); ++j)
-				{
-					deviceDescriptions->arrayValue->push_back(*j);
-				}
-			}
-			raiseRPCNewDevices(newIds, deviceDescriptions);
-		}
-
-		return PVariable(new Variable((uint32_t)newPeers.size()));
+		return std::make_shared<Variable>(reloadAndUpdatePeers(clientInfo, peerInfo));
 	}
 	catch(const std::exception& ex)
 	{
@@ -907,88 +837,78 @@ PVariable KnxCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t 
     return Variable::createError(-32500, "Unknown application error.");
 }
 
-//{{{ Family RPC methods
-	BaseLib::PVariable KnxCentral::updateDevice(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters)
-	{
-		try
-		{
-            if(parameters->empty()) return BaseLib::Variable::createError(-1, "Wrong parameter count.");
-            if(parameters->at(0)->type != BaseLib::VariableType::tStruct) return BaseLib::Variable::createError(-1, "Parameter is not of type Struct.");
+size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, const std::vector<Search::PeerInfo>& peerInfo)
+{
+    try
+    {
+        GD::family->reloadRpcDevices();
 
-            std::lock_guard<std::mutex> searchGuard(_searchMutex);
+        loadPeers();
 
-            std::unordered_set<uint32_t> usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
-            std::unordered_map<std::string, uint32_t> idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
-
-            auto peerInfo = _search->updateDevice(usedTypeNumbers, idTypeNumberMap, parameters->at(0));
-            if(peerInfo.address == -1 || peerInfo.type == -1)
+        std::vector<std::shared_ptr<KnxPeer>> newPeers;
+        for(auto& peerInfoElement : peerInfo)
+        {
             {
-                GD::out.printError("Could not create peer. Probably there is an error in the provided data structure. Check previous log messages for more details.");
-                return BaseLib::Variable::createError(-2, "Could not create peer. Probably there is an error in the provided data structure. Check the Homegear log for more details.");
-            }
-
-            GD::out.printInfo("Info: Successfully created peer structure for peer with physical address " + Cemi::getFormattedPhysicalAddress(peerInfo.address) + " and name " + peerInfo.name + ". Type number is 0x" + BaseLib::HelperFunctions::getHexString(peerInfo.type, 4));
-
-            bool newPeer = true;
-            auto peer = getPeer(peerInfo.address);
-            std::unique_lock<std::mutex> lockGuard(_peersMutex);
-            if(peer)
-            {
-                newPeer = false;
-                if(_peers.find(peer->getAddress()) != _peers.end()) _peers.erase(peer->getAddress());
-                if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
-                if(_peersById.find(peer->getID()) != _peersById.end()) _peersById.erase(peer->getID());
-                auto groupAddresses = peer->getGroupAddresses();
-                lockGuard.unlock();
-
-                for(const uint16_t& address : groupAddresses)
+                std::lock_guard<std::mutex> peersGuard(_peersMutex);
+                auto peersIterator = _peersBySerial.find(peerInfoElement.serialNumber);
+                if(peersIterator != _peersBySerial.end())
                 {
-                    removePeerFromGroupAddresses(address, peer->getID());
-                }
+                    auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
+                    if(peerInfoElement.roomId != 0 && peersIterator->second->getRoom(-1) != peerInfoElement.roomId)
+                    {
+                        peersIterator->second->setRoom(peerInfoElement.roomId, -1);
+                    }
+                    if(!peerInfoElement.name.empty() && peersIterator->second->getName() != peerInfoElement.name)
+                    {
+                        peersIterator->second->setName(peerInfoElement.name);
+                    }
+                    else if(myPeer->getName().empty())
+                    {
+                        peersIterator->second->setName(myPeer->getFormattedAddress());
+                    }
 
-                int32_t i = 0;
-                while(peer.use_count() > 1 && i < 600)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                    i++;
+                    for(auto& roomChannel : peerInfoElement.variableRoomIds)
+                    {
+                        for(auto& variableRoom : roomChannel.second)
+                        {
+                            auto variableName = variableRoom.first;
+                            auto roomId = myPeer->getVariableRoom(roomChannel.first, variableName);
+                            if(roomId != variableRoom.second)
+                            {
+                                myPeer->setVariableRoom(roomChannel.first, variableName, variableRoom.second);
+                            }
+                        }
+                    }
+
+                    //Always assume that device was updated - we don't know if variables were added or deleted
+                    raiseRPCUpdateDevice(myPeer->getID(), 0, myPeer->getSerialNumber() + ":" + std::to_string(0), 0);
+
+                    continue;
                 }
-                if(i == 600) GD::out.printError("Error: Peer deletion took too long.");
             }
-            else lockGuard.unlock();
-
-            GD::family->reloadRpcDevices();
-
+            std::shared_ptr<KnxPeer> peer = createPeer(peerInfoElement.type, peerInfoElement.address, peerInfoElement.serialNumber, true);
             if(!peer)
             {
-                peer = createPeer((uint32_t)peerInfo.type, peerInfo.address, peerInfo.serialNumber, true);
-                if(!peer)
-                {
-                    GD::out.printError("Error: Could not add device with type " + BaseLib::HelperFunctions::getHexString(peerInfo.type) + ". No matching XML file was found.");
-                    return BaseLib::Variable::createError(-2, "Error: Could not add device with type " + BaseLib::HelperFunctions::getHexString(peerInfo.type) + ". No matching XML file was found.");
-                }
-            }
-            else
-            {
-                peer->setRpcDevice(GD::family->getRpcDevices()->find((uint32_t)peerInfo.type, 0x10, -1));
-                if(!peer->getRpcDevice())
-                {
-                    GD::out.printError("Error: RPC device could not be found anymore.");
-                    return BaseLib::Variable::createError(-2, "Error: RPC device could not be found anymore.");
-                }
+                GD::out.printError("Error: Could not add device with type " + BaseLib::HelperFunctions::getHexString(peerInfoElement.type) + ". No matching XML file was found.");
+                continue;
             }
 
             peer->initializeCentralConfig();
             peer->initParametersByGroupAddress();
 
-            if(!peerInfo.name.empty()) peer->setName(peerInfo.name);
+            if(!peerInfoElement.name.empty()) peer->setName(peerInfoElement.name);
             else peer->setName(peer->getFormattedAddress());
-            if(!peerInfo.room.empty())
+            if(peerInfoElement.roomId != 0) peer->setRoom(peerInfoElement.roomId, -1);
+            for(auto& roomChannel : peerInfoElement.variableRoomIds)
             {
-                uint64_t roomId = raiseGetRoomIdByName(peerInfo.room);
-                if(roomId > 0) peer->setRoom(roomId, -1);
+                for(auto& variableRoom : roomChannel.second)
+                {
+                    auto variableName = variableRoom.first;
+                    peer->setVariableRoom(roomChannel.first, variableName, variableRoom.second);
+                }
             }
 
-            lockGuard.lock();
+            std::lock_guard<std::mutex> peersGuard(_peersMutex);
             if(peer->getAddress() != -1) _peers[peer->getAddress()] = peer;
             _peersBySerial[peer->getSerialNumber()] = peer;
             _peersById[peer->getID()] = peer;
@@ -999,30 +919,100 @@ PVariable KnxCentral::setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t 
                 if(peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(*j, std::make_shared<std::map<uint64_t, PMyPeer>>());
                 _peersByGroupAddress[*j]->emplace(peer->getID(), peer);
             }
-            lockGuard.unlock();
+            newPeers.push_back(peer);
+        }
 
-            if(newPeer)
+        GD::out.printInfo("Info: Found " + std::to_string(newPeers.size()) + " new devices.");
+
+        if(!newPeers.empty())
+        {
+            std::vector<uint64_t> newIds;
+            newIds.reserve(newPeers.size());
+            PVariable deviceDescriptions(new Variable(VariableType::tArray));
+            for(std::vector<std::shared_ptr<KnxPeer>>::iterator i = newPeers.begin(); i != newPeers.end(); ++i)
             {
-                GD::out.printInfo("Info: Device with address " + Cemi::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully added. Peer ID is: " + std::to_string(peer->getID()));
-
-                PVariable deviceDescriptions(new Variable(VariableType::tArray));
-                std::shared_ptr<std::vector<PVariable>> descriptions = peer->getDeviceDescriptions(nullptr, true, std::map<std::string, bool>());
-                if(descriptions)
+                std::shared_ptr<std::vector<PVariable>> descriptions = (*i)->getDeviceDescriptions(clientInfo, true, std::map<std::string, bool>());
+                if(!descriptions) continue;
+                newIds.push_back((*i)->getID());
+                for(std::vector<PVariable>::iterator j = descriptions->begin(); j != descriptions->end(); ++j)
                 {
-                    for(std::vector<PVariable>::iterator j = descriptions->begin(); j != descriptions->end(); ++j)
-                    {
-                        deviceDescriptions->arrayValue->push_back(*j);
-                    }
-                    std::vector<uint64_t> newIds{peer->getID()};
-                    raiseRPCNewDevices(newIds, deviceDescriptions);
+                    deviceDescriptions->arrayValue->push_back(*j);
                 }
             }
-            else
-            {
-                GD::out.printInfo("Info: Peer " + std::to_string(peer->getID()) + " with address " + Cemi::getFormattedPhysicalAddress(peer->getAddress()) + " and name \"" + peer->getName() + "\" successfully updated.");
+            raiseRPCNewDevices(newIds, deviceDescriptions);
+        }
 
-                raiseRPCUpdateDevice(peer->getID(), 0, peer->getSerialNumber() + ":" + std::to_string(0), 0);
+        return newPeers.size();
+    }
+    catch(const std::exception& ex)
+    {
+        GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    return 0;
+}
+
+//{{{ Family RPC methods
+	BaseLib::PVariable KnxCentral::updateDevices(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters)
+	{
+		try
+		{
+            if(parameters->empty()) return BaseLib::Variable::createError(-1, "Wrong parameter count.");
+            if(parameters->at(0)->type != BaseLib::VariableType::tArray) return BaseLib::Variable::createError(-1, "Parameter is not of type Array.");
+
+            std::lock_guard<std::mutex> searchGuard(_searchMutex);
+
+            std::vector<Search::PeerInfo> updatedPeersInfo;
+            updatedPeersInfo.reserve(parameters->at(0)->arrayValue->size());
+
+            for(auto& infoStruct : *parameters->at(0)->arrayValue)
+            {
+                std::unordered_set<uint32_t> usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
+                std::unordered_map<std::string, uint32_t> idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
+
+                auto peerInfo = _search->updateDevice(usedTypeNumbers, idTypeNumberMap, infoStruct);
+                if(peerInfo.address == -1 || peerInfo.type == -1)
+                {
+                    GD::out.printError("Could not create peer. Probably there is an error in the provided data structure. Check previous log messages for more details.");
+                    continue;
+                }
+
+                GD::out.printInfo("Info: Successfully created peer structure for peer with physical address " + Cemi::getFormattedPhysicalAddress(peerInfo.address) + " and name " + peerInfo.name + ". Type number is 0x" + BaseLib::HelperFunctions::getHexString(peerInfo.type, 4));
+
+                updatedPeersInfo.emplace_back(std::move(peerInfo));
             }
+            GD::out.printInfo("Info: Parsing completed. Found " + std::to_string(updatedPeersInfo.size()) + " devices.");
+
+            //{{{ Remove updated peers
+            for(auto& peerInfo : updatedPeersInfo)
+            {
+                auto peer = getPeer(peerInfo.serialNumber);
+                if(peer)
+                {
+                    {
+                        std::lock_guard<std::mutex> lockGuard(_peersMutex);
+                        if(_peers.find(peer->getAddress()) != _peers.end()) _peers.erase(peer->getAddress());
+                        if(_peersBySerial.find(peer->getSerialNumber()) != _peersBySerial.end()) _peersBySerial.erase(peer->getSerialNumber());
+                        if(_peersById.find(peer->getID()) != _peersById.end()) _peersById.erase(peer->getID());
+                    }
+
+                    auto groupAddresses = peer->getGroupAddresses();
+                    for(const uint16_t& address : groupAddresses)
+                    {
+                        removePeerFromGroupAddresses(address, peer->getID());
+                    }
+
+                    int32_t i = 0;
+                    while(peer.use_count() > 1 && i < 600)
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        i++;
+                    }
+                    if(i == 600) GD::out.printError("Error: Peer deletion took too long.");
+                }
+            }
+            //}}}
+
+            return std::make_shared<Variable>(reloadAndUpdatePeers(std::move(clientInfo), updatedPeersInfo));
 		}
 		catch(const std::exception& ex)
 		{

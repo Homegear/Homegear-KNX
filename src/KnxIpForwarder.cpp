@@ -184,7 +184,7 @@ void KnxIpForwarder::listen()
                     continue;
                 }
 
-                std::array<char, INET6_ADDRSTRLEN> ipStringBuffer{};
+                std::array<char, INET6_ADDRSTRLEN + 1> ipStringBuffer{};
                 uint16_t senderPort;
                 if(clientInfo.sa_family == AF_INET)
                 {
@@ -198,7 +198,7 @@ void KnxIpForwarder::listen()
                     inet_ntop(AF_INET6, &s->sin6_addr, ipStringBuffer.data(), ipStringBuffer.size());
                     senderPort = ntohs(s->sin6_port);
                 }
-                ipStringBuffer.back() = 0;
+                ipStringBuffer.back() = '\0';
                 auto senderIp = std::string(ipStringBuffer.data());
 
                 if(GD::bl->debugLevel >= 4) _out.printInfo("Info: Packet received from " + senderIp + ": " + BaseLib::HelperFunctions::getHexString(buffer.data(), bytesReceived));

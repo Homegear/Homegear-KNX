@@ -175,7 +175,7 @@ void MainInterface::startListening()
 		setListenAddress();
 		if(_listenIp.empty()) return;
 		_out.printInfo("Info: Listen IP is: " + _listenIp);
-		_socket = std::unique_ptr<BaseLib::UdpSocket>(new BaseLib::UdpSocket(_bl, _settings->host, _settings->port));
+		_socket = std::unique_ptr<BaseLib::UdpSocket>(new BaseLib::UdpSocket(_bl, _settings->host, _settings->port, _settings->listenPort));
 		_socket->setAutoConnect(true);
 		_out.printDebug("Connecting to device with hostname " + _settings->host + " on port " + _settings->port + "...");
 		_socket->open();

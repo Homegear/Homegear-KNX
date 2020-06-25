@@ -34,10 +34,12 @@ public:
 	PMyPeer getPeer(std::string serialNumber);
 	PGroupAddressPeers getPeer(uint16_t groupAddress);
 
+	uint64_t getRoomIdByName(std::string& name);
+
 	virtual PVariable deleteDevice(BaseLib::PRpcClientInfo clientInfo, std::string serialNumber, int32_t flags);
 	virtual PVariable deleteDevice(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, int32_t flags);
     virtual PVariable invokeFamilyMethod(BaseLib::PRpcClientInfo clientInfo, std::string& method, PArray parameters);
-	virtual PVariable searchDevices(BaseLib::PRpcClientInfo clientInfo);
+	virtual PVariable searchDevices(BaseLib::PRpcClientInfo clientInfo, const std::string& interfaceId);
 	virtual PVariable setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, std::string interfaceId);
 protected:
 	std::map<std::string, std::function<BaseLib::PVariable(BaseLib::PRpcClientInfo& clientInfo, BaseLib::PArray& parameters)>> _localRpcMethods;
@@ -60,9 +62,10 @@ protected:
 	void deletePeer(uint64_t id);
 	void removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId);
     void interfaceReconnected();
+    size_t reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, const std::vector<Search::PeerInfo>& peerInfo);
 
 	//{{{ Family RPC methods
-		BaseLib::PVariable updateDevice(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters);
+		BaseLib::PVariable updateDevices(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray& parameters);
 	//}}}
 };
 

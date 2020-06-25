@@ -16,8 +16,8 @@ public:
 	virtual ~DptConverter();
 
 	bool fitsInFirstByte(const std::string& type);
-	std::vector<uint8_t> getDpt(const std::string& type, const PVariable& value);
-	PVariable getVariable(const std::string& type, const std::vector<uint8_t>& value);
+	std::vector<uint8_t> getDpt(const std::string& type, PVariable& value, const BaseLib::Role& role);
+	PVariable getVariable(const std::string& type, std::vector<uint8_t>& value, const BaseLib::Role& role);
 protected:
 	BaseLib::SharedObjects* _bl = nullptr;
 	std::shared_ptr<BaseLib::Ansi> _ansi;
