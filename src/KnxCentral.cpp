@@ -807,8 +807,8 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
 			_peersByGroupAddress.clear();
 		}
 
-		std::unordered_set<uint32_t> usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
-		std::unordered_map<std::string, uint32_t> idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
+		auto usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
+		auto idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
 
 		std::vector<Search::PeerInfo> peerInfo = _search->search(usedTypeNumbers, idTypeNumberMap);
 		GD::out.printInfo("Info: Search completed. Found " + std::to_string(peerInfo.size()) + " devices.");
@@ -966,8 +966,8 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
 
             for(auto& infoStruct : *parameters->at(0)->arrayValue)
             {
-                std::unordered_set<uint32_t> usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
-                std::unordered_map<std::string, uint32_t> idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
+                auto usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
+                auto idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
 
                 auto peerInfo = _search->updateDevice(usedTypeNumbers, idTypeNumberMap, infoStruct);
                 if(peerInfo.address == -1 || peerInfo.type == -1)

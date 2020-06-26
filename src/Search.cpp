@@ -91,7 +91,7 @@ void Search::addDeviceToPeerInfo(PHomegearDevice& device, int32_t address, std::
 	}
 }
 
-std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlData& deviceInfo, std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap)
+std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlData& deviceInfo, std::unordered_set<uint64_t>& usedTypeNumbers, std::unordered_map<std::string, uint64_t>& idTypeNumberMap)
 {
     try
     {
@@ -333,7 +333,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
     return PHomegearDevice();
 }
 
-std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap)
+std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t>& usedTypeNumbers, std::unordered_map<std::string, uint64_t>& idTypeNumberMap)
 {
 	std::vector<Search::PeerInfo> peerInfo;
 	try
@@ -522,7 +522,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint32_t>& usedT
 	return peerInfo;
 }
 
-Search::PeerInfo Search::updateDevice(std::unordered_set<uint32_t>& usedTypeNumbers, std::unordered_map<std::string, uint32_t>& idTypeNumberMap, BaseLib::PVariable deviceInfo)
+Search::PeerInfo Search::updateDevice(std::unordered_set<uint64_t>& usedTypeNumbers, std::unordered_map<std::string, uint64_t>& idTypeNumberMap, BaseLib::PVariable deviceInfo)
 {
     try
     {
@@ -688,7 +688,7 @@ void Search::createDirectories()
 {
 	try
 	{
-		uid_t localUserId = _bl->hf.userId(GD::bl->settings.dataPathUser());
+		uid_t localUserId = BaseLib::HelperFunctions::userId(GD::bl->settings.dataPathUser());
 		gid_t localGroupId = _bl->hf.groupId(GD::bl->settings.dataPathGroup());
 		if(((int32_t)localUserId) == -1 || ((int32_t)localGroupId) == -1)
 		{
