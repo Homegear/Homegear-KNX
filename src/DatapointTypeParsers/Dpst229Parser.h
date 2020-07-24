@@ -5,16 +5,14 @@
 
 #include "DpstParserBase.h"
 
-namespace Knx
-{
+namespace Knx {
 
 /**
  * DPT-229 and DPST-229-* => 4-1-1 byte combined information
  */
-class Dpst229Parser : public DpstParserBase
-{
-public:
-    void parse(BaseLib::SharedObjects* bl, const std::shared_ptr<BaseLib::DeviceDescription::Function>& function, const std::string& datapointType, uint32_t datapointSubtype, std::shared_ptr<BaseLib::DeviceDescription::Parameter>& parameter) override;
+class Dpst229Parser : public DpstParserBase {
+ public:
+  void parse(BaseLib::SharedObjects *bl, const std::shared_ptr<BaseLib::DeviceDescription::Function> &function, const std::string &datapointType, uint32_t datapointSubtype, std::shared_ptr<BaseLib::DeviceDescription::Parameter> &parameter) override;
 };
 
 }

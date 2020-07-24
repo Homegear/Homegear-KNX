@@ -5,16 +5,14 @@
 
 #include "DpstParserBase.h"
 
-namespace Knx
-{
+namespace Knx {
 
 /**
  * DPT-245 and DPST-245-* => DALI converter test result
  */
-class Dpst245Parser : public DpstParserBase
-{
-public:
-    void parse(BaseLib::SharedObjects* bl, const std::shared_ptr<BaseLib::DeviceDescription::Function>& function, const std::string& datapointType, uint32_t datapointSubtype, std::shared_ptr<BaseLib::DeviceDescription::Parameter>& parameter) override;
+class Dpst245Parser : public DpstParserBase {
+ public:
+  void parse(BaseLib::SharedObjects *bl, const std::shared_ptr<BaseLib::DeviceDescription::Function> &function, const std::string &datapointType, uint32_t datapointSubtype, std::shared_ptr<BaseLib::DeviceDescription::Parameter> &parameter) override;
 };
 
 }

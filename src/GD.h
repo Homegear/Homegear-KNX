@@ -10,21 +10,19 @@
 #include "Knx.h"
 #include "PhysicalInterfaces/MainInterface.h"
 
-namespace Knx
-{
+namespace Knx {
 
-class GD
-{
-public:
-	virtual ~GD();
+class GD {
+ public:
+  virtual ~GD();
 
-	static BaseLib::SharedObjects* bl;
-	static Knx* family;
-	static std::map<std::string, std::shared_ptr<MainInterface>> physicalInterfaces;
-	static std::shared_ptr<MainInterface> defaultPhysicalInterface;
-	static BaseLib::Output out;
-private:
-	GD();
+  static BaseLib::SharedObjects *bl;
+  static Knx *family;
+  static std::map<std::string, std::shared_ptr<MainInterface>> physicalInterfaces;
+  static std::shared_ptr<MainInterface> defaultPhysicalInterface;
+  static BaseLib::Output out;
+ private:
+  GD();
 };
 
 }

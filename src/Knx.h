@@ -7,24 +7,22 @@
 
 using namespace BaseLib;
 
-namespace Knx
-{
+namespace Knx {
 class KnxCentral;
 
-class Knx : public BaseLib::Systems::DeviceFamily
-{
-public:
-	Knx(BaseLib::SharedObjects* bl, BaseLib::Systems::IFamilyEventSink* eventHandler);
-	virtual ~Knx();
-	virtual bool init();
-	virtual void dispose();
+class Knx : public BaseLib::Systems::DeviceFamily {
+ public:
+  Knx(BaseLib::SharedObjects *bl, BaseLib::Systems::IFamilyEventSink *eventHandler);
+  ~Knx() override;
+  bool init() override;
+  void dispose() override;
 
-	virtual bool hasPhysicalInterface() { return true; }
-	virtual PVariable getPairingInfo();
-	void reloadRpcDevices();
-protected:
-	virtual std::shared_ptr<BaseLib::Systems::ICentral> initializeCentral(uint32_t deviceId, int32_t address, std::string serialNumber);
-	virtual void createCentral();
+  virtual bool hasPhysicalInterface() { return true; }
+  virtual PVariable getPairingInfo();
+  void reloadRpcDevices();
+ protected:
+  virtual std::shared_ptr<BaseLib::Systems::ICentral> initializeCentral(uint32_t deviceId, int32_t address, std::string serialNumber);
+  virtual void createCentral();
 };
 
 }
