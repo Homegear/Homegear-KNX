@@ -198,10 +198,10 @@ void Dpst20Parser::parse(BaseLib::SharedObjects *bl,
   else if (datapointType == "DPST-20-100") {
     logical->minimumValue = 0;
     logical->maximumValue = 3;
-    logical->values.emplace_back("Auto", 0);
-    logical->values.emplace_back("Oil", 1);
-    logical->values.emplace_back("Gas", 2);
-    logical->values.emplace_back("Solid state fuel", 3);
+    logical->values.emplace_back("Value 1", 0);
+    logical->values.emplace_back("Value 2", 1);
+    logical->values.emplace_back("Value 3", 2);
+    logical->values.emplace_back("Value 4", 3);
   }
     //Burner type
   else if (datapointType == "DPST-20-101") {

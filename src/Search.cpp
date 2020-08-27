@@ -18,7 +18,7 @@ uint64_t Search::getRoomIdByName(std::string &name) {
 
 void Search::addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegearDevice &device, std::vector<PeerInfo> &peerInfo, std::map<int32_t, std::string> &usedTypes) {
   try {
-    std::string filename = _xmlPath + BaseLib::HelperFunctions::stringReplace(device->supportedDevices.at(0)->id, "/", "_") + ".xml";
+    std::string filename = _xmlPath + device->supportedDevices.at(0)->id + ".xml";
     device->save(filename);
 
     PeerInfo info;
@@ -49,7 +49,7 @@ void Search::addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegear
 
 void Search::addDeviceToPeerInfo(PHomegearDevice &device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo> &peerInfo, std::map<int32_t, std::string> &usedTypes) {
   try {
-    std::string filename = _xmlPath + BaseLib::HelperFunctions::stringReplace(device->supportedDevices.at(0)->id, "/", "_") + ".xml";
+    std::string filename = _xmlPath + device->supportedDevices.at(0)->id + ".xml";
     device->save(filename);
 
     PeerInfo info;
@@ -84,6 +84,9 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
     device->version = 1;
     device->interface = deviceInfo.interface;
     PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(GD::bl);
+    std::string homegearDeviceId = (device->interface.empty() ? "" : device->interface + "-") + Cemi::getFormattedPhysicalAddress(deviceInfo.address);
+    auto descriptionPath = _xmlPath + homegearDeviceId + ".xml";
+    BaseLib::HelperFunctions::stringReplace(homegearDeviceId, "/", "_");
     bool newDevice = true;
     auto typeNumberIterator = idTypeNumberMap.find(deviceInfo.id); //Backwards compatability
     if (typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0) {
@@ -92,9 +95,11 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
       std::string deviceId = deviceInfo.id;
       BaseLib::Io::deleteFile(_xmlPath + BaseLib::HelperFunctions::stringReplace(deviceId, "/", "_") + ".xml");
     } else {
-      typeNumberIterator = idTypeNumberMap.find((device->interface.empty() ? "" : device->interface + "-") + Cemi::getFormattedPhysicalAddress(deviceInfo.address));
+      std::string deviceId = ;
+      typeNumberIterator = idTypeNumberMap.find(deviceId);
       if (typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0) {
         supportedDevice->typeNumber = typeNumberIterator->second;
+        BaseLib::Io::deleteFile(descriptionPath);
         newDevice = false;
       }
     }
@@ -112,7 +117,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
       return PHomegearDevice();
     }
 
-    supportedDevice->id = (device->interface.empty() ? "" : device->interface + "-") + Cemi::getFormattedPhysicalAddress(deviceInfo.address);
+    supportedDevice->id = homegearDeviceId;
     supportedDevice->description = deviceInfo.name;
     device->supportedDevices.push_back(supportedDevice);
 
@@ -344,7 +349,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
       if (structIterator != variableXml->description->structValue->end()) channel = structIterator->second->integerValue;
 
       structIterator = variableXml->description->structValue->find("variable");
-      if (structIterator != variableXml->description->structValue->end()) variableName = GD::bl->hf.stringReplace(structIterator->second->stringValue, ".", "_");;
+      if (structIterator != variableXml->description->structValue->end()) variableName = BaseLib::HelperFunctions::stringReplace(structIterator->second->stringValue, ".", "_");;
 
       structIterator = variableXml->description->structValue->find("unit");
       if (structIterator != variableXml->description->structValue->end()) unit = structIterator->second->stringValue;
@@ -370,7 +375,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
           role.id = roleIdIterator->second->integerValue64;
           if (roleDirectionIterator != element->structValue->end()) role.direction = (RoleDirection)roleDirectionIterator->second->integerValue;
           if (roleInvertIterator != element->structValue->end()) role.invert = roleInvertIterator->second->booleanValue;
-          roles.emplace(role.id, std::move(role));
+          roles.emplace(role.id, role);
         }
       }
 
