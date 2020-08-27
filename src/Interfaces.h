@@ -5,23 +5,21 @@
 
 #include <homegear-base/BaseLib.h>
 
-namespace Knx
-{
+namespace Knx {
 
 class KnxIpForwarder;
 
 using namespace BaseLib;
 
-class Interfaces : public BaseLib::Systems::PhysicalInterfaces
-{
-public:
-	Interfaces(BaseLib::SharedObjects* bl, std::map<std::string, Systems::PPhysicalInterfaceSettings> physicalInterfaceSettings);
-	virtual ~Interfaces();
+class Interfaces : public BaseLib::Systems::PhysicalInterfaces {
+ public:
+  Interfaces(BaseLib::SharedObjects *bl, std::map<std::string, Systems::PPhysicalInterfaceSettings> physicalInterfaceSettings);
+  virtual ~Interfaces();
 
-protected:
-    std::unordered_map<std::string, std::shared_ptr<KnxIpForwarder>> _forwarders;
+ protected:
+  std::unordered_map<std::string, std::shared_ptr<KnxIpForwarder>> _forwarders;
 
-	virtual void create();
+  virtual void create();
 };
 
 }

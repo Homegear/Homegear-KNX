@@ -7,24 +7,20 @@
 
 #include <unordered_map>
 
-namespace BaseLib
-{
-namespace DeviceDescription
-{
-    class Function;
-    class Parameter;
+namespace BaseLib {
+namespace DeviceDescription {
+class Function;
+class Parameter;
 }
 }
 
-namespace Knx
-{
+namespace Knx {
 
-class DpstParser
-{
-private:
-    static std::unordered_map<std::string, std::shared_ptr<DpstParserBase>> getParsers();
-public:
-    static bool parse(const std::shared_ptr<BaseLib::DeviceDescription::Function>& function, const std::string& datapointType, std::shared_ptr<BaseLib::DeviceDescription::Parameter>& parameter);
+class DpstParser {
+ private:
+  static std::unordered_map<std::string, std::shared_ptr<DpstParserBase>> getParsers();
+ public:
+  static bool parse(const std::shared_ptr<BaseLib::DeviceDescription::Function> &function, const std::string &datapointType, std::shared_ptr<BaseLib::DeviceDescription::Parameter> &parameter);
 };
 
 }
