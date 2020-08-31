@@ -95,8 +95,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
       std::string deviceId = deviceInfo.id;
       BaseLib::Io::deleteFile(_xmlPath + BaseLib::HelperFunctions::stringReplace(deviceId, "/", "_") + ".xml");
     } else {
-      std::string deviceId = ;
-      typeNumberIterator = idTypeNumberMap.find(deviceId);
+      typeNumberIterator = idTypeNumberMap.find(homegearDeviceId);
       if (typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0) {
         supportedDevice->typeNumber = typeNumberIterator->second;
         BaseLib::Io::deleteFile(descriptionPath);
