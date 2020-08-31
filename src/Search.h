@@ -15,7 +15,7 @@ class Search {
   struct PeerInfo {
     std::string serialNumber;
     int32_t address = -1;
-    uint64_t type = -1;
+    int64_t type = -1;
     std::string name;
     uint64_t roomId;
     std::unordered_map<int32_t, std::unordered_map<std::string, uint64_t>> variableRoomIds;
