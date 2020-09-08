@@ -798,9 +798,10 @@ BaseLib::PVariable KnxCentral::updateDevices(BaseLib::PRpcClientInfo clientInfo,
     std::vector<Search::PeerInfo> updatedPeersInfo;
     updatedPeersInfo.reserve(parameters->at(0)->arrayValue->size());
 
+    auto usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
+    auto idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
+
     for (auto &infoStruct : *parameters->at(0)->arrayValue) {
-      auto usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
-      auto idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
 
       auto peerInfo = _search->updateDevice(usedTypeNumbers, idTypeNumberMap, infoStruct);
       if (peerInfo.address == -1 || peerInfo.type == -1) {
