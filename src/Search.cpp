@@ -85,8 +85,8 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
     device->interface = deviceInfo.interface;
     PSupportedDevice supportedDevice = std::make_shared<SupportedDevice>(GD::bl);
     std::string homegearDeviceId = (device->interface.empty() ? "" : device->interface + "-") + Cemi::getFormattedPhysicalAddress(deviceInfo.address);
-    auto descriptionPath = _xmlPath + homegearDeviceId + ".xml";
     BaseLib::HelperFunctions::stringReplace(homegearDeviceId, "/", "_");
+    auto descriptionPath = _xmlPath + homegearDeviceId + ".xml";
     bool newDevice = true;
     auto typeNumberIterator = idTypeNumberMap.find(deviceInfo.id); //Backwards compatability
     if (typeNumberIterator != idTypeNumberMap.end() && typeNumberIterator->second > 0) {
