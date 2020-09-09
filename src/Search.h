@@ -118,7 +118,7 @@ class Search {
   std::unordered_map<std::string, PManufacturerData> extractManufacturerXmlData(const PProjectData &projectData);
   void extractXmlData(XmlData &xmlData, const PProjectData &projectData);
   std::shared_ptr<HomegearDevice> createHomegearDevice(DeviceXmlData &deviceXml, std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &typeNumberIdMap);
-  void addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegearDevice &device, std::vector<PeerInfo> &peerInfo, std::map<int32_t, std::string> &usedTypes);
+  void addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegearDevice &device, std::vector<PeerInfo> &peerInfo, std::map<int64_t, std::string> &usedTypes);
 
   /**
    * Signature used for JSON information in group variable description.
@@ -131,7 +131,7 @@ class Search {
    * @param peerInfo
    * @param usedTypes
    */
-  void addDeviceToPeerInfo(PHomegearDevice &device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo> &peerInfo, std::map<int32_t, std::string> &usedTypes);
+  void addDeviceToPeerInfo(PHomegearDevice &device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo> &peerInfo, std::map<int64_t, std::string> &usedTypes);
 };
 
 }

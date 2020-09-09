@@ -583,7 +583,7 @@ std::string KnxCentral::handleCliCommand(std::string command) {
   return "Error executing command. See log file for more details.\n";
 }
 
-std::shared_ptr<KnxPeer> KnxCentral::createPeer(uint32_t deviceType, int32_t address, std::string serialNumber, bool save) {
+std::shared_ptr<KnxPeer> KnxCentral::createPeer(uint64_t deviceType, int32_t address, std::string serialNumber, bool save) {
   try {
     std::shared_ptr<KnxPeer> peer(new KnxPeer(_deviceId, this));
     peer->setDeviceType(deviceType);
