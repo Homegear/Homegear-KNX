@@ -59,7 +59,7 @@ class KnxCentral : public BaseLib::Systems::ICentral {
   void loadVariables() override {}
   void saveVariables() override {}
   void setPeerId(uint64_t oldPeerId, uint64_t newPeerId) override;
-  PKnxPeer createPeer(uint32_t type, int32_t address, std::string serialNumber, bool save = true);
+  PKnxPeer createPeer(uint64_t type, int32_t address, std::string serialNumber, bool save = true);
   void deletePeer(uint64_t id);
   void removePeerFromGroupAddresses(uint16_t groupAddress, uint64_t peerId);
   void interfaceReconnected();

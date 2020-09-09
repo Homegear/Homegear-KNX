@@ -583,7 +583,7 @@ std::string KnxCentral::handleCliCommand(std::string command) {
   return "Error executing command. See log file for more details.\n";
 }
 
-std::shared_ptr<KnxPeer> KnxCentral::createPeer(uint32_t deviceType, int32_t address, std::string serialNumber, bool save) {
+std::shared_ptr<KnxPeer> KnxCentral::createPeer(uint64_t deviceType, int32_t address, std::string serialNumber, bool save) {
   try {
     std::shared_ptr<KnxPeer> peer(new KnxPeer(_deviceId, this));
     peer->setDeviceType(deviceType);
@@ -798,9 +798,10 @@ BaseLib::PVariable KnxCentral::updateDevices(BaseLib::PRpcClientInfo clientInfo,
     std::vector<Search::PeerInfo> updatedPeersInfo;
     updatedPeersInfo.reserve(parameters->at(0)->arrayValue->size());
 
+    auto usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
+    auto idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
+
     for (auto &infoStruct : *parameters->at(0)->arrayValue) {
-      auto usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
-      auto idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
 
       auto peerInfo = _search->updateDevice(usedTypeNumbers, idTypeNumberMap, infoStruct);
       if (peerInfo.address == -1 || peerInfo.type == -1) {
