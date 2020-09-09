@@ -111,6 +111,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
         }
       }
     }
+
     if (supportedDevice->typeNumber == 0) {
       GD::out.printError("Error: Can't add KNX device. No free type number could be found. The maximum number of KNX devices is 65535.");
       return PHomegearDevice();
