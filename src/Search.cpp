@@ -16,7 +16,7 @@ uint64_t Search::getRoomIdByName(std::string &name) {
   return central->getRoomIdByName(name);
 }
 
-void Search::addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegearDevice &device, std::vector<PeerInfo> &peerInfo, std::map<int32_t, std::string> &usedTypes) {
+void Search::addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegearDevice &device, std::vector<PeerInfo> &peerInfo, std::map<int64_t, std::string> &usedTypes) {
   try {
     std::string filename = _xmlPath + device->supportedDevices.at(0)->id + ".xml";
     device->save(filename);
@@ -47,7 +47,7 @@ void Search::addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegear
   }
 }
 
-void Search::addDeviceToPeerInfo(PHomegearDevice &device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo> &peerInfo, std::map<int32_t, std::string> &usedTypes) {
+void Search::addDeviceToPeerInfo(PHomegearDevice &device, int32_t address, std::string name, uint64_t roomId, std::vector<PeerInfo> &peerInfo, std::map<int64_t, std::string> &usedTypes) {
   try {
     std::string filename = _xmlPath + device->supportedDevices.at(0)->id + ".xml";
     device->save(filename);
@@ -111,6 +111,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
         }
       }
     }
+
     if (supportedDevice->typeNumber == 0) {
       GD::out.printError("Error: Can't add KNX device. No free type number could be found. The maximum number of KNX devices is 65535.");
       return PHomegearDevice();
@@ -323,7 +324,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
     std::map<std::string, PHomegearDevice> rpcDevicesJson;
     for (auto &variableXml : xmlData.groupVariableXmlData) {
       std::string id;
-      int32_t type = -1;
+      int64_t type = -1;
       int32_t channel = 1;
       std::string variableName;
       std::string unit;
@@ -386,7 +387,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
         PSupportedDevice supportedDevice(new SupportedDevice(GD::bl));
         supportedDevice->id = id;
         supportedDevice->description = supportedDevice->id;
-        if (type != -1) supportedDevice->typeNumber = (uint32_t)type + 65535;
+        if (type != -1) supportedDevice->typeNumber = (uint64_t)type + 65535;
         device->supportedDevices.push_back(supportedDevice);
         rpcDevicesJson[supportedDevice->id] = device;
 
@@ -394,7 +395,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
       } else {
         device = deviceIterator->second;
         if (type != -1) {
-          if (device->supportedDevices.at(0)->typeNumber == 0) device->supportedDevices.at(0)->typeNumber = (uint32_t)type + 65535;
+          if (device->supportedDevices.at(0)->typeNumber == 0) device->supportedDevices.at(0)->typeNumber = (uint64_t)type + 65535;
           else if ((int32_t)device->supportedDevices.at(0)->typeNumber != type + 65535) {
             GD::out.printError("Error: Device with ID \"" + id + "\" has group variables with different type IDs specified (at least " + std::to_string(type) + " and " + std::to_string(device->supportedDevices.at(0)->typeNumber - 65535)
                                    + "). Please check the JSON defined in ETS. Only one unique type ID is allowed per device.");
@@ -424,7 +425,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
     }
     //}}}
 
-    std::map<int32_t, std::string> usedTypeIds;
+    std::map<int64_t, std::string> usedTypeIds;
 
     ///{{{ Devices
     {
