@@ -566,7 +566,8 @@ std::string KnxCentral::handleCliCommand(std::string command) {
       else stringStream << "Search completed successfully." << std::endl;
       return stringStream.str();
     } else if (command == "test") {
-      auto rawPacket = BaseLib::HelperFunctions::getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
+      //auto rawPacket = BaseLib::HelperFunctions::getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
+      auto rawPacket = BaseLib::HelperFunctions::getUBinary("06100420001504095E002900BCE011540047010081");
       PKnxIpPacket packet = std::make_shared<KnxIpPacket>(KnxIpPacket(rawPacket));
       std::string interface = "MyInterface";
       auto packetData = packet->getTunnelingRequest();
