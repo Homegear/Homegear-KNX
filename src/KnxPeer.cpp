@@ -379,13 +379,34 @@ void KnxPeer::packetReceived(PCemi &packet) {
     if (_disposing || !_rpcDevice) return;
     setLastPacketReceived();
 
+    if (_bl->debugLevel >= 4)
+          GD::out.printInfo("Info: Packet received by peer " + std::to_string(_peerID) + ". Payload: " + BaseLib::HelperFunctions::getHexString(packet->getPayload()));
+
+
     auto parametersIterator = _parametersByGroupAddress.find(packet->getDestinationAddress());
-    if (parametersIterator == _parametersByGroupAddress.end()) return;
+    if (parametersIterator == _parametersByGroupAddress.end()) 
+    {
+	if (_bl->debugLevel >= 4)
+            GD::out.printInfo("Info: No parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+	return;
+    }
+
+    if (_bl->debugLevel >= 4 && parametersIterator->second.empty())
+    {
+        GD::out.printInfo("Info: No parameter was found for group address (empty): " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+    }
+
 
     if (packet->getOperation() == Cemi::Operation::groupValueWrite) {
       for (auto &parameterIterator : parametersIterator->second) {
         BaseLib::Systems::RpcConfigurationParameter &parameter = valuesCentral[parameterIterator.channel][parameterIterator.parameter->id];
-        if (!parameter.rpcParameter) return;
+        if (!parameter.rpcParameter) 
+	{
+	    if (_bl->debugLevel >= 4)
+        	GD::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+
+	    return;
+	}
 
         std::vector<uint8_t> parameterData = packet->getPayload();
         parameter.setBinaryData(parameterData);
@@ -472,7 +493,13 @@ void KnxPeer::packetReceived(PCemi &packet) {
       int32_t channel = parametersIterator->second.front().channel;
       std::string parameterId = parametersIterator->second.front().parameter->id;
       BaseLib::Systems::RpcConfigurationParameter &parameter = valuesCentral[channel][parameterId];
-      if (!parameter.rpcParameter) return;
+      if (!parameter.rpcParameter) 
+      {
+	if (_bl->debugLevel >= 4)
+    	    GD::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+
+	return;
+      }
 
       bool fitsInFirstByte = false;
       std::vector<uint8_t> parameterData = parameter.getBinaryData();
