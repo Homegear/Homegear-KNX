@@ -334,21 +334,16 @@ void KnxPeer::initParametersByGroupAddress() {
             info.cast = cast;
             info.parameter = j->second;
             _parametersByGroupAddress[j->second->physical->address].push_back(info);
-          } else if (extension == ".SUBMIT") _groupedParameters[i->first][baseName].submitParameter = j->second;
-          else
-          {
-              // this branch executed this commented line:
-              //_groupedParameters[i->first][baseName].parameters.push_back(j->second);
-
-              // newly added code, it's identical with the one in the following 'else':
-              if (j->second->physical->operationType != BaseLib::DeviceDescription::IPhysical::OperationType::command) continue;
-              ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second->casts.at(0));
-              if (!cast) continue;
-              ParametersByGroupAddressInfo info;
-              info.channel = i->first;
-              info.cast = cast;
-              info.parameter = j->second;
-              _parametersByGroupAddress[j->second->physical->address].push_back(info);
+          } else if (extension == ".SUBMIT") {
+            _groupedParameters[i->first][baseName].submitParameter = j->second;
+          } else {
+            ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(j->second->casts.at(0));
+            if (!cast) continue;
+            ParametersByGroupAddressInfo info;
+            info.channel = i->first;
+            info.cast = cast;
+            info.parameter = j->second;
+            _parametersByGroupAddress[j->second->physical->address].push_back(info);
           }
         } else {
           if (j->second->physical->operationType != BaseLib::DeviceDescription::IPhysical::OperationType::command) continue;
@@ -394,32 +389,27 @@ void KnxPeer::packetReceived(PCemi &packet) {
     setLastPacketReceived();
 
     if (_bl->debugLevel >= 4)
-          GD::out.printInfo("Info: Packet received by peer " + std::to_string(_peerID) + ". Payload: " + BaseLib::HelperFunctions::getHexString(packet->getPayload()));
-
+      GD::out.printInfo("Info: Packet received by peer " + std::to_string(_peerID) + ". Payload: " + BaseLib::HelperFunctions::getHexString(packet->getPayload()));
 
     auto parametersIterator = _parametersByGroupAddress.find(packet->getDestinationAddress());
-    if (parametersIterator == _parametersByGroupAddress.end())
-    {
-        if (_bl->debugLevel >= 4)
-            GD::out.printInfo("Info: No parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
-        return;
+    if (parametersIterator == _parametersByGroupAddress.end()) {
+      if (_bl->debugLevel >= 4)
+        GD::out.printInfo("Info: No parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+      return;
     }
 
-    if (_bl->debugLevel >= 4 && parametersIterator->second.empty())
-    {
-        GD::out.printInfo("Info: No parameter was found for group address (empty): " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+    if (_bl->debugLevel >= 4 && parametersIterator->second.empty()) {
+      GD::out.printInfo("Info: No parameter was found for group address (empty): " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
     }
-
 
     if (packet->getOperation() == Cemi::Operation::groupValueWrite) {
       for (auto &parameterIterator : parametersIterator->second) {
         BaseLib::Systems::RpcConfigurationParameter &parameter = valuesCentral[parameterIterator.channel][parameterIterator.parameter->id];
-        if (!parameter.rpcParameter)
-        {
-            if (_bl->debugLevel >= 4)
-                GD::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+        if (!parameter.rpcParameter) {
+          if (_bl->debugLevel >= 4)
+            GD::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
 
-            return;
+          return;
         }
 
         std::vector<uint8_t> parameterData = packet->getPayload();
@@ -507,10 +497,9 @@ void KnxPeer::packetReceived(PCemi &packet) {
       int32_t channel = parametersIterator->second.front().channel;
       std::string parameterId = parametersIterator->second.front().parameter->id;
       BaseLib::Systems::RpcConfigurationParameter &parameter = valuesCentral[channel][parameterId];
-      if (!parameter.rpcParameter)
-      {
+      if (!parameter.rpcParameter) {
         if (_bl->debugLevel >= 4)
-    	    GD::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+          GD::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
 
         return;
       }
