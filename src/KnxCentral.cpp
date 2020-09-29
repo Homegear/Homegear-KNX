@@ -707,7 +707,7 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
         if (peersIterator != _peersBySerial.end()) {
           auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
           if (peerInfoElement.roomId != 0 && peersIterator->second->getRoom(-1) != peerInfoElement.roomId) {
-            peersIterator->second->setRoom(peerInfoElement.roomId, -1);
+            peersIterator->second->setRoom(-1, peerInfoElement.roomId);
           }
           if (!peerInfoElement.name.empty() && peersIterator->second->getName() != peerInfoElement.name) {
             peersIterator->second->setName(peerInfoElement.name);
@@ -742,7 +742,7 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
 
       if (!peerInfoElement.name.empty()) peer->setName(peerInfoElement.name);
       else peer->setName(peer->getFormattedAddress());
-      if (peerInfoElement.roomId != 0) peer->setRoom(peerInfoElement.roomId, -1);
+      if (peerInfoElement.roomId != 0) peer->setRoom(-1, peerInfoElement.roomId);
       for (auto &roomChannel : peerInfoElement.variableRoomIds) {
         for (auto &variableRoom : roomChannel.second) {
           auto variableName = variableRoom.first;
