@@ -587,7 +587,7 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint64_t> &usedTypeNumb
     auto typeId = (*device->supportedDevices.begin())->id;
 
     std::vector<PeerInfo> peerInfo;
-    std::map<int32_t, std::string> usedTypeIds;
+    std::map<int64_t, std::string> usedTypeIds;
 
     addDeviceToPeerInfo(deviceXml, device, peerInfo, usedTypeIds);
 
