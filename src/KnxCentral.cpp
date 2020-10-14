@@ -566,7 +566,8 @@ std::string KnxCentral::handleCliCommand(std::string command) {
       else stringStream << "Search completed successfully." << std::endl;
       return stringStream.str();
     } else if (command == "test") {
-      auto rawPacket = BaseLib::HelperFunctions::getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
+      //auto rawPacket = BaseLib::HelperFunctions::getUBinary("061004200018044D02001100BCE00000210A0400800B3500");
+      auto rawPacket = BaseLib::HelperFunctions::getUBinary("06100420001504095E002900BCE011540047010081");
       PKnxIpPacket packet = std::make_shared<KnxIpPacket>(KnxIpPacket(rawPacket));
       std::string interface = "MyInterface";
       auto packetData = packet->getTunnelingRequest();
@@ -706,7 +707,7 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
         if (peersIterator != _peersBySerial.end()) {
           auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peersIterator->second);
           if (peerInfoElement.roomId != 0 && peersIterator->second->getRoom(-1) != peerInfoElement.roomId) {
-            peersIterator->second->setRoom(peerInfoElement.roomId, -1);
+            peersIterator->second->setRoom(-1, peerInfoElement.roomId);
           }
           if (!peerInfoElement.name.empty() && peersIterator->second->getName() != peerInfoElement.name) {
             peersIterator->second->setName(peerInfoElement.name);
@@ -741,7 +742,7 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
 
       if (!peerInfoElement.name.empty()) peer->setName(peerInfoElement.name);
       else peer->setName(peer->getFormattedAddress());
-      if (peerInfoElement.roomId != 0) peer->setRoom(peerInfoElement.roomId, -1);
+      if (peerInfoElement.roomId != 0) peer->setRoom(-1, peerInfoElement.roomId);
       for (auto &roomChannel : peerInfoElement.variableRoomIds) {
         for (auto &variableRoom : roomChannel.second) {
           auto variableName = variableRoom.first;
