@@ -116,6 +116,7 @@ class Search {
   PProjectData extractKnxProject(const std::string &projectFilename);
   void assignRoomsToDevices(xml_node *currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>> &devices);
   std::unordered_map<std::string, PManufacturerData> extractManufacturerXmlData(const PProjectData &projectData);
+  std::shared_ptr<Search::ManufacturerProductData> extractProductData(xml_node *staticNode);
   void extractXmlData(XmlData &xmlData, const PProjectData &projectData);
   std::shared_ptr<HomegearDevice> createHomegearDevice(DeviceXmlData &deviceXml, std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &typeNumberIdMap);
   void addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegearDevice &device, std::vector<PeerInfo> &peerInfo, std::map<int64_t, std::string> &usedTypes);

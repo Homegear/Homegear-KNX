@@ -1021,109 +1021,26 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
                     if (applicationProgramId.empty()) continue;
                   }
 
+                  std::shared_ptr<ManufacturerProductData> productData;
                   auto staticNode = applicationProgramNode->first_node("Static");
                   if (staticNode) {
-                    //{{{ Get all ComObject
-                    std::unordered_map<std::string, PComObjectData> allComObjects;
-
-                    auto comObjectTableNode = staticNode->first_node("ComObjectTable");
-                    if (comObjectTableNode) {
-                      for (xml_node *comObjectNode = comObjectTableNode->first_node("ComObject"); comObjectNode; comObjectNode = comObjectNode->next_sibling("ComObject")) {
-                        auto comObjectData = std::make_shared<ComObjectData>();
-
-                        auto idAttribute = comObjectNode->first_attribute("Id");
-                        if (!idAttribute) continue;
-
-                        std::string id(idAttribute->value(), idAttribute->value_size());
-                        if (id.empty()) continue;
-
-                        auto nameAttribute = comObjectNode->first_attribute("Name");
-                        if (!nameAttribute) continue;
-                        comObjectData->name = std::string(nameAttribute->value(), nameAttribute->value_size());
-
-                        auto functionTextAttribute = comObjectNode->first_attribute("FunctionText");
-                        if (functionTextAttribute) {
-                          comObjectData->functionText = std::string(functionTextAttribute->value(), functionTextAttribute->value_size());
-                        }
-
-                        std::array<std::pair<std::string, bool *>, 6> flagsToRead{
-                            std::make_pair("CommunicationFlag", &comObjectData->communicationFlag),
-                            std::make_pair("ReadFlag", &comObjectData->readFlag),
-                            std::make_pair("ReadOnInitFlag", &comObjectData->readOnInitFlag),
-                            std::make_pair("TransmitFlag", &comObjectData->transmitFlag),
-                            std::make_pair("UpdateFlag", &comObjectData->updateFlag),
-                            std::make_pair("WriteFlag", &comObjectData->writeFlag)
-                        };
-
-                        for (auto &flagToRead : flagsToRead) {
-                          auto flagAttribute = comObjectNode->first_attribute(flagToRead.first.c_str());
-                          if (!flagAttribute) continue;
-
-                          auto value = std::string(flagAttribute->value(), flagAttribute->value_size());
-                          if (value != "Enabled" && value != "Disabled") GD::out.printWarning("Warning: Unknown value for " + flagToRead.first + ": " + value);
-                          *flagToRead.second = (value != "Disabled");
-                        }
-
-                        allComObjects.emplace(id, std::move(comObjectData));
-                      }
-                    }
-                    //}}}
-
-                    auto currentProductData = std::make_shared<ManufacturerProductData>();
-
-                    //{{{ Get all ComObjectRefs and fill comObjectData
-                    auto comObjectRefsNode = staticNode->first_node("ComObjectRefs");
-                    if (comObjectRefsNode) {
-                      for (xml_node *comObjectRefNode = comObjectRefsNode->first_node("ComObjectRef"); comObjectRefNode; comObjectRefNode = comObjectRefNode->next_sibling("ComObjectRef")) {
-                        auto idAttribute = comObjectRefNode->first_attribute("Id");
-                        if (!idAttribute) continue;
-
-                        std::string id(idAttribute->value(), idAttribute->value_size());
-                        if (id.empty()) continue;
-
-                        auto refIdAttribute = comObjectRefNode->first_attribute("RefId");
-                        if (!refIdAttribute) continue;
-
-                        std::string refId(refIdAttribute->value(), refIdAttribute->value_size());
-                        if (refId.empty()) continue;
-
-                        auto comObjectIterator = allComObjects.find(refId);
-                        if (comObjectIterator != allComObjects.end()) {
-                          PComObjectData comObjectData = std::make_shared<ComObjectData>();
-                          *comObjectData = *comObjectIterator->second;
-
-                          //{{{ Read attributes at this point again. Attributes here overwrite the attributes in ComObject.
-                          auto functionTextAttribute = comObjectRefNode->first_attribute("FunctionText");
-                          if (functionTextAttribute) {
-                            comObjectData->functionText = std::string(functionTextAttribute->value(), functionTextAttribute->value_size());
-                          }
-
-                          std::array<std::pair<std::string, bool *>, 6> flagsToRead{
-                              std::make_pair("CommunicationFlag", &comObjectData->communicationFlag),
-                              std::make_pair("ReadFlag", &comObjectData->readFlag),
-                              std::make_pair("ReadOnInitFlag", &comObjectData->readOnInitFlag),
-                              std::make_pair("TransmitFlag", &comObjectData->transmitFlag),
-                              std::make_pair("UpdateFlag", &comObjectData->updateFlag),
-                              std::make_pair("WriteFlag", &comObjectData->writeFlag)
-                          };
-
-                          for (auto &flagToRead : flagsToRead) {
-                            auto flagAttribute = comObjectRefNode->first_attribute(flagToRead.first.c_str());
-                            if (!flagAttribute) continue;
-
-                            auto value = std::string(flagAttribute->value(), flagAttribute->value_size());
-                            if (value != "Enabled" && value != "Disabled") GD::out.printWarning("Warning: Unknown value for " + flagToRead.first + ": " + value);
-                            *flagToRead.second = (value != "Disabled");
-                          }
-                          //}}}
-
-                          currentProductData->comObjectData.emplace(id, comObjectData);
-                        }
-                      }
-                    }
-                    manufacturerData->productData.emplace(applicationProgramId, std::move(currentProductData));
-                    //}}}
+                    productData = extractProductData(staticNode);
                   }
+
+                  if (!productData) productData = std::make_shared<ManufacturerProductData>();
+                  auto moduleDefsNode = applicationProgramNode->first_node("ModuleDefs");
+                  if (moduleDefsNode) {
+                    for (xml_node *moduleDefNode = moduleDefsNode->first_node("ModuleDef"); moduleDefNode; moduleDefNode = moduleDefNode->next_sibling("ModuleDef")) {
+                      staticNode = moduleDefNode->first_node("Static");
+                      if (staticNode) {
+                        auto productData2 = extractProductData(staticNode);
+                        if (productData2) {
+                          productData->comObjectData.insert(productData2->comObjectData.begin(), productData2->comObjectData.end());
+                        }
+                      }
+                    }
+                  }
+                  manufacturerData->productData.emplace(applicationProgramId, std::move(productData));
                 }
               }
             }
@@ -1144,6 +1061,117 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
     GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return std::unordered_map<std::string, Search::PManufacturerData>();
+}
+
+std::shared_ptr<Search::ManufacturerProductData> Search::extractProductData(xml_node *staticNode) {
+  try {
+//{{{ Get all ComObject
+    std::unordered_map<std::string, PComObjectData> allComObjects;
+
+    auto comObjectTableNode = staticNode->first_node("ComObjectTable");
+    if (!comObjectTableNode) comObjectTableNode = staticNode->first_node("ComObjects"); //In ModuleDef
+    if (comObjectTableNode) {
+      for (xml_node *comObjectNode = comObjectTableNode->first_node("ComObject"); comObjectNode; comObjectNode = comObjectNode->next_sibling("ComObject")) {
+        auto comObjectData = std::make_shared<ComObjectData>();
+
+        auto idAttribute = comObjectNode->first_attribute("Id");
+        if (!idAttribute) continue;
+
+        std::string id(idAttribute->value(), idAttribute->value_size());
+        if (id.empty()) continue;
+
+        auto nameAttribute = comObjectNode->first_attribute("Name");
+        if (!nameAttribute) continue;
+        comObjectData->name = std::string(nameAttribute->value(), nameAttribute->value_size());
+
+        auto functionTextAttribute = comObjectNode->first_attribute("FunctionText");
+        if (functionTextAttribute) {
+          comObjectData->functionText = std::string(functionTextAttribute->value(), functionTextAttribute->value_size());
+        }
+
+        std::array<std::pair<std::string, bool *>, 6> flagsToRead{
+            std::make_pair("CommunicationFlag", &comObjectData->communicationFlag),
+            std::make_pair("ReadFlag", &comObjectData->readFlag),
+            std::make_pair("ReadOnInitFlag", &comObjectData->readOnInitFlag),
+            std::make_pair("TransmitFlag", &comObjectData->transmitFlag),
+            std::make_pair("UpdateFlag", &comObjectData->updateFlag),
+            std::make_pair("WriteFlag", &comObjectData->writeFlag)
+        };
+
+        for (auto &flagToRead : flagsToRead) {
+          auto flagAttribute = comObjectNode->first_attribute(flagToRead.first.c_str());
+          if (!flagAttribute) continue;
+
+          auto value = std::string(flagAttribute->value(), flagAttribute->value_size());
+          if (value != "Enabled" && value != "Disabled") GD::out.printWarning("Warning: Unknown value for " + flagToRead.first + ": " + value);
+          *flagToRead.second = (value != "Disabled");
+        }
+
+        allComObjects.emplace(id, std::move(comObjectData));
+      }
+    }
+    //}}}
+
+    auto currentProductData = std::make_shared<ManufacturerProductData>();
+
+    //{{{ Get all ComObjectRefs and fill comObjectData
+    auto comObjectRefsNode = staticNode->first_node("ComObjectRefs");
+    if (comObjectRefsNode) {
+      for (xml_node *comObjectRefNode = comObjectRefsNode->first_node("ComObjectRef"); comObjectRefNode; comObjectRefNode = comObjectRefNode->next_sibling("ComObjectRef")) {
+        auto idAttribute = comObjectRefNode->first_attribute("Id");
+        if (!idAttribute) continue;
+
+        std::string id(idAttribute->value(), idAttribute->value_size());
+        if (id.empty()) continue;
+
+        auto refIdAttribute = comObjectRefNode->first_attribute("RefId");
+        if (!refIdAttribute) continue;
+
+        std::string refId(refIdAttribute->value(), refIdAttribute->value_size());
+        if (refId.empty()) continue;
+
+        auto comObjectIterator = allComObjects.find(refId);
+        if (comObjectIterator != allComObjects.end()) {
+          PComObjectData comObjectData = std::make_shared<ComObjectData>();
+          *comObjectData = *comObjectIterator->second;
+
+          //{{{ Read attributes at this point again. Attributes here overwrite the attributes in ComObject.
+          auto functionTextAttribute = comObjectRefNode->first_attribute("FunctionText");
+          if (functionTextAttribute) {
+            comObjectData->functionText = std::string(functionTextAttribute->value(), functionTextAttribute->value_size());
+          }
+
+          std::array<std::pair<std::string, bool *>, 6> flagsToRead{
+              std::make_pair("CommunicationFlag", &comObjectData->communicationFlag),
+              std::make_pair("ReadFlag", &comObjectData->readFlag),
+              std::make_pair("ReadOnInitFlag", &comObjectData->readOnInitFlag),
+              std::make_pair("TransmitFlag", &comObjectData->transmitFlag),
+              std::make_pair("UpdateFlag", &comObjectData->updateFlag),
+              std::make_pair("WriteFlag", &comObjectData->writeFlag)
+          };
+
+          for (auto &flagToRead : flagsToRead) {
+            auto flagAttribute = comObjectRefNode->first_attribute(flagToRead.first.c_str());
+            if (!flagAttribute) continue;
+
+            auto value = std::string(flagAttribute->value(), flagAttribute->value_size());
+            if (value != "Enabled" && value != "Disabled") GD::out.printWarning("Warning: Unknown value for " + flagToRead.first + ": " + value);
+            *flagToRead.second = (value != "Disabled");
+          }
+          //}}}
+
+          currentProductData->comObjectData.emplace(id, comObjectData);
+        }
+      }
+    }
+    //}}}
+
+    return currentProductData;
+  }
+  catch (const std::exception &ex) {
+    GD::bl->out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+  }
+  return std::shared_ptr<ManufacturerProductData>();
 }
 
 void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
@@ -1245,7 +1273,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
 
                   //{{{ Get product data and application program reference ID
                   std::vector<PManufacturerProductData> productData;
-                  std::string applicationProgramRefId;
+                  std::vector<std::string> applicationProgramRefIds;
 
                   {
                     std::string hardware2ProgramRefId;
@@ -1268,15 +1296,17 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
 
                     productData.reserve(applicationProgramRefIdsIterator->second.size());
 
+                    applicationProgramRefIds.reserve(applicationProgramRefIdsIterator->second.size());
                     for (auto &applicationProgramRefId : applicationProgramRefIdsIterator->second) {
                       auto productDataIterator = manufacturerDataIterator->second->productData.find(applicationProgramRefId);
                       if (productDataIterator != manufacturerDataIterator->second->productData.end()) {
                         productData.emplace_back(productDataIterator->second);
+                        applicationProgramRefIds.emplace_back(applicationProgramRefId);
                       }
                     }
 
                     if (productData.empty()) {
-                      GD::out.printError("Error: No application program dound for device (2) " + device->id);
+                      GD::out.printError("Error: No application program found for device (2) " + device->id);
                       continue;
                     }
                   }
@@ -1289,32 +1319,47 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                       attribute = comInstanceRefNode->first_attribute("DatapointType");
                       if (attribute) variableInfo.datapointType = std::string(attribute->value());
 
-                      std::string fullReferenceId;
+                      std::vector<std::string> fullReferenceIds;
                       attribute = comInstanceRefNode->first_attribute("RefId");
                       if (attribute) {
                         std::string referenceId = std::string(attribute->value());
                         std::vector<std::string> parts = BaseLib::HelperFunctions::splitAll(referenceId, '_');
-                        if (parts.size() >= 3) {
-                          fullReferenceId = referenceId;
-                          auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(2), '-');
-                          variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
-                        } else if (parts.size() == 2) //>= ETS5.7
-                        {
-                          fullReferenceId = applicationProgramRefId + '_' + referenceId;
-                          auto indexPair = BaseLib::HelperFunctions::splitLast(parts.at(0), '-');
+                        if (parts.size() >= 2) {
+                          //Create different possibilities for reference IDs
+                          fullReferenceIds.reserve(applicationProgramRefIds.size() + 1);
+                          fullReferenceIds.emplace_back(referenceId); //ETS < 5.7
+                          for (auto &applicationProgramRefId : applicationProgramRefIds) {
+                            //ETS >= 5.7
+                            if (parts.at(0).compare(0, 3, "MD-") == 0) {
+                              //Get from ModuleDef
+                              fullReferenceIds.emplace_back(
+                                  applicationProgramRefId + '_' + parts.at(0) + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1)); //E. g. M-0083_A-0128-42-08F8_MD-1_O-2-51_R-17 from MD-1_M-5_MI-1_O-2-51_R-17
+                            } else {
+                              fullReferenceIds.emplace_back(applicationProgramRefId + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1));
+                            }
+                          }
+                          auto indexPair = BaseLib::HelperFunctions::splitLast(parts.size() == 2 ? parts.at(0) : parts.at(parts.size() - 1), '-'); //parts.at(0) is for ETS < 5.7
                           variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
                         }
                       }
 
                       //{{{ Get default flags from application program.
                       for (auto &productDataEntry : productData) {
-                        auto productDataIterator = productDataEntry->comObjectData.find(fullReferenceId);
-                        if (productDataIterator != productDataEntry->comObjectData.end()) {
-                          variableInfo.name = productDataIterator->second->name;
-                          variableInfo.functionText = productDataIterator->second->functionText;
-                          variableInfo.writeFlag = productDataIterator->second->writeFlag;
-                          variableInfo.readFlag = productDataIterator->second->readFlag;
-                          variableInfo.transmitFlag = productDataIterator->second->transmitFlag;
+                        std::shared_ptr<ComObjectData> productDataElement;
+                        for (auto &fullReferenceId : fullReferenceIds) {
+                          auto productDataIterator = productDataEntry->comObjectData.find(fullReferenceId);
+                          if (productDataIterator != productDataEntry->comObjectData.end()) {
+                            productDataElement = productDataIterator->second;
+                            break;
+                          }
+                        }
+
+                        if (productDataElement) {
+                          variableInfo.name = productDataElement->name;
+                          variableInfo.functionText = productDataElement->functionText;
+                          variableInfo.writeFlag = productDataElement->writeFlag;
+                          variableInfo.readFlag = productDataElement->readFlag;
+                          variableInfo.transmitFlag = productDataElement->transmitFlag;
                           break;
                         }
                       }
@@ -1473,7 +1518,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                     std::string id = std::string(attribute->value());
                     if (id.empty()) continue;
 
-                    GD::out.printDebug("Debug: Found for group address " + id);
+                    GD::out.printDebug("Debug: Element found for group address " + id);
 
                     std::string shortId = BaseLib::HelperFunctions::splitLast(id, '_').second;
                     if (shortId.empty()) continue;
