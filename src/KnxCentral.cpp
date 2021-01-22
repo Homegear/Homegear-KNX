@@ -659,8 +659,18 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
   try {
     std::lock_guard<std::mutex> searchGuard(_searchMutex);
 
+    std::unordered_set<std::string> peersWithoutAutochannels;
+
     {
       std::lock_guard<std::mutex> peersGuard(_peersMutex);
+
+      for (auto &peer : _peersById) {
+        auto rpcDevice = peer.second->getRpcDevice();
+        if (rpcDevice->supportedDevices.empty()) continue;
+        auto metadataIterator = rpcDevice->metadata->structValue->find("useAutoChannel");
+        if (metadataIterator == rpcDevice->metadata->structValue->end() || !metadataIterator->second->booleanValue) peersWithoutAutochannels.emplace(rpcDevice->supportedDevices.front()->id);
+      }
+
       _peers.clear();
       _peersBySerial.clear();
       _peersById.clear();
@@ -670,7 +680,7 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
     auto usedTypeNumbers = GD::family->getRpcDevices()->getKnownTypeNumbers();
     auto idTypeNumberMap = GD::family->getRpcDevices()->getIdTypeNumberMap();
 
-    std::vector<Search::PeerInfo> peerInfo = _search->search(usedTypeNumbers, idTypeNumberMap);
+    std::vector<Search::PeerInfo> peerInfo = _search->search(usedTypeNumbers, idTypeNumberMap, peersWithoutAutochannels);
     GD::out.printInfo("Info: Search completed. Found " + std::to_string(peerInfo.size()) + " devices.");
 
     return std::make_shared<Variable>(reloadAndUpdatePeers(clientInfo, peerInfo));

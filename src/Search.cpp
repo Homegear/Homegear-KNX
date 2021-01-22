@@ -77,7 +77,7 @@ void Search::addDeviceToPeerInfo(PHomegearDevice &device, int32_t address, std::
   }
 }
 
-std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlData &deviceInfo, std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap) {
+std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlData &deviceInfo, std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap, const std::unordered_set<std::string> &peersWithoutAutochannels) {
   try {
     if (deviceInfo.address == -1) return PHomegearDevice();
     std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(GD::bl);
@@ -121,6 +121,8 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
     supportedDevice->description = deviceInfo.name;
     device->supportedDevices.push_back(supportedDevice);
 
+    bool useAutoChannel = (peersWithoutAutochannels.find(homegearDeviceId) == peersWithoutAutochannels.end());
+
     createXmlMaintenanceChannel(device);
 
     for (const auto &groupVariable : deviceInfo.variables) {
@@ -133,6 +135,8 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
         //No JSON in description
         if (groupVariable.second->homegearInfo) {
           //Get variable data from Homegear info
+
+          useAutoChannel = false;
 
           auto &infoStruct = groupVariable.second->homegearInfo->structValue;
 
@@ -174,7 +178,11 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
           auto homegearInfoEndPos = groupVariable.second->groupVariableName.find('}');
           if (homegearInfoStartPos == std::string::npos || homegearInfoEndPos == std::string::npos) {
             variableName = groupVariable.second->groupVariableName;
+            //If only some group variables have Homegear info, they might get an automatic channel assigned. This probably doesn't matter though and Homegear info is deprecated anyway.
+            if (useAutoChannel && groupVariable.second->autoChannel > -1) channel = groupVariable.second->autoChannel;
           } else {
+            useAutoChannel = false;
+
             variableName = groupVariable.second->groupVariableName.substr(0, homegearInfoStartPos) + groupVariable.second->groupVariableName.substr(homegearInfoEndPos + 1);
             auto homegearInfo = groupVariable.second->groupVariableName.substr(homegearInfoStartPos + 1, homegearInfoEndPos - homegearInfoStartPos - 1);
             auto homegearInfoParts = BaseLib::HelperFunctions::splitAll(homegearInfo, ';');
@@ -212,6 +220,8 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
         }
       } else {
         //JSON exists in description
+        useAutoChannel = false;
+
         auto variableIterator = deviceInfo.description->structValue->find(std::to_string(groupVariable.first));
         if (variableIterator == deviceInfo.description->structValue->end()) continue;
 
@@ -283,6 +293,9 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
       }
     }
 
+    device->metadata = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
+    device->metadata->structValue->emplace("useAutoChannel", std::make_shared<BaseLib::Variable>(useAutoChannel));
+
     if (device->functions.size() == 1) GD::out.printWarning(std::string("Warning: Device ") + Cemi::getFormattedPhysicalAddress(deviceInfo.address) + " has no channels.");
 
     return device;
@@ -293,7 +306,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
   return PHomegearDevice();
 }
 
-std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap) {
+std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap, const std::unordered_set<std::string> &peersWithoutAutochannels) {
   std::vector<Search::PeerInfo> peerInfo;
   try {
     auto projectFilenames = getKnxProjectFilenames();
@@ -439,7 +452,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
           GD::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", (" + Cemi::getFormattedPhysicalAddress(deviceXml->address) + ") because it has no JSON description.");
           continue;
         }
-        auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap);
+        auto device = createHomegearDevice(*deviceXml, usedTypeNumbers, idTypeNumberMap, peersWithoutAutochannels);
         if (device) {
           auto typeId = (*device->supportedDevices.begin())->id;
           addDeviceToPeerInfo(*deviceXml, device, peerInfo, usedTypeIds);
@@ -579,7 +592,7 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint64_t> &usedTypeNumb
       deviceXml.variables.emplace(variable->index, std::move(variable));
     }
 
-    auto device = createHomegearDevice(deviceXml, usedTypeNumbers, idTypeNumberMap);
+    auto device = createHomegearDevice(deviceXml, usedTypeNumbers, idTypeNumberMap, std::unordered_set<std::string>());
     if (!device) {
       GD::out.printError("Error: Could not create KNX device information: Could not generate device info.");
       return PeerInfo();
@@ -1084,6 +1097,10 @@ std::shared_ptr<Search::ManufacturerProductData> Search::extractProductData(xml_
         if (!nameAttribute) continue;
         comObjectData->name = std::string(nameAttribute->value(), nameAttribute->value_size());
 
+        //This is the number visible in ETS in the first column of "communication objects".
+        auto numberAttribute = comObjectNode->first_attribute("Number");
+        if (numberAttribute) comObjectData->number = (int32_t)BaseLib::Math::getUnsignedNumber(std::string(numberAttribute->value(), numberAttribute->value_size()));
+
         auto functionTextAttribute = comObjectNode->first_attribute("FunctionText");
         if (functionTextAttribute) {
           comObjectData->functionText = std::string(functionTextAttribute->value(), functionTextAttribute->value_size());
@@ -1106,6 +1123,9 @@ std::shared_ptr<Search::ManufacturerProductData> Search::extractProductData(xml_
           if (value != "Enabled" && value != "Disabled") GD::out.printWarning("Warning: Unknown value for " + flagToRead.first + ": " + value);
           *flagToRead.second = (value != "Disabled");
         }
+
+        auto baseNumberAttribute = comObjectNode->first_attribute("BaseNumber");
+        if (baseNumberAttribute) comObjectData->baseNumber = std::string(baseNumberAttribute->value(), baseNumberAttribute->value_size());
 
         allComObjects.emplace(id, std::move(comObjectData));
       }
@@ -1312,6 +1332,43 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                   }
                   //}}}
 
+                  auto *moduleInstancesNode = deviceNode->first_node("ModuleInstances");
+                  if (moduleInstancesNode) {
+                    for (xml_node *moduleInstanceNode = moduleInstancesNode->first_node("ModuleInstance"); moduleInstanceNode; moduleInstanceNode = moduleInstanceNode->next_sibling("ModuleInstance")) {
+                      attribute = moduleInstanceNode->first_attribute("Id");
+                      if (!attribute) continue;
+                      std::string moduleInstanceId(attribute->value(), attribute->value_size());
+                      std::unordered_map<std::string, std::string> arguments;
+                      auto *argumentsNode = moduleInstanceNode->first_node("Arguments");
+                      if (!argumentsNode) continue;
+                      for (xml_node *argumentNode = argumentsNode->first_node("Argument"); argumentNode; argumentNode = argumentNode->next_sibling("Argument")) {
+                        attribute = argumentNode->first_attribute("RefId");
+                        if (!attribute) continue;
+                        std::string refId(attribute->value(), attribute->value_size());
+                        attribute = argumentNode->first_attribute("Value");
+                        if (!attribute) continue;
+                        arguments.emplace(std::move(refId), std::string(attribute->value(), attribute->value_size()));
+                      }
+                      device->moduleArguments.emplace(moduleInstanceId, std::move(arguments));
+                    }
+                  }
+
+                  auto *groupObjectTreeNode = deviceNode->first_node("GroupObjectTree");
+                  if (groupObjectTreeNode) {
+                    auto *nodesNode = groupObjectTreeNode->first_node("Nodes");
+                    if (nodesNode) {
+                      uint32_t channelIndex = 1;
+                      for (xml_node *nodeNode = nodesNode->first_node("Node"); nodeNode; nodeNode = nodeNode->next_sibling("Node"), channelIndex++) {
+                        attribute = nodeNode->first_attribute("Type");
+                        if (!attribute) continue;
+                        if (std::string(attribute->value(), attribute->value_size()) != "Channel") continue;
+                        attribute = nodeNode->first_attribute("RefId");
+                        if (!attribute) continue;
+                        device->channelIndexByRefId.emplace(std::string(attribute->value(), attribute->value_size()), channelIndex);
+                      }
+                    }
+                  }
+
                   for (xml_node *comInstanceRefsNode = deviceNode->first_node("ComObjectInstanceRefs"); comInstanceRefsNode; comInstanceRefsNode = comInstanceRefsNode->next_sibling("ComObjectInstanceRefs")) {
                     for (xml_node *comInstanceRefNode = comInstanceRefsNode->first_node("ComObjectInstanceRef"); comInstanceRefNode; comInstanceRefNode = comInstanceRefNode->next_sibling("ComObjectInstanceRef")) {
                       GroupVariableInfo variableInfo;
@@ -1319,25 +1376,32 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                       attribute = comInstanceRefNode->first_attribute("DatapointType");
                       if (attribute) variableInfo.datapointType = std::string(attribute->value());
 
-                      std::vector<std::string> fullReferenceIds;
+                      struct ApplicationInfo {
+                        std::string fullReferenceId;
+                        std::string moduleInstanceId;
+                        std::string applicationProgramRefId;
+                      };
+
+                      std::vector<ApplicationInfo> applicationInfo;
                       attribute = comInstanceRefNode->first_attribute("RefId");
+                      std::string referenceId = std::string(attribute->value());
                       if (attribute) {
-                        std::string referenceId = std::string(attribute->value());
                         std::vector<std::string> parts = BaseLib::HelperFunctions::splitAll(referenceId, '_');
                         if (parts.size() >= 2) {
                           //Create different possibilities for reference IDs
-                          fullReferenceIds.reserve(applicationProgramRefIds.size() + 1);
-                          fullReferenceIds.emplace_back(referenceId); //ETS < 5.7
+                          applicationInfo.reserve(applicationProgramRefIds.size() + 1);
+                          applicationInfo.emplace_back(ApplicationInfo{referenceId, "", ""}); //ETS < 5.7
                           for (auto &applicationProgramRefId : applicationProgramRefIds) {
                             //ETS >= 5.7
                             if (parts.at(0).compare(0, 3, "MD-") == 0) {
-                              //Get from ModuleDef
-                              fullReferenceIds.emplace_back(
-                                  applicationProgramRefId + '_' + parts.at(0) + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1)); //E. g. M-0083_A-0128-42-08F8_MD-1_O-2-51_R-17 from MD-1_M-5_MI-1_O-2-51_R-17
+                              //Get from ModuleDef, e. g. M-0083_A-0128-42-08F8_MD-1_O-2-51_R-17 from MD-1_M-5_MI-1_O-2-51_R-17. The second pair part is the module instance.
+                              applicationInfo.emplace_back(ApplicationInfo{applicationProgramRefId + '_' + parts.at(0) + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1), parts.at(0) + '_' + parts.at(1) + '_' + parts.at(2), applicationProgramRefId});
                             } else {
-                              fullReferenceIds.emplace_back(applicationProgramRefId + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1));
+                              applicationInfo.emplace_back(ApplicationInfo{applicationProgramRefId + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1), "", applicationProgramRefId});
                             }
                           }
+                          //Determine index = the column number in "communication objects" of a device in ETS.
+                          //This is NOT the preferred way though. The number should be and is primarily taken from the device (see a few lines below). Not sure if all devices have the "Number" attribute of ComObjects set though.
                           auto indexPair = BaseLib::HelperFunctions::splitLast(parts.size() == 2 ? parts.at(0) : parts.at(parts.size() - 1), '-'); //parts.at(0) is for ETS < 5.7
                           variableInfo.index = BaseLib::Math::getNumber(indexPair.second, false);
                         }
@@ -1346,15 +1410,34 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                       //{{{ Get default flags from application program.
                       for (auto &productDataEntry : productData) {
                         std::shared_ptr<ComObjectData> productDataElement;
-                        for (auto &fullReferenceId : fullReferenceIds) {
-                          auto productDataIterator = productDataEntry->comObjectData.find(fullReferenceId);
+                        std::string moduleInstanceId;
+                        std::string applicationProgramRefId;
+                        for (auto &element : applicationInfo) {
+                          auto productDataIterator = productDataEntry->comObjectData.find(element.fullReferenceId);
                           if (productDataIterator != productDataEntry->comObjectData.end()) {
                             productDataElement = productDataIterator->second;
+                            moduleInstanceId = element.moduleInstanceId;
+                            applicationProgramRefId = element.applicationProgramRefId;
                             break;
                           }
                         }
 
                         if (productDataElement) {
+                          //This is the preferred way to set the index (i. e. the number column in "communication objects" of a device in ETS).
+                          //{{{ Set index
+                          if (productDataElement->baseNumber.empty() && productDataElement->number > -1) {
+                            variableInfo.index = productDataElement->number;
+                          } else if (!applicationProgramRefId.empty() && productDataElement->baseNumber.size() > applicationProgramRefId.size() + 1 && !moduleInstanceId.empty() && productDataElement->number > -1) {
+                            auto moduleInstanceIterator = device->moduleArguments.find(moduleInstanceId);
+                            if (moduleInstanceIterator != device->moduleArguments.end()) {
+                              auto argumentId = productDataElement->baseNumber.substr(applicationProgramRefId.size() + 1);
+                              auto argumentIterator = moduleInstanceIterator->second.find(argumentId);
+                              if (argumentIterator != moduleInstanceIterator->second.end()) {
+                                variableInfo.index = BaseLib::Math::getUnsignedNumber(argumentIterator->second) + productDataElement->number;
+                              }
+                            }
+                          }
+                          //}}}
                           variableInfo.name = productDataElement->name;
                           variableInfo.functionText = productDataElement->functionText;
                           variableInfo.writeFlag = productDataElement->writeFlag;
@@ -1364,6 +1447,17 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                         }
                       }
                       //}}}
+
+                      if (variableInfo.index == -1) {
+                        GD::out.printWarning("Warning: Could not determine index of variable " + variableInfo.name + " of device " + Cemi::getFormattedPhysicalAddress(device->address) + " (reference ID: " + referenceId + ").");
+                      }
+
+                      attribute = comInstanceRefNode->first_attribute("ChannelId");
+                      if (attribute) {
+                        std::string channelId(attribute->value(), attribute->value_size());
+                        auto channelIterator = device->channelIndexByRefId.find(channelId);
+                        if (channelIterator != device->channelIndexByRefId.end()) variableInfo.autoChannel = (int32_t)channelIterator->second;
+                      }
 
                       //{{{ Overwrite default flags. In ETS versions before 5.7 the flags seem always to be set here in deviceNode (needs to be reverified). In ETS >= 5.7 the flags are specified in ComObjectInstanceRef, if they are different from the default.
                       attribute = deviceNode->first_attribute("WriteFlag");
@@ -1399,8 +1493,6 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                         variableInfo.transmitFlag = attributeValue != "Disabled";
                       }
                       //}}}
-
-                      if (variableInfo.index == -1) continue;
 
                       attribute = comInstanceRefNode->first_attribute("Links");
                       if (attribute) //>= ETS5.7
@@ -1593,7 +1685,6 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
 
                             {
                               //Delete old element if necessary
-
                               auto deviceVariableElement = device->variables.find((uint32_t)variableInfoElement.index);
                               if (deviceVariableElement != device->variables.end()) {
                                 if (!deviceVariableElement->second->autocreated && !variableInfoElement.writeFlag) continue; //Ignore
@@ -1609,6 +1700,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
 
                             variableInfo->comObjectName = variableInfoElement.name;
                             variableInfo->functionText = variableInfoElement.functionText;
+                            variableInfo->autoChannel = variableInfoElement.autoChannel;
                             variableInfo->readFlag = variableInfoElement.readFlag;
                             variableInfo->writeFlag = variableInfoElement.writeFlag;
                             variableInfo->transmitFlag = variableInfoElement.transmitFlag;
