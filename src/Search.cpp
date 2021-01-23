@@ -128,6 +128,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
 
     for (const auto &groupVariable : deviceInfo.variables) {
       int32_t channel = 1;
+      if (useAutoChannel && !deviceInfo.channelIndexByRefId.empty()) channel = 0;
       std::string variableName;
       std::string unit;
       std::unordered_map<uint64_t, BaseLib::Role> roles;
