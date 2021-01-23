@@ -121,6 +121,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
     supportedDevice->description = deviceInfo.name;
     device->supportedDevices.push_back(supportedDevice);
 
+    //This is mandatory for to support updating old installations. Only devices that already have "useAutoChannel" set, are getting an automatic channel assigned again.
     bool useAutoChannel = (peersWithoutAutochannels.find(homegearDeviceId) == peersWithoutAutochannels.end());
 
     createXmlMaintenanceChannel(device);
@@ -181,8 +182,6 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
             //If only some group variables have Homegear info, they might get an automatic channel assigned. This probably doesn't matter though and Homegear info is deprecated anyway.
             if (useAutoChannel && groupVariable.second->autoChannel > -1) channel = groupVariable.second->autoChannel;
           } else {
-            useAutoChannel = false;
-
             variableName = groupVariable.second->groupVariableName.substr(0, homegearInfoStartPos) + groupVariable.second->groupVariableName.substr(homegearInfoEndPos + 1);
             auto homegearInfo = groupVariable.second->groupVariableName.substr(homegearInfoStartPos + 1, homegearInfoEndPos - homegearInfoStartPos - 1);
             auto homegearInfoParts = BaseLib::HelperFunctions::splitAll(homegearInfo, ';');
