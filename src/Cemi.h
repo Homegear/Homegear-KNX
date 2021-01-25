@@ -58,6 +58,7 @@ class Cemi : public BaseLib::Systems::Packet {
   static uint16_t parsePhysicalAddress(const std::string &address);
   std::string getFormattedSourceAddress() { return getFormattedPhysicalAddress(_sourceAddress); }
   static std::string getFormattedGroupAddress(int32_t address);
+  static int32_t parseGroupAddress(const std::string &address);
   std::string getFormattedDestinationAddress() { return getFormattedGroupAddress(_destinationAddress); }
   std::vector<uint8_t> &getPayload() { return _payload; }
  protected:

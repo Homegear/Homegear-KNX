@@ -58,6 +58,11 @@ void KnxCentral::init() {
                                                                                                                                                                               this,
                                                                                                                                                                               std::placeholders::_1,
                                                                                                                                                                               std::placeholders::_2)));
+    _localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters)>>("sendRawPacket",
+                                                                                                                                                                    std::bind(&KnxCentral::sendRawPacket,
+                                                                                                                                                                              this,
+                                                                                                                                                                              std::placeholders::_1,
+                                                                                                                                                                              std::placeholders::_2)));
 
     _search.reset(new Search());
 
@@ -858,6 +863,38 @@ BaseLib::PVariable KnxCentral::updateDevices(const BaseLib::PRpcClientInfo &clie
     //}}}
 
     return std::make_shared<Variable>(reloadAndUpdatePeers(std::move(clientInfo), updatedPeersInfo));
+  }
+  catch (const std::exception &ex) {
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+  }
+  return Variable::createError(-32500, "Unknown application error.");
+}
+
+BaseLib::PVariable KnxCentral::sendRawPacket(const PRpcClientInfo &clientInfo, const PArray &parameters) {
+  try {
+    if (parameters->size() != 4) return BaseLib::Variable::createError(-1, "Wrong parameter count.");
+    if (parameters->at(0)->type != BaseLib::VariableType::tString) return BaseLib::Variable::createError(-1, "Parameter 1 is not of type String.");
+    if (parameters->at(1)->type != BaseLib::VariableType::tString) return BaseLib::Variable::createError(-1, "Parameter 2 is not of type String.");
+    if (parameters->at(2)->type != BaseLib::VariableType::tString) return BaseLib::Variable::createError(-1, "Parameter 3 is not of type String.");
+
+    DptConverter dptConverter(_bl);
+
+    auto interfaceId = parameters->at(0)->stringValue;
+    auto destinationAddress = Cemi::parseGroupAddress(parameters->at(1)->stringValue);
+    auto dpt = BaseLib::HelperFunctions::toUpper(parameters->at(2)->stringValue);
+    auto value = dptConverter.getDpt(dpt, parameters->at(3), BaseLib::Role());
+
+    if (destinationAddress == 0) return Variable::createError(-1, "Invalid group address.");
+
+    auto cemi = std::make_shared<Cemi>(Cemi::Operation::groupValueWrite, 0, destinationAddress, dptConverter.fitsInFirstByte(dpt), value);
+
+    auto interfaceIterator = Gd::physicalInterfaces.find(interfaceId);
+    if (interfaceIterator == Gd::physicalInterfaces.end()) {
+      return Variable::createError(-2, "Unknown communication interface.");
+    }
+    interfaceIterator->second->sendPacket(cemi);
+
+    return std::make_shared<BaseLib::Variable>();
   }
   catch (const std::exception &ex) {
     Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());

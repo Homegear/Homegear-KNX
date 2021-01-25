@@ -136,7 +136,7 @@ std::vector<uint8_t> Cemi::getBinary() {
 }
 
 std::string Cemi::getFormattedPhysicalAddress(uint16_t address) {
-  if (address == -1) return "";
+  if (address == 0xFFFF) return "";
   return std::to_string(address >> 12) + '.' + std::to_string((address >> 8) & 0x0F) + '.' + std::to_string(address & 0xFF);
 }
 
@@ -148,6 +148,12 @@ uint16_t Cemi::parsePhysicalAddress(const std::string &address) {
 
 std::string Cemi::getFormattedGroupAddress(int32_t address) {
   return std::to_string(address >> 11) + "/" + std::to_string((address >> 8) & 0x7) + "/" + std::to_string(address & 0xFF);
+}
+
+int32_t Cemi::parseGroupAddress(const std::string &address) {
+  auto addressParts = BaseLib::HelperFunctions::splitAll(address, '/');
+  if (addressParts.size() != 3) return 0;
+  return ((BaseLib::Math::getUnsignedNumber(addressParts.at(0)) & 0x1F) << 11) | ((BaseLib::Math::getUnsignedNumber(addressParts.at(1)) & 7) << 8) | (BaseLib::Math::getUnsignedNumber(addressParts.at(2)) & 0xFF);
 }
 
 }
