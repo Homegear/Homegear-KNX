@@ -53,8 +53,11 @@ void KnxCentral::init() {
     if (_initialized) return; //Prevent running init two times
     _initialized = true;
 
-    _localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PRpcClientInfo &clientInfo, BaseLib::PArray &parameters)>>("updateDevices",
-                                                                                                                                                        std::bind(&KnxCentral::updateDevices, this, std::placeholders::_1, std::placeholders::_2)));
+    _localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters)>>("updateDevices",
+                                                                                                                                                                    std::bind(&KnxCentral::updateDevices,
+                                                                                                                                                                              this,
+                                                                                                                                                                              std::placeholders::_1,
+                                                                                                                                                                              std::placeholders::_2)));
 
     _search.reset(new Search());
 
@@ -228,8 +231,9 @@ bool KnxCentral::onPacketReceived(std::string &senderId, std::shared_ptr<BaseLib
     std::shared_ptr<Cemi> myPacket(std::dynamic_pointer_cast<Cemi>(packet));
     if (!myPacket) return false;
 
-    if (_bl->debugLevel >= 4) Gd::out.printInfo("Packet received from " + myPacket->getFormattedSourceAddress() + " to " + myPacket->getFormattedDestinationAddress() + ". Operation: " + myPacket->getOperationString() + ". Payload: "
-                                                    + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
+    if (_bl->debugLevel >= 4)
+      Gd::out.printInfo("Packet received from " + myPacket->getFormattedSourceAddress() + " to " + myPacket->getFormattedDestinationAddress() + ". Operation: " + myPacket->getOperationString() + ". Payload: "
+                            + BaseLib::HelperFunctions::getHexString(myPacket->getPayload()));
 
     auto peers = getPeer(myPacket->getDestinationAddress());
     if (!peers) return false;
