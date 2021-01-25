@@ -31,7 +31,7 @@ Cemi::Cemi(Operation operation, uint16_t sourceAddress, uint16_t destinationAddr
 }
 
 Cemi::Cemi(const std::vector<uint8_t> &binaryPacket) {
-  if (binaryPacket.size() < 1) throw InvalidKnxPacketException("Too small packet.");
+  if (binaryPacket.empty()) throw InvalidKnxPacketException("Too small packet.");
   //Message always starts with the message code (section 4.1.3.1 of chapter 3.6.3)
   _messageCode = binaryPacket[0];
   if (_messageCode == 0x11 || _messageCode == 0x29) {
@@ -47,6 +47,22 @@ Cemi::Cemi(const std::vector<uint8_t> &binaryPacket) {
   }
 
   _rawPacket = binaryPacket;
+}
+
+BaseLib::PVariable Cemi::toVariable() {
+  auto packetStruct = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
+  packetStruct->structValue->emplace("rawPacket", std::make_shared<BaseLib::Variable>(_rawPacket));
+
+  if (getMessageCode() == 0x29) {
+    packetStruct->structValue->emplace("sourceAddress", std::make_shared<BaseLib::Variable>(getSourceAddress()));
+    packetStruct->structValue->emplace("sourceAddressFormatted", std::make_shared<BaseLib::Variable>(getFormattedSourceAddress()));
+    packetStruct->structValue->emplace("destinationAddress", std::make_shared<BaseLib::Variable>(getDestinationAddress()));
+    packetStruct->structValue->emplace("destinationAddressFormatted", std::make_shared<BaseLib::Variable>(getFormattedDestinationAddress()));
+    packetStruct->structValue->emplace("operation", std::make_shared<BaseLib::Variable>(getOperationString()));
+    packetStruct->structValue->emplace("payload", std::make_shared<BaseLib::Variable>(BaseLib::HelperFunctions::getHexString(getPayload())));
+  }
+
+  return packetStruct;
 }
 
 std::string Cemi::getOperationString() {

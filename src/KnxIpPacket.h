@@ -139,6 +139,8 @@ class KnxIpPacket : public BaseLib::Systems::Packet {
   KnxIpPacket(uint8_t channelId, uint8_t sequenceCounter, const PCemi &cemi);
   virtual ~KnxIpPacket() = default;
 
+  BaseLib::PVariable toVariable() override;
+
   ServiceType getServiceType() { return _serviceType; }
   std::string getServiceIdentifierString();
 
