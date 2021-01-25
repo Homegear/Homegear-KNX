@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst244Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst244Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   cast->type = "DPT-244";
 
@@ -37,9 +37,9 @@ void Dpst244Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalEnumeration converterMode(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration converterMode(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 4, converterMode));
     converterMode->minimumValue = 0;
     converterMode->maximumValue = 9;
@@ -64,7 +64,7 @@ void Dpst244Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    6,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".HARDWIRED_INHIBIT_ACTIVE",
                                                    "DPT-1",
@@ -75,9 +75,9 @@ void Dpst244Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    7,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
-    PLogicalEnumeration functionTestPending(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration functionTestPending(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".FUNCTION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 2, functionTestPending));
     functionTestPending->minimumValue = 0;
     functionTestPending->maximumValue = 2;
@@ -85,7 +85,7 @@ void Dpst244Parser::parse(BaseLib::SharedObjects *bl,
     functionTestPending->values.emplace_back("No test pending", 1);
     functionTestPending->values.emplace_back("Test pending", 2);
 
-    PLogicalEnumeration durationTestPending(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration durationTestPending(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".DURATION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 2, durationTestPending));
     durationTestPending->minimumValue = 0;
     durationTestPending->maximumValue = 2;
@@ -93,7 +93,7 @@ void Dpst244Parser::parse(BaseLib::SharedObjects *bl,
     durationTestPending->values.emplace_back("No test pending", 1);
     durationTestPending->values.emplace_back("Test pending", 2);
 
-    PLogicalEnumeration partialDurationTestPending(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration partialDurationTestPending(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".PARTIAL_DURATION_TEST_PENDING", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 2, partialDurationTestPending));
     partialDurationTestPending->minimumValue = 0;
     partialDurationTestPending->maximumValue = 2;
@@ -101,7 +101,7 @@ void Dpst244Parser::parse(BaseLib::SharedObjects *bl,
     partialDurationTestPending->values.emplace_back("No test pending", 1);
     partialDurationTestPending->values.emplace_back("Test pending", 2);
 
-    PLogicalEnumeration converterFailure(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration converterFailure(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".CONVERTER_FAILURE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 14, 2, converterFailure));
     converterFailure->minimumValue = 0;
     converterFailure->maximumValue = 2;

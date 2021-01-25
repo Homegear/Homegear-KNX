@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst10Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst10Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = 0;
   logical->maximumValue = 16777215;
@@ -39,9 +39,9 @@ void Dpst10Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalEnumeration weekDays(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration weekDays(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".DAY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 3, weekDays));
     weekDays->minimumValue = 0;
     weekDays->maximumValue = 7;
@@ -54,17 +54,17 @@ void Dpst10Parser::parse(BaseLib::SharedObjects *bl,
     weekDays->values.emplace_back("Saturday", 6);
     weekDays->values.emplace_back("Sunday", 7);
 
-    PLogicalInteger hours(new LogicalInteger(GD::bl));
+    PLogicalInteger hours(new LogicalInteger(Gd::bl));
     hours->minimumValue = 0;
     hours->maximumValue = 23;
     additionalParameters.push_back(createParameter(function, baseName + ".HOURS", "DPT-5", "h", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 3, 5, hours));
 
-    PLogicalInteger minutes(new LogicalInteger(GD::bl));
+    PLogicalInteger minutes(new LogicalInteger(Gd::bl));
     hours->minimumValue = 0;
     hours->maximumValue = 59;
     additionalParameters.push_back(createParameter(function, baseName + ".MINUTES", "DPT-5", "min", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 6, minutes));
 
-    PLogicalInteger seconds(new LogicalInteger(GD::bl));
+    PLogicalInteger seconds(new LogicalInteger(Gd::bl));
     hours->minimumValue = 0;
     hours->maximumValue = 59;
     additionalParameters.push_back(createParameter(function, baseName + ".SECONDS", "DPT-5", "s", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 18, 6, minutes));

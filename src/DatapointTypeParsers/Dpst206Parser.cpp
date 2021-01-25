@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst206Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst206Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = 0;
   logical->maximumValue = 16777215;
@@ -40,14 +40,14 @@ void Dpst206Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger delay(new LogicalInteger(GD::bl));
+    PLogicalInteger delay(new LogicalInteger(Gd::bl));
     delay->minimumValue = 0;
     delay->maximumValue = 65535;
     additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, delay));
 
-    PLogicalEnumeration hvacMode(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration hvacMode(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".HVAC_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, hvacMode));
     hvacMode->minimumValue = 0;
     hvacMode->maximumValue = 4;
@@ -72,14 +72,14 @@ void Dpst206Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger delay(new LogicalInteger(GD::bl));
+    PLogicalInteger delay(new LogicalInteger(Gd::bl));
     delay->minimumValue = 0;
     delay->maximumValue = 65535;
     additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, delay));
 
-    PLogicalEnumeration dhwMode(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration dhwMode(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".DHW_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, dhwMode));
     dhwMode->minimumValue = 0;
     dhwMode->maximumValue = 4;
@@ -104,14 +104,14 @@ void Dpst206Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger delay(new LogicalInteger(GD::bl));
+    PLogicalInteger delay(new LogicalInteger(Gd::bl));
     delay->minimumValue = 0;
     delay->maximumValue = 65535;
     additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, delay));
 
-    PLogicalEnumeration occupancyMode(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration occupancyMode(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".OCCUPANCY_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, occupancyMode));
     occupancyMode->minimumValue = 0;
     occupancyMode->maximumValue = 2;
@@ -134,14 +134,14 @@ void Dpst206Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger delay(new LogicalInteger(GD::bl));
+    PLogicalInteger delay(new LogicalInteger(Gd::bl));
     delay->minimumValue = 0;
     delay->maximumValue = 65535;
     additionalParameters.push_back(createParameter(function, baseName + ".DELAY", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, delay));
 
-    PLogicalEnumeration buildingMode(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration buildingMode(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".BUILDING_MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, buildingMode));
     buildingMode->minimumValue = 0;
     buildingMode->maximumValue = 2;

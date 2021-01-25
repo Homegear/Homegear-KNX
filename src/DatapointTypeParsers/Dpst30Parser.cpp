@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst30Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = 0;
   logical->maximumValue = 16777215;
@@ -40,7 +40,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_1",
@@ -52,7 +52,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    0,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_2",
                                                    "DPT-1",
@@ -63,7 +63,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    1,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_3",
                                                    "DPT-1",
@@ -74,7 +74,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    2,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_4",
                                                    "DPT-1",
@@ -85,7 +85,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    3,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_5",
                                                    "DPT-1",
@@ -96,7 +96,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    4,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_6",
                                                    "DPT-1",
@@ -107,7 +107,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    5,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_7",
                                                    "DPT-1",
@@ -118,7 +118,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    6,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_8",
                                                    "DPT-1",
@@ -129,7 +129,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    7,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_9",
                                                    "DPT-1",
@@ -140,7 +140,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    8,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_10",
                                                    "DPT-1",
@@ -151,7 +151,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    9,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_11",
                                                    "DPT-1",
@@ -162,7 +162,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    10,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_12",
                                                    "DPT-1",
@@ -173,7 +173,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    11,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_13",
                                                    "DPT-1",
@@ -184,7 +184,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    12,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_14",
                                                    "DPT-1",
@@ -195,7 +195,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    13,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_15",
                                                    "DPT-1",
@@ -206,7 +206,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    14,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_16",
                                                    "DPT-1",
@@ -217,7 +217,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    15,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_17",
                                                    "DPT-1",
@@ -228,7 +228,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    16,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_18",
                                                    "DPT-1",
@@ -239,7 +239,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    17,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_19",
                                                    "DPT-1",
@@ -250,7 +250,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    18,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_20",
                                                    "DPT-1",
@@ -261,7 +261,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    19,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_21",
                                                    "DPT-1",
@@ -272,7 +272,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    20,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_22",
                                                    "DPT-1",
@@ -283,7 +283,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    21,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_23",
                                                    "DPT-1",
@@ -294,7 +294,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    22,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATE_24",
                                                    "DPT-1",
@@ -305,7 +305,7 @@ void Dpst30Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    23,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
   }
 
   for (auto &additionalParameter : additionalParameters) {

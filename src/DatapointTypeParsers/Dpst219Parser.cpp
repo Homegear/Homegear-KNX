@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst219Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger64 logical(new LogicalInteger64(GD::bl));
+  PLogicalInteger64 logical(new LogicalInteger64(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = 0;
   logical->maximumValue = 281474976710655;
@@ -39,14 +39,14 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger logNumber(new LogicalInteger(GD::bl));
+    PLogicalInteger logNumber(new LogicalInteger(Gd::bl));
     logNumber->minimumValue = 0;
     logNumber->maximumValue = 255;
     additionalParameters.push_back(createParameter(function, baseName + ".LOG_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 8, logNumber));
 
-    PLogicalEnumeration alarmPriority(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration alarmPriority(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".PRIORITY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 8, alarmPriority));
     alarmPriority->minimumValue = 0;
     alarmPriority->maximumValue = 3;
@@ -55,7 +55,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
     alarmPriority->values.emplace_back("Low", 2);
     alarmPriority->values.emplace_back("None", 3);
 
-    PLogicalEnumeration applicationArea(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration applicationArea(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, applicationArea));
     applicationArea->minimumValue = 0;
     applicationArea->maximumValue = 50;
@@ -70,7 +70,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
     applicationArea->values.emplace_back("Security", 30);
     applicationArea->values.emplace_back("Shutters and blinds", 50);
 
-    PLogicalEnumeration errorClass(new LogicalEnumeration(GD::bl));
+    PLogicalEnumeration errorClass(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CLASS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 8, errorClass));
     errorClass->minimumValue = 0;
     errorClass->maximumValue = 5;
@@ -91,7 +91,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    36,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".ALARM_TEXT_SUP",
                                                    "DPT-1",
@@ -102,7 +102,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    37,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".TIME_STAMP_SUP",
                                                    "DPT-1",
@@ -113,7 +113,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    38,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".ACK_SUP",
                                                    "DPT-1",
@@ -124,7 +124,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    39,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".LOCKED",
@@ -136,7 +136,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    45,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".ALARM_UN_ACK",
                                                    "DPT-1",
@@ -147,7 +147,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    46,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".IN_ALARM",
                                                    "DPT-1",
@@ -158,7 +158,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    47,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
   }
 
   for (auto &additionalParameter : additionalParameters) {

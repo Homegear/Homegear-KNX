@@ -2,7 +2,7 @@
 
 #include "Factory.h"
 #include "../config.h"
-#include "GD.h"
+#include "Gd.h"
 
 BaseLib::Systems::DeviceFamily *MyFactory::createDeviceFamily(BaseLib::SharedObjects *bl, BaseLib::Systems::IFamilyEventSink *eventHandler) {
   return new Knx::Knx(bl, eventHandler);

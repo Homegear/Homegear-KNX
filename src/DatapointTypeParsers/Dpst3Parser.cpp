@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst3Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -38,7 +38,7 @@ void Dpst3Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    (uint16_t)parameter->physical->address,
                                                    -1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
   additionalParameters.push_back(createParameter(function,
                                                  baseName + ".CONTROL",
@@ -50,7 +50,7 @@ void Dpst3Parser::parse(BaseLib::SharedObjects *bl,
                                                  parameter->roles,
                                                  4,
                                                  1,
-                                                 std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                 std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
   PLogicalInteger stepCode(new LogicalInteger(bl));
   stepCode->minimumValue = 0;

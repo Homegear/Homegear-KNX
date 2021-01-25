@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "DptConverter.h"
-#include "GD.h"
+#include "Gd.h"
 
 namespace Knx {
 

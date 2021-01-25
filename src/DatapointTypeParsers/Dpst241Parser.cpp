@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst241Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   cast->type = "DPT-241";
 
@@ -37,14 +37,14 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger height(new LogicalInteger(GD::bl));
+    PLogicalInteger height(new LogicalInteger(Gd::bl));
     height->minimumValue = 0;
     height->maximumValue = 100;
     additionalParameters.push_back(createParameter(function, baseName + ".HEIGHT_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 8, height));
 
-    PLogicalInteger slats(new LogicalInteger(GD::bl));
+    PLogicalInteger slats(new LogicalInteger(Gd::bl));
     slats->minimumValue = 0;
     slats->maximumValue = 100;
     additionalParameters.push_back(createParameter(function, baseName + ".SLATS_POSITION", "DPST-5-1", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 8, slats));
@@ -59,7 +59,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    16,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".LOWER_END_REACHED",
                                                    "DPT-1",
@@ -70,7 +70,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    17,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".LOWER_PREDEF_REACHED",
                                                    "DPT-1",
@@ -81,7 +81,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    18,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".TARGET_REACHED",
                                                    "DPT-1",
@@ -92,7 +92,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    19,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".CANT_REACH_TARGET_POS",
                                                    "DPT-1",
@@ -103,7 +103,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    20,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".CANT_REACH_SLATS_POS",
                                                    "DPT-1",
@@ -114,7 +114,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    21,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".IN_ALARM",
                                                    "DPT-1",
@@ -125,7 +125,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    22,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".UP_DOWN_FORCED_INPUT",
                                                    "DPT-1",
@@ -136,7 +136,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    23,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".LOCKED",
                                                    "DPT-1",
@@ -147,7 +147,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    24,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".OVERRIDDEN",
                                                    "DPT-1",
@@ -158,7 +158,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    25,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".FAILURE",
                                                    "DPT-1",
@@ -169,7 +169,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    26,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".HEIGHT_POS_VALID",
@@ -181,7 +181,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    30,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".SLATS_POS_VALID",
                                                    "DPT-1",
@@ -192,7 +192,7 @@ void Dpst241Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    13,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
   }
 
   for (auto &additionalParameter : additionalParameters) {

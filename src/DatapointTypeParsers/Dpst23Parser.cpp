@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst23Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -18,7 +18,7 @@ void Dpst23Parser::parse(BaseLib::SharedObjects *bl,
                          std::shared_ptr<BaseLib::DeviceDescription::Parameter> &parameter) {
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalEnumeration logical(new LogicalEnumeration(GD::bl));
+  PLogicalEnumeration logical(new LogicalEnumeration(Gd::bl));
   parameter->logical = logical;
   cast->type = datapointType;
   //On/off action
@@ -56,7 +56,7 @@ void Dpst23Parser::parse(BaseLib::SharedObjects *bl,
     logical->values.emplace_back("Economy/Nothing", 2);
     logical->values.emplace_back("Building prot/Auto", 3);
   } else {
-    auto logicalInteger = std::make_shared<LogicalInteger>(GD::bl);
+    auto logicalInteger = std::make_shared<LogicalInteger>(Gd::bl);
     parameter->logical = logicalInteger;
     logicalInteger->minimumValue = 0;
     logicalInteger->maximumValue = 3;

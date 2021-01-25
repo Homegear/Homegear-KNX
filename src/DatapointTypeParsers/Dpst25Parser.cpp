@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst25Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst25Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = 0;
   logical->maximumValue = 255;
@@ -39,14 +39,14 @@ void Dpst25Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger nibble1(new LogicalInteger(GD::bl));
+    PLogicalInteger nibble1(new LogicalInteger(Gd::bl));
     nibble1->minimumValue = 0;
     nibble1->maximumValue = 3;
     additionalParameters.push_back(createParameter(function, baseName + ".BUSY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 4, nibble1));
 
-    PLogicalInteger nibble2(new LogicalInteger(GD::bl));
+    PLogicalInteger nibble2(new LogicalInteger(Gd::bl));
     nibble2->minimumValue = 0;
     nibble2->maximumValue = 3;
     additionalParameters.push_back(createParameter(function, baseName + ".NAK", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 4, nibble2));

@@ -4,7 +4,7 @@
 
 #include "KnxPeer.h"
 
-#include "GD.h"
+#include "Gd.h"
 #include "Cemi.h"
 #include "KnxCentral.h"
 
@@ -14,20 +14,20 @@ namespace Knx {
 std::shared_ptr<BaseLib::Systems::ICentral> KnxPeer::getCentral() {
   try {
     if (_central) return _central;
-    _central = GD::family->getCentral();
+    _central = Gd::family->getCentral();
     return _central;
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return std::shared_ptr<BaseLib::Systems::ICentral>();
 }
 
-KnxPeer::KnxPeer(uint32_t parentID, IPeerEventSink *eventHandler) : BaseLib::Systems::Peer(GD::bl, parentID, eventHandler) {
+KnxPeer::KnxPeer(uint32_t parentID, IPeerEventSink *eventHandler) : BaseLib::Systems::Peer(Gd::bl, parentID, eventHandler) {
   init();
 }
 
-KnxPeer::KnxPeer(int32_t id, int32_t address, std::string serialNumber, uint32_t parentID, IPeerEventSink *eventHandler) : BaseLib::Systems::Peer(GD::bl, id, address, serialNumber, parentID, eventHandler) {
+KnxPeer::KnxPeer(int32_t id, int32_t address, std::string serialNumber, uint32_t parentID, IPeerEventSink *eventHandler) : BaseLib::Systems::Peer(Gd::bl, id, address, serialNumber, parentID, eventHandler) {
   init();
 }
 
@@ -36,7 +36,7 @@ KnxPeer::~KnxPeer() {
     dispose();
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -44,10 +44,10 @@ void KnxPeer::init() {
   try {
     _readVariables = false;
     _stopWorkerThread = false;
-    _dptConverter.reset(new DptConverter(GD::bl));
+    _dptConverter.reset(new DptConverter(Gd::bl));
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -58,7 +58,7 @@ void KnxPeer::dispose() {
 
 void KnxPeer::worker() {
   try {
-    for (auto &interface : GD::physicalInterfaces) {
+    for (auto &interface : Gd::physicalInterfaces) {
       if (!interface.second->isOpen()) return;
     }
 
@@ -73,7 +73,7 @@ void KnxPeer::worker() {
         for (Parameters::iterator j = parameterGroup->parameters.begin(); j != parameterGroup->parameters.end(); ++j) {
           if (_stopWorkerThread) return;
           if (!j->second->readable) continue;
-          if (GD::bl->debugLevel >= 4) GD::out.printInfo("Info: Reading " + j->second->id + " of peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first));
+          if (Gd::bl->debugLevel >= 4) Gd::out.printInfo("Info: Reading " + j->second->id + " of peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first));
           getValueFromDevice(j->second, i->first, false);
         }
       }
@@ -82,7 +82,7 @@ void KnxPeer::worker() {
     if (!serviceMessages->getUnreach()) serviceMessages->checkUnreach(_rpcDevice->timeout, getLastPacketReceived());
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -91,7 +91,7 @@ void KnxPeer::homegearStarted() {
     Peer::homegearStarted();
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -101,7 +101,7 @@ void KnxPeer::homegearShuttingDown() {
     _stopWorkerThread = true;
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -168,7 +168,7 @@ std::string KnxPeer::handleCliCommand(std::string command) {
     } else return "Unknown command.\n";
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return "Error executing command. See log file for more details.\n";
 }
@@ -244,7 +244,7 @@ std::string KnxPeer::printConfig() {
     return stringStream.str();
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return "";
 }
@@ -264,7 +264,7 @@ std::vector<uint16_t> KnxPeer::getGroupAddresses() {
     }
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return addresses;
 }
@@ -274,11 +274,11 @@ void KnxPeer::loadVariables(BaseLib::Systems::ICentral *central, std::shared_ptr
     if (!rows) rows = _bl->db->getPeerVariables(_peerID);
     Peer::loadVariables(central, rows);
 
-    _rpcDevice = GD::family->getRpcDevices()->find(_deviceType, _firmwareVersion, -1);
+    _rpcDevice = Gd::family->getRpcDevices()->find(_deviceType, _firmwareVersion, -1);
     if (!_rpcDevice) return;
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -287,7 +287,7 @@ bool KnxPeer::load(BaseLib::Systems::ICentral *central) {
     std::shared_ptr<BaseLib::Database::DataTable> rows;
     loadVariables(central, rows);
     if (!_rpcDevice) {
-      GD::out.printError("Error loading peer " + std::to_string(_peerID) + ": Device type not found: 0x" + BaseLib::HelperFunctions::getHexString(_deviceType) + " Firmware version: " + std::to_string(_firmwareVersion));
+      Gd::out.printError("Error loading peer " + std::to_string(_peerID) + ": Device type not found: 0x" + BaseLib::HelperFunctions::getHexString(_deviceType) + " Firmware version: " + std::to_string(_firmwareVersion));
       return false;
     }
 
@@ -306,7 +306,7 @@ bool KnxPeer::load(BaseLib::Systems::ICentral *central) {
     return true;
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return false;
 }
@@ -359,27 +359,27 @@ void KnxPeer::initParametersByGroupAddress() {
     }
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
 void KnxPeer::sendPacket(const PCemi &packet) {
   try {
     if (_rpcDevice->interface.empty()) {
-      for (auto &interface : GD::physicalInterfaces) {
+      for (auto &interface : Gd::physicalInterfaces) {
         interface.second->sendPacket(packet);
       }
     } else {
-      auto interfaceIterator = GD::physicalInterfaces.find(_rpcDevice->interface);
-      if (interfaceIterator == GD::physicalInterfaces.end()) {
-        GD::out.printError("Error: Communication interface \"" + _rpcDevice->interface + "\" required by peer " + std::to_string(_peerID) + " was not found. Could not send packet.");
+      auto interfaceIterator = Gd::physicalInterfaces.find(_rpcDevice->interface);
+      if (interfaceIterator == Gd::physicalInterfaces.end()) {
+        Gd::out.printError("Error: Communication interface \"" + _rpcDevice->interface + "\" required by peer " + std::to_string(_peerID) + " was not found. Could not send packet.");
         return;
       }
       interfaceIterator->second->sendPacket(packet);
     }
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -389,17 +389,17 @@ void KnxPeer::packetReceived(PCemi &packet) {
     setLastPacketReceived();
 
     if (_bl->debugLevel >= 4)
-      GD::out.printInfo("Info: Packet received by peer " + std::to_string(_peerID) + ". Payload: " + BaseLib::HelperFunctions::getHexString(packet->getPayload()));
+      Gd::out.printInfo("Info: Packet received by peer " + std::to_string(_peerID) + ". Payload: " + BaseLib::HelperFunctions::getHexString(packet->getPayload()));
 
     auto parametersIterator = _parametersByGroupAddress.find(packet->getDestinationAddress());
     if (parametersIterator == _parametersByGroupAddress.end()) {
       if (_bl->debugLevel >= 4)
-        GD::out.printInfo("Info: No parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+        Gd::out.printInfo("Info: No parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
       return;
     }
 
     if (_bl->debugLevel >= 4 && parametersIterator->second.empty()) {
-      GD::out.printInfo("Info: No parameter was found for group address (empty): " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+      Gd::out.printInfo("Info: No parameter was found for group address (empty): " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
     }
 
     if (packet->getOperation() == Cemi::Operation::groupValueWrite) {
@@ -407,7 +407,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
         BaseLib::Systems::RpcConfigurationParameter &parameter = valuesCentral[parameterIterator.channel][parameterIterator.parameter->id];
         if (!parameter.rpcParameter) {
           if (_bl->debugLevel >= 4)
-            GD::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+            Gd::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
 
           return;
         }
@@ -417,7 +417,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
         if (parameter.databaseId > 0) saveParameter(parameter.databaseId, parameterData);
         else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator.channel, parameterIterator.parameter->id, parameterData);
         if (_bl->debugLevel >= 4)
-          GD::out.printInfo("Info: " + parameterIterator.parameter->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator.channel) + " was set to 0x"
+          Gd::out.printInfo("Info: " + parameterIterator.parameter->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator.channel) + " was set to 0x"
                                 + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
         PVariable variable = _dptConverter->getVariable(parameterIterator.cast->type, packet->getPayload(), parameter.mainRole());
@@ -463,7 +463,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
                     if (groupedParameter.databaseId > 0) saveParameter(groupedParameter.databaseId, groupedParameterData);
                     else saveParameter(0, ParameterGroup::Type::Enum::variables, parameterIterator.channel, (*i)->id, groupedParameterData);
                     if (_bl->debugLevel >= 4)
-                      GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator.channel) + " was set to 0x"
+                      Gd::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(parameterIterator.channel) + " was set to 0x"
                                             + BaseLib::HelperFunctions::getHexString(groupedParameterData) + ".");
 
                     valueKeys->push_back((*i)->id);
@@ -499,7 +499,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
       BaseLib::Systems::RpcConfigurationParameter &parameter = valuesCentral[channel][parameterId];
       if (!parameter.rpcParameter) {
         if (_bl->debugLevel >= 4)
-          GD::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
+          Gd::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
 
         return;
       }
@@ -509,14 +509,14 @@ void KnxPeer::packetReceived(PCemi &packet) {
       if (!parameter.rpcParameter->casts.empty()) {
         ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter.rpcParameter->casts.at(0));
         if (!cast) {
-          GD::out.printError("Error: No DPT conversion defined for parameter " + parameter.rpcParameter->id + ". Can't send response.");
+          Gd::out.printError("Error: No DPT conversion defined for parameter " + parameter.rpcParameter->id + ". Can't send response.");
           return;
         }
         fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
       }
 
       if (_bl->debugLevel >= 4)
-        GD::out.printInfo(
+        Gd::out.printInfo(
             "Info: " + parameterId + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was requested. Current value is 0x" + BaseLib::HelperFunctions::getHexString(parameterData)
                 + ".");
 
@@ -525,7 +525,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
     }
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -559,7 +559,7 @@ PVariable KnxPeer::getValueFromDevice(PParameter &parameter, int32_t channel, bo
     return _getValueFromDeviceInfo.value;
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return Variable::createError(-32500, "Unknown application error.");
 }
@@ -572,7 +572,7 @@ PParameterGroup KnxPeer::getParameterSet(int32_t channel, ParameterGroup::Type::
     else if (type == ParameterGroup::Type::Enum::link) return rpcChannel->linkParameters;
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return PParameterGroup();
 }
@@ -589,7 +589,7 @@ bool KnxPeer::getAllValuesHook2(PRpcClientInfo clientInfo, PParameter parameter,
     }
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return false;
 }
@@ -606,7 +606,7 @@ bool KnxPeer::getParamsetHook2(PRpcClientInfo clientInfo, PParameter parameter, 
     }
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return false;
 }
@@ -620,7 +620,7 @@ bool KnxPeer::convertFromPacketHook(BaseLib::Systems::RpcConfigurationParameter 
     result = _dptConverter->getVariable(cast->type, data, parameter.mainRole());
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return true;
 }
@@ -634,7 +634,7 @@ bool KnxPeer::convertToPacketHook(BaseLib::Systems::RpcConfigurationParameter &p
     result = _dptConverter->getDpt(cast->type, data, parameter.mainRole());
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return true;
 }
@@ -649,7 +649,7 @@ PVariable KnxPeer::getDeviceInfo(BaseLib::PRpcClientInfo clientInfo, std::map<st
     return info;
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return PVariable();
 }
@@ -685,7 +685,7 @@ PVariable KnxPeer::putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t chann
     return PVariable(new Variable(VariableType::tVoid));
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return Variable::createError(-32500, "Unknown application error.");
 }
@@ -746,7 +746,7 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
       if (parameter.databaseId > 0) saveParameter(parameter.databaseId, parameterData);
       else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameterData);
       if (_bl->debugLevel >= 4)
-        GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
+        Gd::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
       std::string::size_type pos = valueKey.find('.');
       std::string::size_type posRv = valueKey.find(".RV.");
@@ -771,7 +771,7 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
         if (rawParameter.databaseId > 0) saveParameter(rawParameter.databaseId, rawParameterData);
         else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, rawParameterName, rawParameterData);
         if (_bl->debugLevel >= 4)
-          GD::out.printInfo(
+          Gd::out.printInfo(
               "Info: " + rawParameterName + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(rawParameterData) + ".");
 
         valueKeys->push_back(rawParameterName);
@@ -790,7 +790,7 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
     if (parameter.databaseId > 0) saveParameter(parameter.databaseId, parameterData);
     else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, valueKey, parameterData);
     if (_bl->debugLevel >= 4)
-      GD::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
+      Gd::out.printInfo("Info: " + valueKey + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(parameterData) + ".");
 
     if (valueKey.size() > 4 && valueKey.compare(valueKey.size() - 4, 4, ".RAW") == 0) {
       std::string baseName = valueKey.substr(0, valueKey.size() - 4);
@@ -816,7 +816,7 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
         if (groupedParameter.databaseId > 0) saveParameter(groupedParameter.databaseId, groupedParameterData);
         else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, (*i)->id, groupedParameterData);
         if (_bl->debugLevel >= 4)
-          GD::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameterData) + ".");
+          Gd::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameterData) + ".");
 
         valueKeys->push_back((*i)->id);
         values->push_back(_dptConverter->getVariable(groupedCast->type, groupedParameterData, groupedParameter.mainRole()));
@@ -851,7 +851,7 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
     return std::make_shared<Variable>(VariableType::tVoid);
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return Variable::createError(-32500, "Unknown application error. See error log for more details.");
 }

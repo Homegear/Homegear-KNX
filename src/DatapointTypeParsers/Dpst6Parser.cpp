@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst6Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = -128;
   logical->maximumValue = 127;
@@ -42,7 +42,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATUS_A",
@@ -54,7 +54,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    0,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATUS_B",
                                                    "DPT-1",
@@ -65,7 +65,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    1,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATUS_C",
                                                    "DPT-1",
@@ -76,7 +76,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    2,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATUS_D",
                                                    "DPT-1",
@@ -87,7 +87,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    3,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".STATUS_E",
                                                    "DPT-1",
@@ -98,8 +98,8 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    4,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
-    PLogicalEnumeration enumeration(new LogicalEnumeration(GD::bl));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
+    PLogicalEnumeration enumeration(new LogicalEnumeration(Gd::bl));
     additionalParameters.push_back(createParameter(function, baseName + ".MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, enumeration));
     enumeration->minimumValue = 1;
     enumeration->maximumValue = 4;

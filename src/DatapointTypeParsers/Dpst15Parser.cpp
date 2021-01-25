@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst15Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst15Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   cast->type = "DPT-15";
 
@@ -37,34 +37,34 @@ void Dpst15Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger field1(new LogicalInteger(GD::bl));
+    PLogicalInteger field1(new LogicalInteger(Gd::bl));
     field1->minimumValue = 0;
     field1->maximumValue = 9;
     additionalParameters.push_back(createParameter(function, baseName + ".DATA1", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 4, field1));
 
-    PLogicalInteger field2(new LogicalInteger(GD::bl));
+    PLogicalInteger field2(new LogicalInteger(Gd::bl));
     field2->minimumValue = 0;
     field2->maximumValue = 9;
     additionalParameters.push_back(createParameter(function, baseName + ".DATA2", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 4, 4, field2));
 
-    PLogicalInteger field3(new LogicalInteger(GD::bl));
+    PLogicalInteger field3(new LogicalInteger(Gd::bl));
     field3->minimumValue = 0;
     field3->maximumValue = 9;
     additionalParameters.push_back(createParameter(function, baseName + ".DATA3", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 4, field3));
 
-    PLogicalInteger field4(new LogicalInteger(GD::bl));
+    PLogicalInteger field4(new LogicalInteger(Gd::bl));
     field4->minimumValue = 0;
     field4->maximumValue = 9;
     additionalParameters.push_back(createParameter(function, baseName + ".DATA4", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 12, 4, field4));
 
-    PLogicalInteger field5(new LogicalInteger(GD::bl));
+    PLogicalInteger field5(new LogicalInteger(Gd::bl));
     field5->minimumValue = 0;
     field5->maximumValue = 9;
     additionalParameters.push_back(createParameter(function, baseName + ".DATA5", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 4, field5));
 
-    PLogicalInteger field6(new LogicalInteger(GD::bl));
+    PLogicalInteger field6(new LogicalInteger(Gd::bl));
     field6->minimumValue = 0;
     field6->maximumValue = 9;
     additionalParameters.push_back(createParameter(function, baseName + ".DATA6", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 20, 4, field6));
@@ -79,7 +79,7 @@ void Dpst15Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    24,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".PERMISSION",
                                                    "DPT-1",
@@ -90,7 +90,7 @@ void Dpst15Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    25,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".READ_DIRECTION",
                                                    "DPT-1",
@@ -101,7 +101,7 @@ void Dpst15Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    26,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".ENCRYPTION",
                                                    "DPT-1",
@@ -112,9 +112,9 @@ void Dpst15Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    27,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
-    PLogicalInteger codeIndex(new LogicalInteger(GD::bl));
+    PLogicalInteger codeIndex(new LogicalInteger(Gd::bl));
     codeIndex->minimumValue = 0;
     codeIndex->maximumValue = 9;
     additionalParameters.push_back(createParameter(function, baseName + ".CODE_INDEX", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 28, 4, codeIndex));

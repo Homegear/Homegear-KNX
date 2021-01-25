@@ -1,15 +1,15 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "MainInterface.h"
-#include "../GD.h"
+#include "../Gd.h"
 #include "../Cemi.h"
 #include "../KnxIpPacket.h"
 
 namespace Knx {
 
-MainInterface::MainInterface(const std::shared_ptr<BaseLib::Systems::PhysicalInterfaceSettings> &settings) : IPhysicalInterface(GD::bl, GD::family->getFamily(), settings) {
-  _out.init(GD::bl);
-  _out.setPrefix(GD::out.getPrefix() + "KNXNet/IP \"" + settings->id + "\": ");
+MainInterface::MainInterface(const std::shared_ptr<BaseLib::Systems::PhysicalInterfaceSettings> &settings) : IPhysicalInterface(Gd::bl, Gd::family->getFamily(), settings) {
+  _out.init(Gd::bl);
+  _out.setPrefix(Gd::out.getPrefix() + "KNXNet/IP \"" + settings->id + "\": ");
 
   signal(SIGPIPE, SIG_IGN);
 
@@ -30,9 +30,9 @@ MainInterface::MainInterface(const std::shared_ptr<BaseLib::Systems::PhysicalInt
 MainInterface::~MainInterface() {
   try {
     _stopCallbackThread = true;
-    GD::bl->threadManager.join(_keepAliveThread);
-    GD::bl->threadManager.join(_listenThread);
-    GD::bl->threadManager.join(_initThread);
+    Gd::bl->threadManager.join(_keepAliveThread);
+    Gd::bl->threadManager.join(_listenThread);
+    Gd::bl->threadManager.join(_initThread);
   }
   catch (const std::exception &ex) {
     _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
@@ -156,8 +156,8 @@ void MainInterface::startListening() {
     _hostname = _settings->host;
     _ipAddress = _socket->getClientIp();
     _stopped = false;
-    if (_settings->listenThreadPriority > -1) GD::bl->threadManager.start(_listenThread, true, _settings->listenThreadPriority, _settings->listenThreadPolicy, &MainInterface::listen, this);
-    else GD::bl->threadManager.start(_listenThread, true, &MainInterface::listen, this);
+    if (_settings->listenThreadPriority > -1) Gd::bl->threadManager.start(_listenThread, true, _settings->listenThreadPriority, _settings->listenThreadPolicy, &MainInterface::listen, this);
+    else Gd::bl->threadManager.start(_listenThread, true, &MainInterface::listen, this);
     IPhysicalInterface::startListening();
 
     init();
@@ -179,7 +179,7 @@ void MainInterface::reconnect() {
     _ipAddress = _socket->getClientIp();
     _stopped = false;
     _out.printInfo("Info: Connected to device with hostname " + _settings->host + " on port " + _settings->port + ".");
-    GD::bl->threadManager.join(_initThread);
+    Gd::bl->threadManager.join(_initThread);
     _bl->threadManager.start(_initThread, true, &MainInterface::init, this);
   }
   catch (const std::exception &ex) {
@@ -254,8 +254,8 @@ void MainInterface::stopListening() {
     // }}}
 
     _stopCallbackThread = true;
-    GD::bl->threadManager.join(_initThread);
-    GD::bl->threadManager.join(_listenThread);
+    Gd::bl->threadManager.join(_initThread);
+    Gd::bl->threadManager.join(_listenThread);
     _stopCallbackThread = false;
     _socket->close();
     _stopped = true;

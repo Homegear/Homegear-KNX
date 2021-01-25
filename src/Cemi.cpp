@@ -2,7 +2,7 @@
 
 #include "Cemi.h"
 
-#include "GD.h"
+#include "Gd.h"
 
 namespace Knx {
 

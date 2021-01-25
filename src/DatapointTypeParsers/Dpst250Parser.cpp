@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst250Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -19,7 +19,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger logical(new LogicalInteger(GD::bl));
+  PLogicalInteger logical(new LogicalInteger(Gd::bl));
   parameter->logical = logical;
   cast->type = "DPT-250";
 
@@ -37,7 +37,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".CCT_INCREASE",
@@ -49,9 +49,9 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    4,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
-    PLogicalInteger cctStep(new LogicalInteger(GD::bl));
+    PLogicalInteger cctStep(new LogicalInteger(Gd::bl));
     cctStep->minimumValue = 1;
     cctStep->maximumValue = 7;
     additionalParameters.push_back(createParameter(function, baseName + ".CCT_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, cctStep));
@@ -66,9 +66,9 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    12,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
-    PLogicalInteger cbStep(new LogicalInteger(GD::bl));
+    PLogicalInteger cbStep(new LogicalInteger(Gd::bl));
     cbStep->minimumValue = 1;
     cbStep->maximumValue = 7;
     additionalParameters.push_back(createParameter(function, baseName + ".CB_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 3, cbStep));
@@ -83,7 +83,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    22,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".CB_VALID",
                                                    "DPT-1",
@@ -94,7 +94,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                    parameter->roles,
                                                    23,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
   }
 
   for (auto &additionalParameter : additionalParameters) {

@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst29Parser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include <homegear-base/DeviceDescription/Function.h>
 #include <homegear-base/DeviceDescription/Parameter.h>
@@ -18,7 +18,7 @@ void Dpst29Parser::parse(BaseLib::SharedObjects *bl,
                          std::shared_ptr<BaseLib::DeviceDescription::Parameter> &parameter) {
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger64 logical(new LogicalInteger64(GD::bl));
+  PLogicalInteger64 logical(new LogicalInteger64(Gd::bl));
   parameter->logical = logical;
   cast->type = datapointType;
   //Active energy
