@@ -51,7 +51,7 @@ Cemi::Cemi(const std::vector<uint8_t> &binaryPacket) {
 
 BaseLib::PVariable Cemi::toVariable() {
   auto packetStruct = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
-  packetStruct->structValue->emplace("rawPacket", std::make_shared<BaseLib::Variable>(_rawPacket));
+  packetStruct->structValue->emplace("rawPacket", std::make_shared<BaseLib::Variable>(BaseLib::HelperFunctions::getHexString(_rawPacket)));
 
   if (getMessageCode() == 0x29) {
     packetStruct->structValue->emplace("sourceAddress", std::make_shared<BaseLib::Variable>(getSourceAddress()));

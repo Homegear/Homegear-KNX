@@ -230,7 +230,7 @@ KnxIpPacket::KnxIpPacket(uint8_t channelId, uint8_t sequenceCounter, const PCemi
 
 BaseLib::PVariable KnxIpPacket::toVariable() {
   auto packetStruct = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
-  packetStruct->structValue->emplace("rawPacket", std::make_shared<BaseLib::Variable>(_rawPacket));
+  packetStruct->structValue->emplace("rawPacket", std::make_shared<BaseLib::Variable>(BaseLib::HelperFunctions::getHexString(_rawPacket)));
   packetStruct->structValue->emplace("serviceType", std::make_shared<BaseLib::Variable>(getServiceIdentifierString()));
 
   if (_tunnelingRequest && _tunnelingRequest->cemi->getMessageCode() == 0x29) {
