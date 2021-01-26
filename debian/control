@@ -8,7 +8,7 @@ Homepage: https://homegear.eu
 
 Package: homegear-knx
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libhomegear-base (= <BASELIBVER>), homegear (= <BASELIBVER>), libgcrypt20, libgnutlsxx28, libgpg-error0 (>= 1.10), libzip2 | libzip4
+Depends: ${shlibs:Depends}, ${misc:Depends}, libhomegear-base (= <BASELIBVER>), homegear (= <BASELIBVER>), libgcrypt20, libgnutlsxx28, libgpg-error0 (>= 1.10), libzip5 | libzip4 | libzip2
 Description: KNX module for Homegear
  Homegear is a program to interface your home automation software 
  with your smart home devices.
