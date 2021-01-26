@@ -675,7 +675,7 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
 
       for (auto &peer : _peersById) {
         auto rpcDevice = peer.second->getRpcDevice();
-        if (rpcDevice->supportedDevices.empty()) continue;
+        if (rpcDevice->supportedDevices.empty() || !rpcDevice->metadata) continue;
         auto metadataIterator = rpcDevice->metadata->structValue->find("useAutoChannel");
         if (metadataIterator == rpcDevice->metadata->structValue->end() || !metadataIterator->second->booleanValue) peersWithoutAutochannels.emplace(rpcDevice->supportedDevices.front()->id);
       }
