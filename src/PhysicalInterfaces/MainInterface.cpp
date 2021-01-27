@@ -113,9 +113,9 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
       return;
     }
     std::vector<uint8_t> response;
-    getResponse(ServiceType::TUNNELING_ACK, data, response);
+    getResponse(ServiceType::TUNNELING_ACK, data, response, 200);
     if (response.size() < 10) {
-      if (response.empty()) _out.printError("Error: No TUNNELING_ACK packet received: " + BaseLib::HelperFunctions::getHexString(response));
+      if (response.empty()) _out.printError("Error: No TUNNELING_ACK packet received (group address " + Cemi::getFormattedGroupAddress(cemi->getDestinationAddress()) + "): " + BaseLib::HelperFunctions::getHexString(response));
       else _out.printError("Error: TUNNELING_ACK packet is too small: " + BaseLib::HelperFunctions::getHexString(response));
       return;
     }
@@ -125,7 +125,7 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
     }
 
     //{{{ Wait for 2E packet
-    if (!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(10000), [&] { return request->mutexReady; })) {
+    if (!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(1000), [&] { return request->mutexReady; })) {
       _out.printError("Error: No data control packet received in response to packet.");
     } else if (request->response.size() > 8) sendAck(request->response.at(8), 0);
 
@@ -552,7 +552,7 @@ void MainInterface::getResponse(ServiceType serviceType, const std::vector<uint8
     }
 
     if (!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(timeout), [&] { return request->mutexReady || _stopCallbackThread; })) {
-      if (timeout > 1000) {
+      if (timeout >= 1000) {
         _out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
         _stopped = true; //Force reconnect
       } else _out.printInfo("Info: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
