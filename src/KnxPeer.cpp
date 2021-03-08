@@ -490,8 +490,8 @@ void KnxPeer::packetReceived(PCemi &packet) {
         raiseEvent(eventSource, _peerID, parameterIterator.channel, valueKeys, values);
         raiseRPCEvent(eventSource, _peerID, parameterIterator.channel, address, valueKeys, values);
       }
-    } else if (packet->getOperation() == Cemi::Operation::groupValueRead) {
-      //Check if groupValueRead realy needs to be implemented here.
+    } /*else if (packet->getOperation() == Cemi::Operation::groupValueRead) {
+      //Check if groupValueRead really needs to be implemented here.
 
       if (parametersIterator->second.empty()) return;
       int32_t channel = parametersIterator->second.front().channel;
@@ -522,7 +522,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
 
       auto responsePacket = std::make_shared<Cemi>(Cemi::Operation::groupValueResponse, 0, parameter.rpcParameter->physical->address, fitsInFirstByte, parameterData);
       sendPacket(responsePacket);
-    }
+    }*/
   }
   catch (const std::exception &ex) {
     Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
