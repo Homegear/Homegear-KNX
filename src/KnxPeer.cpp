@@ -402,7 +402,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
       Gd::out.printInfo("Info: No parameter was found for group address (empty): " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
     }
 
-    if (packet->getOperation() == Cemi::Operation::groupValueWrite) {
+    if (packet->getOperation() == Cemi::Operation::groupValueWrite || packet->getOperation() == Cemi::Operation::groupValueResponse) {
       for (auto &parameterIterator : parametersIterator->second) {
         BaseLib::Systems::RpcConfigurationParameter &parameter = valuesCentral[parameterIterator.channel][parameterIterator.parameter->id];
         if (!parameter.rpcParameter) {
@@ -552,7 +552,7 @@ PVariable KnxPeer::getValueFromDevice(PParameter &parameter, int32_t channel, bo
     auto packet = std::make_shared<Cemi>(Cemi::Operation::groupValueRead, 0, valuesIterator->second.rpcParameter->physical->address);
     sendPacket(packet);
 
-    if (!_getValueFromDeviceInfo.conditionVariable.wait_for(lock, std::chrono::milliseconds(2000), [&] { return _getValueFromDeviceInfo.mutexReady; })) {
+    if (!_getValueFromDeviceInfo.conditionVariable.wait_for(lock, std::chrono::milliseconds(1000), [&] { return _getValueFromDeviceInfo.mutexReady; })) {
       return std::make_shared<Variable>(VariableType::tVoid);
     }
 
