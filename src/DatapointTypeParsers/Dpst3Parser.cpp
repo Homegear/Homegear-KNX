@@ -3,10 +3,6 @@
 #include "Dpst3Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -35,6 +31,7 @@ void Dpst3Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::command,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    (uint16_t)parameter->physical->address,
                                                    -1,
@@ -47,6 +44,7 @@ void Dpst3Parser::parse(BaseLib::SharedObjects *bl,
                                                  IPhysical::OperationType::store,
                                                  parameter->readable,
                                                  parameter->writeable,
+                                                 parameter->readOnInit,
                                                  parameter->roles,
                                                  4,
                                                  1,
@@ -55,7 +53,7 @@ void Dpst3Parser::parse(BaseLib::SharedObjects *bl,
   PLogicalInteger stepCode(new LogicalInteger(bl));
   stepCode->minimumValue = 0;
   stepCode->minimumValue = 7;
-  additionalParameters.push_back(createParameter(function, baseName + ".STEP_CODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, stepCode));
+  additionalParameters.push_back(createParameter(function, baseName + ".STEP_CODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 5, 3, stepCode));
 
   for (auto &additionalParameter : additionalParameters) {
     if (!additionalParameter) continue;

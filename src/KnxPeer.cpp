@@ -65,14 +65,43 @@ void KnxPeer::worker() {
     if (_readVariables) {
       _readVariables = false;
       for (Functions::iterator i = _rpcDevice->functions.begin(); i != _rpcDevice->functions.end(); ++i) {
-        if (i->first == 0) continue;
-
         PParameterGroup parameterGroup = getParameterSet(i->first, ParameterGroup::Type::variables);
         if (!parameterGroup) continue;
 
         for (Parameters::iterator j = parameterGroup->parameters.begin(); j != parameterGroup->parameters.end(); ++j) {
           if (_stopWorkerThread) return;
-          if (!j->second->readable) continue;
+          if (j->second->service) continue;
+          if (!j->second->readable) {
+            //{{{ Process "read on init" devices
+            if (j->second->readOnInit) {
+              //When the "read on init" flag is set, Homegear writes the last known value to the device on start up. This only is allowed when no read flag is set, because in the latter case the value is read from another device.
+              auto channelIterator = valuesCentral.find(i->first);
+              if (channelIterator != valuesCentral.end()) {
+                auto variableIterator = channelIterator->second.find(j->second->id);
+                if (variableIterator != channelIterator->second.end()) {
+                  auto parameter = variableIterator->second;
+                  auto parameterData = variableIterator->second.getBinaryData();
+                  bool fitsInFirstByte = false;
+                  if (!parameter.rpcParameter->casts.empty()) {
+                    ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter.rpcParameter->casts.at(0));
+                    if (!cast) {
+                      Gd::out.printError("Error: No DPT conversion defined for parameter " + parameter.rpcParameter->id + ". Can't send value.");
+                      continue;
+                    }
+                    fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
+                  }
+
+                  if (Gd::bl->debugLevel >= 4) Gd::out.printInfo("Info: Writing " + j->second->id + " to peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first) + ", because \"read on init\" flag is set and there is no other device to read the value from.");
+                  auto cemi = std::make_shared<Cemi>(Cemi::Operation::groupValueWrite, 0, j->second->physical->address, fitsInFirstByte, parameterData);
+
+                  sendPacket(cemi);
+                }
+              }
+            }
+            //}}}
+
+            continue;
+          }
           if (Gd::bl->debugLevel >= 4) Gd::out.printInfo("Info: Reading " + j->second->id + " of peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first));
           getValueFromDevice(j->second, i->first, false);
         }
@@ -490,9 +519,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
         raiseEvent(eventSource, _peerID, parameterIterator.channel, valueKeys, values);
         raiseRPCEvent(eventSource, _peerID, parameterIterator.channel, address, valueKeys, values);
       }
-    } /*else if (packet->getOperation() == Cemi::Operation::groupValueRead) {
-      //Check if groupValueRead really needs to be implemented here.
-
+    } else if (packet->getOperation() == Cemi::Operation::groupValueRead) {
       if (parametersIterator->second.empty()) return;
       int32_t channel = parametersIterator->second.front().channel;
       std::string parameterId = parametersIterator->second.front().parameter->id;
@@ -501,6 +528,11 @@ void KnxPeer::packetReceived(PCemi &packet) {
         if (_bl->debugLevel >= 4)
           Gd::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
 
+        return;
+      }
+
+      if (parameter.rpcParameter->readable || !parameter.rpcParameter->readOnInit) {
+        Gd::out.printDebug("Debug: Ignoring groupValueRead, because parameter is readable and the \"read on init\" flag is not set.");
         return;
       }
 
@@ -522,7 +554,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
 
       auto responsePacket = std::make_shared<Cemi>(Cemi::Operation::groupValueResponse, 0, parameter.rpcParameter->physical->address, fitsInFirstByte, parameterData);
       sendPacket(responsePacket);
-    }*/
+    }
   }
   catch (const std::exception &ex) {
     Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());

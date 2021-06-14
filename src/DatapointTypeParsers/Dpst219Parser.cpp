@@ -3,10 +3,6 @@
 #include "Dpst219Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -36,6 +32,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
@@ -44,10 +41,10 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
     PLogicalInteger logNumber(new LogicalInteger(Gd::bl));
     logNumber->minimumValue = 0;
     logNumber->maximumValue = 255;
-    additionalParameters.push_back(createParameter(function, baseName + ".LOG_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 8, logNumber));
+    additionalParameters.push_back(createParameter(function, baseName + ".LOG_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 0, 8, logNumber));
 
     PLogicalEnumeration alarmPriority(new LogicalEnumeration(Gd::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".PRIORITY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 8, 8, alarmPriority));
+    additionalParameters.push_back(createParameter(function, baseName + ".PRIORITY", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 8, 8, alarmPriority));
     alarmPriority->minimumValue = 0;
     alarmPriority->maximumValue = 3;
     alarmPriority->values.emplace_back("High", 0);
@@ -56,7 +53,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
     alarmPriority->values.emplace_back("None", 3);
 
     PLogicalEnumeration applicationArea(new LogicalEnumeration(Gd::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 8, applicationArea));
+    additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 16, 8, applicationArea));
     applicationArea->minimumValue = 0;
     applicationArea->maximumValue = 50;
     applicationArea->values.emplace_back("No fault", 0);
@@ -71,7 +68,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
     applicationArea->values.emplace_back("Shutters and blinds", 50);
 
     PLogicalEnumeration errorClass(new LogicalEnumeration(Gd::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CLASS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 24, 8, errorClass));
+    additionalParameters.push_back(createParameter(function, baseName + ".ERROR_CLASS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 24, 8, errorClass));
     errorClass->minimumValue = 0;
     errorClass->maximumValue = 5;
     errorClass->values.emplace_back("No fault", 0);
@@ -88,6 +85,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    36,
                                                    1,
@@ -99,6 +97,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    37,
                                                    1,
@@ -110,6 +109,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    38,
                                                    1,
@@ -121,6 +121,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    39,
                                                    1,
@@ -133,6 +134,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    45,
                                                    1,
@@ -144,6 +146,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    46,
                                                    1,
@@ -155,6 +158,7 @@ void Dpst219Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    47,
                                                    1,

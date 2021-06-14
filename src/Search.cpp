@@ -77,7 +77,10 @@ void Search::addDeviceToPeerInfo(PHomegearDevice &device, int32_t address, std::
   }
 }
 
-std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlData &deviceInfo, std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap, const std::unordered_set<std::string> &peersWithoutAutochannels) {
+std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlData &deviceInfo,
+                                                             std::unordered_set<uint64_t> &usedTypeNumbers,
+                                                             std::unordered_map<std::string, uint64_t> &idTypeNumberMap,
+                                                             const std::unordered_set<std::string> &peersWithoutAutochannels) {
   try {
     if (deviceInfo.address == -1) return PHomegearDevice();
     std::shared_ptr<HomegearDevice> device = std::make_shared<HomegearDevice>(Gd::bl);
@@ -271,6 +274,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
                                                              IPhysical::OperationType::command,
                                                              groupVariable.second->readFlag,
                                                              groupVariable.second->writeFlag,
+                                                             groupVariable.second->readOnInitFlag,
                                                              roles,
                                                              groupVariable.second->address);
       if (!parameter) continue;
@@ -343,6 +347,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
       std::string unit;
       bool readable = true;
       bool writeable = true;
+      bool readOnInit = false;
       std::unordered_map<uint64_t, BaseLib::Role> roles;
 
       if (!variableXml->description) continue;
@@ -372,6 +377,9 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
 
       structIterator = variableXml->description->structValue->find("writeable");
       if (structIterator != variableXml->description->structValue->end()) writeable = structIterator->second->booleanValue;
+
+      structIterator = variableXml->description->structValue->find("readOnInit");
+      if (structIterator != variableXml->description->structValue->end()) readOnInit = structIterator->second->booleanValue;
 
       structIterator = variableXml->description->structValue->find("roles");
       if (structIterator != variableXml->description->structValue->end()) {
@@ -426,7 +434,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
         device->functions[function->channel] = function;
       } else function = functionIterator->second;
 
-      PParameter parameter = DpstParserBase::createParameter(function, variableName.empty() ? "VALUE" : variableName, variableXml->datapointType, unit, IPhysical::OperationType::command, readable, writeable, roles, variableXml->address);
+      PParameter parameter = DpstParserBase::createParameter(function, variableName.empty() ? "VALUE" : variableName, variableXml->datapointType, unit, IPhysical::OperationType::command, readable, writeable, readOnInit, roles, variableXml->address);
       if (!parameter) continue;
 
       parseDatapointType(function, variableXml->datapointType, parameter);
@@ -568,6 +576,13 @@ Search::PeerInfo Search::updateDevice(std::unordered_set<uint64_t> &usedTypeNumb
         return PeerInfo();
       }
       variable->readFlag = variableIterator->second->booleanValue;
+
+      variableIterator = variableElement.second->structValue->find("readOnInitFlag");
+      if (variableIterator == variableElement.second->structValue->end()) {
+        Gd::out.printError("Error: Group variable with index " + variableElement.first + " has no field \"readOnInitFlag\".");
+        return PeerInfo();
+      }
+      variable->readOnInitFlag = variableIterator->second->booleanValue;
 
       variableIterator = variableElement.second->structValue->find("writeFlag");
       if (variableIterator == variableElement.second->structValue->end()) {
@@ -1395,7 +1410,8 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                             //ETS >= 5.7
                             if (parts.at(0).compare(0, 3, "MD-") == 0) {
                               //Get from ModuleDef, e. g. M-0083_A-0128-42-08F8_MD-1_O-2-51_R-17 from MD-1_M-5_MI-1_O-2-51_R-17. The second pair part is the module instance.
-                              applicationInfo.emplace_back(ApplicationInfo{applicationProgramRefId + '_' + parts.at(0) + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1), parts.at(0) + '_' + parts.at(1) + '_' + parts.at(2), applicationProgramRefId});
+                              applicationInfo.emplace_back(ApplicationInfo{applicationProgramRefId + '_' + parts.at(0) + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1), parts.at(0) + '_' + parts.at(1) + '_' + parts.at(2),
+                                                                           applicationProgramRefId});
                             } else {
                               applicationInfo.emplace_back(ApplicationInfo{applicationProgramRefId + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1), "", applicationProgramRefId});
                             }
@@ -1442,6 +1458,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                           variableInfo.functionText = productDataElement->functionText;
                           variableInfo.writeFlag = productDataElement->writeFlag;
                           variableInfo.readFlag = productDataElement->readFlag;
+                          variableInfo.readOnInitFlag = productDataElement->readOnInitFlag;
                           variableInfo.transmitFlag = productDataElement->transmitFlag;
                           break;
                         }
@@ -1480,6 +1497,17 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                       if (attribute) {
                         attributeValue = std::string(attribute->value());
                         variableInfo.readFlag = attributeValue != "Disabled";
+                      }
+
+                      attribute = deviceNode->first_attribute("ReadOnInitFlag");
+                      if (attribute) {
+                        attributeValue = std::string(attribute->value());
+                        variableInfo.readOnInitFlag = attributeValue != "Disabled";
+                      }
+                      attribute = comInstanceRefNode->first_attribute("ReadOnInitFlag");
+                      if (attribute) {
+                        attributeValue = std::string(attribute->value());
+                        variableInfo.readOnInitFlag = attributeValue != "Disabled";
                       }
 
                       attribute = deviceNode->first_attribute("TransmitFlag");
@@ -1552,6 +1580,25 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
         }
       }
     }
+
+    //{{{ Check if group variable has at least one read flag and set all read flags to this value.
+    //    This is required to support "read on init" for devices that are only connected to Homegear.
+    //    Homegear answers to the read request when there is no read flag set.
+    for (auto &element : deviceByGroupVariable) {
+      bool hasReadFlag = false;
+      for (auto &device : element.second) {
+        if (device->variableInfo[element.first].empty()) continue;
+        if (device->variableInfo[element.first].front().readFlag) {
+          hasReadFlag = true;
+          break;
+        }
+      }
+      for (auto &device : element.second) {
+        if (device->variableInfo[element.first].empty()) continue;
+        device->variableInfo[element.first].front().readFlag = hasReadFlag;
+      }
+    }
+    //}}}
 
     for (xml_node *projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project")) {
       for (xml_node *installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations")) {
@@ -1702,6 +1749,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                             variableInfo->functionText = variableInfoElement.functionText;
                             variableInfo->autoChannel = variableInfoElement.autoChannel;
                             variableInfo->readFlag = variableInfoElement.readFlag;
+                            variableInfo->readOnInitFlag = variableInfoElement.readOnInitFlag;
                             variableInfo->writeFlag = variableInfoElement.writeFlag;
                             variableInfo->transmitFlag = variableInfoElement.transmitFlag;
                             variableInfo->index = variableInfoElement.index;

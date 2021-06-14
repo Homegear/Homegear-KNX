@@ -3,10 +3,6 @@
 #include "Dpst238Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -37,6 +33,7 @@ void Dpst238Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
@@ -49,6 +46,7 @@ void Dpst238Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    0,
                                                    1,
@@ -60,6 +58,7 @@ void Dpst238Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    1,
                                                    1,
@@ -68,7 +67,7 @@ void Dpst238Parser::parse(BaseLib::SharedObjects *bl,
     PLogicalInteger red(new LogicalInteger(Gd::bl));
     red->minimumValue = 0;
     red->maximumValue = 63;
-    additionalParameters.push_back(createParameter(function, baseName + ".DEVICE_ADDRESS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 6, red));
+    additionalParameters.push_back(createParameter(function, baseName + ".DEVICE_ADDRESS", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 2, 6, red));
   }
 
   for (auto &additionalParameter : additionalParameters) {

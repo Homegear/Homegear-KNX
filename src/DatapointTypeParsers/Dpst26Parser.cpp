@@ -3,10 +3,6 @@
 #include "Dpst26Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -38,6 +34,7 @@ void Dpst26Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
@@ -50,6 +47,7 @@ void Dpst26Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    1,
                                                    1,
@@ -58,7 +56,7 @@ void Dpst26Parser::parse(BaseLib::SharedObjects *bl,
     PLogicalInteger hours(new LogicalInteger(Gd::bl));
     hours->minimumValue = 0;
     hours->maximumValue = 63;
-    additionalParameters.push_back(createParameter(function, baseName + ".SCENE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 2, 6, hours));
+    additionalParameters.push_back(createParameter(function, baseName + ".SCENE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 2, 6, hours));
   }
 
   for (auto &additionalParameter : additionalParameters) {

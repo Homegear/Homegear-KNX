@@ -13,6 +13,7 @@ std::shared_ptr<BaseLib::DeviceDescription::Parameter> DpstParserBase::createPar
                                                                                        BaseLib::DeviceDescription::IPhysical::OperationType::Enum operationType,
                                                                                        bool readable,
                                                                                        bool writeable,
+                                                                                       bool readOnInit,
                                                                                        const std::unordered_map<uint64_t, BaseLib::Role> &roles,
                                                                                        uint16_t address,
                                                                                        int32_t size,
@@ -25,6 +26,7 @@ std::shared_ptr<BaseLib::DeviceDescription::Parameter> DpstParserBase::createPar
   parameter->roles = roles;
   parameter->readable = readable;
   parameter->writeable = writeable;
+  parameter->readOnInit = readOnInit;
   if (logical) parameter->logical = logical;
   parameter->physical = std::make_shared<BaseLib::DeviceDescription::Physical>(Gd::bl);
   parameter->physical->operationType = operationType;

@@ -3,10 +3,6 @@
 #include "Dpst2Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -39,6 +35,7 @@ void Dpst2Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::command,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    (uint16_t)parameter->physical->address,
                                                    -1,
@@ -51,6 +48,7 @@ void Dpst2Parser::parse(BaseLib::SharedObjects *bl,
                                                  IPhysical::OperationType::store,
                                                  parameter->readable,
                                                  parameter->writeable,
+                                                 parameter->readOnInit,
                                                  parameter->roles,
                                                  6,
                                                  1,
@@ -62,6 +60,7 @@ void Dpst2Parser::parse(BaseLib::SharedObjects *bl,
                                                  IPhysical::OperationType::store,
                                                  parameter->readable,
                                                  parameter->writeable,
+                                                 parameter->readOnInit,
                                                  parameter->roles,
                                                  7,
                                                  1,
