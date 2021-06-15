@@ -520,6 +520,8 @@ void KnxPeer::packetReceived(PCemi &packet) {
         raiseRPCEvent(eventSource, _peerID, parameterIterator.channel, address, valueKeys, values);
       }
     } else if (packet->getOperation() == Cemi::Operation::groupValueRead) {
+      //Homegear only answers to a read request when there is no readable device connected to the group variable (i. e. no linked device has the read flag set).
+
       if (parametersIterator->second.empty()) return;
       int32_t channel = parametersIterator->second.front().channel;
       std::string parameterId = parametersIterator->second.front().parameter->id;
@@ -531,8 +533,8 @@ void KnxPeer::packetReceived(PCemi &packet) {
         return;
       }
 
-      if (parameter.rpcParameter->readable || !parameter.rpcParameter->readOnInit) {
-        Gd::out.printDebug("Debug: Ignoring groupValueRead, because parameter is readable and the \"read on init\" flag is not set.");
+      if (parameter.rpcParameter->readable) {
+        Gd::out.printDebug("Debug: Ignoring groupValueRead, because parameter is readable.");
         return;
       }
 
