@@ -67,7 +67,8 @@ class KnxCentral : public BaseLib::Systems::ICentral {
 
   //{{{ Family RPC methods
   BaseLib::PVariable updateDevices(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters);
-  BaseLib::PVariable sendRawPacket(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters);
+  BaseLib::PVariable groupValueRead(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters);
+  BaseLib::PVariable groupValueWrite(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters);
   //}}}
 };
 
