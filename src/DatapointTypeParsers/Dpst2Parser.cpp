@@ -1,11 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst2Parser.h"
-#include "../GD.h"
-
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
+#include "../Gd.h"
 
 using namespace BaseLib::DeviceDescription;
 
@@ -39,10 +35,11 @@ void Dpst2Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::command,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    (uint16_t)parameter->physical->address,
                                                    -1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
   additionalParameters.push_back(createParameter(function,
                                                  baseName + ".CONTROL",
@@ -51,10 +48,11 @@ void Dpst2Parser::parse(BaseLib::SharedObjects *bl,
                                                  IPhysical::OperationType::store,
                                                  parameter->readable,
                                                  parameter->writeable,
+                                                 parameter->readOnInit,
                                                  parameter->roles,
                                                  6,
                                                  1,
-                                                 std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                 std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
   additionalParameters.push_back(createParameter(function,
                                                  baseName + ".STATE",
                                                  "DPT-1",
@@ -62,10 +60,11 @@ void Dpst2Parser::parse(BaseLib::SharedObjects *bl,
                                                  IPhysical::OperationType::store,
                                                  parameter->readable,
                                                  parameter->writeable,
+                                                 parameter->readOnInit,
                                                  parameter->roles,
                                                  7,
                                                  1,
-                                                 std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                 std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
   for (auto &additionalParameter : additionalParameters) {
     if (!additionalParameter) continue;

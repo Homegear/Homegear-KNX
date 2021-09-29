@@ -21,27 +21,27 @@ class KnxPeer : public BaseLib::Systems::Peer, public BaseLib::Rpc::IWebserverEv
  public:
   KnxPeer(uint32_t parentID, IPeerEventSink *eventHandler);
   KnxPeer(int32_t id, int32_t address, std::string serialNumber, uint32_t parentID, IPeerEventSink *eventHandler);
-  virtual ~KnxPeer();
+  ~KnxPeer() override;
   void init();
-  void dispose();
+  void dispose() override;
   void stopWorkerThread() { _stopWorkerThread = true; }
 
   //Features
-  virtual bool wireless() { return false; }
+  bool wireless() override { return false; }
   //End features
 
   void worker();
   void interfaceReconnected() { _readVariables = true; }
-  virtual std::string handleCliCommand(std::string command);
+  std::string handleCliCommand(std::string command) override;
   void packetReceived(PCemi &packet);
 
-  virtual bool load(BaseLib::Systems::ICentral *central);
-  virtual void savePeers() {}
+  bool load(BaseLib::Systems::ICentral *central) override;
+  void savePeers() override {}
 
-  virtual int32_t getChannelGroupedWith(int32_t channel) { return -1; }
-  virtual int32_t getNewFirmwareVersion() { return 0; }
-  virtual std::string getFirmwareVersionString(int32_t firmwareVersion) { return "1.0"; }
-  virtual bool firmwareUpdateAvailable() { return false; }
+  int32_t getChannelGroupedWith(int32_t channel) override { return -1; }
+  int32_t getNewFirmwareVersion() override { return 0; }
+  std::string getFirmwareVersionString(int32_t firmwareVersion) override { return "1.0"; }
+  bool firmwareUpdateAvailable() override { return false; }
 
   std::string getFormattedAddress();
 
@@ -53,16 +53,16 @@ class KnxPeer : public BaseLib::Systems::Peer, public BaseLib::Rpc::IWebserverEv
   /**
    * {@inheritDoc}
    */
-  virtual void homegearStarted();
+  void homegearStarted() override;
 
   /**
    * {@inheritDoc}
    */
-  virtual void homegearShuttingDown();
+  void homegearShuttingDown() override;
 
   //RPC methods
   PVariable getDeviceInfo(BaseLib::PRpcClientInfo clientInfo, std::map<std::string, bool> fields) override;
-  PVariable putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t channel, ParameterGroup::Type::Enum type, uint64_t remoteID, int32_t remoteChannel, PVariable variables, bool checkAcls, bool onlyPushing = false) override;
+  PVariable putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t channel, ParameterGroup::Type::Enum type, uint64_t remoteID, int32_t remoteChannel, PVariable variables, bool checkAcls, bool onlyPushing) override;
   PVariable setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel, std::string valueKey, PVariable value, bool wait) override;
   //End RPC methods
  protected:
@@ -100,16 +100,16 @@ class KnxPeer : public BaseLib::Systems::Peer, public BaseLib::Rpc::IWebserverEv
   GetValueFromDeviceInfo _getValueFromDeviceInfo;
   //}}}
 
-  virtual void loadVariables(BaseLib::Systems::ICentral *central, std::shared_ptr<BaseLib::Database::DataTable> &rows);
+  void loadVariables(BaseLib::Systems::ICentral *central, std::shared_ptr<BaseLib::Database::DataTable> &rows) override;
 
-  virtual std::shared_ptr<BaseLib::Systems::ICentral> getCentral();
+  std::shared_ptr<BaseLib::Systems::ICentral> getCentral() override;
 
   /**
    * {@inheritDoc}
    */
-  virtual PVariable getValueFromDevice(PParameter &parameter, int32_t channel, bool asynchronous);
+  PVariable getValueFromDevice(PParameter &parameter, int32_t channel, bool asynchronous) override;
 
-  virtual PParameterGroup getParameterSet(int32_t channel, ParameterGroup::Type::Enum type);
+  PParameterGroup getParameterSet(int32_t channel, ParameterGroup::Type::Enum type) override;
 
   void sendPacket(const PCemi &packet);
 
@@ -117,12 +117,12 @@ class KnxPeer : public BaseLib::Systems::Peer, public BaseLib::Rpc::IWebserverEv
   /**
    * {@inheritDoc}
    */
-  virtual bool getAllValuesHook2(PRpcClientInfo clientInfo, PParameter parameter, uint32_t channel, PVariable parameters);
+  bool getAllValuesHook2(PRpcClientInfo clientInfo, PParameter parameter, uint32_t channel, PVariable parameters) override;
 
   /**
    * {@inheritDoc}
    */
-  virtual bool getParamsetHook2(PRpcClientInfo clientInfo, PParameter parameter, uint32_t channel, PVariable parameters);
+  bool getParamsetHook2(PRpcClientInfo clientInfo, PParameter parameter, uint32_t channel, PVariable parameters) override;
 
   /**
    * {@inheritDoc}

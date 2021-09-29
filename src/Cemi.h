@@ -46,6 +46,8 @@ class Cemi : public BaseLib::Systems::Packet {
   Cemi(Operation operation, uint16_t sourceAddress, uint16_t destinationAddress, uint8_t tpduSequenceNumber, bool payloadFitsInFirstByte, std::vector<uint8_t> &payload);
   virtual ~Cemi() = default;
 
+  BaseLib::PVariable toVariable() override;
+
   std::vector<uint8_t> getBinary();
   uint8_t getMessageCode() { return _messageCode; }
   uint16_t getSourceAddress() { return _sourceAddress; }
@@ -56,6 +58,7 @@ class Cemi : public BaseLib::Systems::Packet {
   static uint16_t parsePhysicalAddress(const std::string &address);
   std::string getFormattedSourceAddress() { return getFormattedPhysicalAddress(_sourceAddress); }
   static std::string getFormattedGroupAddress(int32_t address);
+  static int32_t parseGroupAddress(const std::string &address);
   std::string getFormattedDestinationAddress() { return getFormattedGroupAddress(_destinationAddress); }
   std::vector<uint8_t> &getPayload() { return _payload; }
  protected:

@@ -2,7 +2,7 @@
 
 #include "Cemi.h"
 
-#include "GD.h"
+#include "Gd.h"
 
 namespace Knx {
 
@@ -31,7 +31,7 @@ Cemi::Cemi(Operation operation, uint16_t sourceAddress, uint16_t destinationAddr
 }
 
 Cemi::Cemi(const std::vector<uint8_t> &binaryPacket) {
-  if (binaryPacket.size() < 1) throw InvalidKnxPacketException("Too small packet.");
+  if (binaryPacket.empty()) throw InvalidKnxPacketException("Too small packet.");
   //Message always starts with the message code (section 4.1.3.1 of chapter 3.6.3)
   _messageCode = binaryPacket[0];
   if (_messageCode == 0x11 || _messageCode == 0x29) {
@@ -47,6 +47,22 @@ Cemi::Cemi(const std::vector<uint8_t> &binaryPacket) {
   }
 
   _rawPacket = binaryPacket;
+}
+
+BaseLib::PVariable Cemi::toVariable() {
+  auto packetStruct = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
+  packetStruct->structValue->emplace("rawPacket", std::make_shared<BaseLib::Variable>(BaseLib::HelperFunctions::getHexString(_rawPacket)));
+
+  if (getMessageCode() == 0x29) {
+    packetStruct->structValue->emplace("sourceAddress", std::make_shared<BaseLib::Variable>(getSourceAddress()));
+    packetStruct->structValue->emplace("sourceAddressFormatted", std::make_shared<BaseLib::Variable>(getFormattedSourceAddress()));
+    packetStruct->structValue->emplace("destinationAddress", std::make_shared<BaseLib::Variable>(getDestinationAddress()));
+    packetStruct->structValue->emplace("destinationAddressFormatted", std::make_shared<BaseLib::Variable>(getFormattedDestinationAddress()));
+    packetStruct->structValue->emplace("operation", std::make_shared<BaseLib::Variable>(getOperationString()));
+    packetStruct->structValue->emplace("payload", std::make_shared<BaseLib::Variable>(BaseLib::HelperFunctions::getHexString(getPayload())));
+  }
+
+  return packetStruct;
 }
 
 std::string Cemi::getOperationString() {
@@ -84,22 +100,23 @@ std::vector<uint8_t> Cemi::getBinary() {
 
   //{{{ cEMI
   /*
-  Controlfield 1: 0xbc
-      1... .... = Frametype: 1
-      ..1. .... = Repeat: 0
-      ...1 .... = System-Broadcast: 0
-      .... 11.. = Priority: 0x03
-      .... ..0. = Acknowledge-Request: 0
-      .... ...0 = Confirm-Flag: 0
+  Controlfield 1: 0xbc (section 4.1.5.3.2 of chapter 3.6.3)
+      1... .... = Frametype: 1 (0: extended frame, 1: standard frame)
+      .0.. .... = Always 0
+      ..1. .... = Repeat: 0 (0: repeat frame on medium if error, 1: do not repeat)
+      ...1 .... = System-Broadcast: 0 (This shall specify whether the frame is transmitted using system broadcast communication mode or broadcast communication mode (applicable only on open media))
+      .... 01.. = Priority: 1 (3 => low, 1 => normal, 2 => urgent, 0 => system)
+      .... ..0. = Acknowledge-Request: 0 (This shall specify whether a L2-acknowledge shall be requested for the L_Data.req frame or not. This is not valid for all media.)
+      .... ...0 = Confirm-Flag: 0 (In L_Data.con this shall indicate whether there has been any error in the transmitted frame.)
   Controlfield 2: 0xe0
-      1... .... = Destination address type: 1
-      .110 .... = Hop count: 6
-      .... 0000 = Extended Frame Format: 0x00
+      1... .... = Destination address type: 1 (0: individual, 1: group)
+      .110 .... = Hop count: 6 (If the RC is zero on reception of the Frame from the KNX Subnetwork or IP network, then the received KNX telegram shall not be routed. If the RC is seven on reception of the Frame from the KNX Subnetwork or IP network, then the telegram shall be routed without decrementing the RC.)
+      .... 0000 = 0 (0b0000 for standard frame, 0b01xx for LTE frames)
   */
 
   packet.push_back(_messageCode); //Message code (L_Data.req)
   packet.push_back(0); //Additional information length
-  packet.push_back((char)(uint8_t)0xBC); //Controlfield 1
+  packet.push_back((char)(uint8_t)0xB4); //Controlfield 1
   packet.push_back((char)(uint8_t)0xE0); //Controlfiled 2
   packet.push_back((char)(uint8_t)(_sourceAddress >> 8));
   packet.push_back((char)(uint8_t)(_sourceAddress & 0xFF));
@@ -119,7 +136,7 @@ std::vector<uint8_t> Cemi::getBinary() {
 }
 
 std::string Cemi::getFormattedPhysicalAddress(uint16_t address) {
-  if (address == -1) return "";
+  if (address == 0xFFFF) return "";
   return std::to_string(address >> 12) + '.' + std::to_string((address >> 8) & 0x0F) + '.' + std::to_string(address & 0xFF);
 }
 
@@ -131,6 +148,12 @@ uint16_t Cemi::parsePhysicalAddress(const std::string &address) {
 
 std::string Cemi::getFormattedGroupAddress(int32_t address) {
   return std::to_string(address >> 11) + "/" + std::to_string((address >> 8) & 0x7) + "/" + std::to_string(address & 0xFF);
+}
+
+int32_t Cemi::parseGroupAddress(const std::string &address) {
+  auto addressParts = BaseLib::HelperFunctions::splitAll(address, '/');
+  if (addressParts.size() != 3) return 0;
+  return ((BaseLib::Math::getUnsignedNumber(addressParts.at(0)) & 0x1F) << 11) | ((BaseLib::Math::getUnsignedNumber(addressParts.at(1)) & 7) << 8) | (BaseLib::Math::getUnsignedNumber(addressParts.at(2)) & 0xFF);
 }
 
 }

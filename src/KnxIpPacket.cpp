@@ -228,6 +228,18 @@ KnxIpPacket::KnxIpPacket(uint8_t channelId, uint8_t sequenceCounter, const PCemi
   if (!_tunnelingRequest->cemi) _tunnelingRequest->cemi = std::make_shared<Cemi>();
 }
 
+BaseLib::PVariable KnxIpPacket::toVariable() {
+  auto packetStruct = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
+  packetStruct->structValue->emplace("rawPacket", std::make_shared<BaseLib::Variable>(BaseLib::HelperFunctions::getHexString(_rawPacket)));
+  packetStruct->structValue->emplace("serviceType", std::make_shared<BaseLib::Variable>(getServiceIdentifierString()));
+
+  if (_tunnelingRequest && _tunnelingRequest->cemi->getMessageCode() == 0x29) {
+    packetStruct->structValue->emplace("cemi", _tunnelingRequest->cemi->toVariable());
+  }
+
+  return packetStruct;
+}
+
 std::string KnxIpPacket::getErrorString(KnxIpErrorCodes code) {
   if ((uint8_t)code > _errorCodes.size()) return "";
   return _errorCodes.at((uint8_t)code);

@@ -24,7 +24,7 @@ class Search {
   Search() = default;
   ~Search() = default;
 
-  std::vector<PeerInfo> search(std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap);
+  std::vector<PeerInfo> search(std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap, const std::unordered_set<std::string> &peersWithoutAutochannels);
   PeerInfo updateDevice(std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap, BaseLib::PVariable deviceInfo);
  private:
   struct ProjectData {
@@ -41,7 +41,9 @@ class Search {
 
   struct ComObjectData {
     std::string name;
+    int32_t number = -1;
     std::string functionText;
+    std::string baseNumber;
     bool communicationFlag = false;
     bool readFlag = true;
     bool readOnInitFlag = false;
@@ -69,8 +71,10 @@ class Search {
     std::string groupVariableName;
     std::string datapointType;
     int32_t index = -1;
+    int32_t autoChannel = -1;
     bool writeFlag = true;
     bool readFlag = true;
+    bool readOnInitFlag = false;
     bool transmitFlag = true;
     bool autocreated = false;
     std::string comObjectName;
@@ -83,9 +87,11 @@ class Search {
     std::string name;
     std::string functionText;
     int32_t index = -1;
+    int32_t autoChannel = -1;
     std::string datapointType;
     bool writeFlag = true;
     bool readFlag = true;
+    bool readOnInitFlag = false;
     bool transmitFlag = true;
   };
 
@@ -99,6 +105,8 @@ class Search {
     BaseLib::PVariable description;
     std::unordered_map<std::string, std::list<GroupVariableInfo>> variableInfo;
     std::unordered_map<uint32_t, std::shared_ptr<GroupVariableXmlData>> variables;
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> moduleArguments;
+    std::unordered_map<std::string, uint32_t> channelIndexByRefId;
   };
 
   struct XmlData {
@@ -116,8 +124,9 @@ class Search {
   PProjectData extractKnxProject(const std::string &projectFilename);
   void assignRoomsToDevices(xml_node *currentNode, std::string currentRoom, std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>> &devices);
   std::unordered_map<std::string, PManufacturerData> extractManufacturerXmlData(const PProjectData &projectData);
+  std::shared_ptr<Search::ManufacturerProductData> extractProductData(xml_node *staticNode);
   void extractXmlData(XmlData &xmlData, const PProjectData &projectData);
-  std::shared_ptr<HomegearDevice> createHomegearDevice(DeviceXmlData &deviceXml, std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &typeNumberIdMap);
+  std::shared_ptr<HomegearDevice> createHomegearDevice(DeviceXmlData &deviceXml, std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &typeNumberIdMap, const std::unordered_set<std::string> &peersWithoutAutochannels);
   void addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegearDevice &device, std::vector<PeerInfo> &peerInfo, std::map<int64_t, std::string> &usedTypes);
 
   /**

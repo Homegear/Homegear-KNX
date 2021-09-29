@@ -12,9 +12,9 @@
 
 namespace Knx {
 
-class GD {
+class Gd {
  public:
-  virtual ~GD();
+  virtual ~Gd();
 
   static BaseLib::SharedObjects *bl;
   static Knx *family;
@@ -22,7 +22,7 @@ class GD {
   static std::shared_ptr<MainInterface> defaultPhysicalInterface;
   static BaseLib::Output out;
  private:
-  GD();
+  Gd();
 };
 
 }

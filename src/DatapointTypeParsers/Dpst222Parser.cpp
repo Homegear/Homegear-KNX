@@ -1,11 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst222Parser.h"
-#include "../GD.h"
-
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
+#include "../Gd.h"
 
 using namespace BaseLib::DeviceDescription;
 
@@ -19,7 +15,7 @@ void Dpst222Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger64 logical(new LogicalInteger64(GD::bl));
+  PLogicalInteger64 logical(new LogicalInteger64(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = 0;
   logical->maximumValue = 281474976710655;
@@ -37,25 +33,26 @@ void Dpst222Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalDecimal comfort(new LogicalDecimal(GD::bl));
+    PLogicalDecimal comfort(new LogicalDecimal(Gd::bl));
     comfort->minimumValue = -273.0;
     comfort->maximumValue = 670760.0;
-    additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, comfort));
+    additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 0, 16, comfort));
 
-    PLogicalDecimal standBy(new LogicalDecimal(GD::bl));
+    PLogicalDecimal standBy(new LogicalDecimal(Gd::bl));
     standBy->minimumValue = -273.0;
     standBy->maximumValue = 670760.0;
-    additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 16, standBy));
+    additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 16, 16, standBy));
 
-    PLogicalDecimal eco(new LogicalDecimal(GD::bl));
+    PLogicalDecimal eco(new LogicalDecimal(Gd::bl));
     eco->minimumValue = -273.0;
     eco->maximumValue = 670760.0;
-    additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 32, 16, eco));
+    additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 32, 16, eco));
   }
     //Room temperature setpoint shift
   else if (datapointType == "DPST-222-101") {
@@ -69,25 +66,26 @@ void Dpst222Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalDecimal comfort(new LogicalDecimal(GD::bl));
+    PLogicalDecimal comfort(new LogicalDecimal(Gd::bl));
     comfort->minimumValue = -670760.0;
     comfort->maximumValue = 670760.0;
-    additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, comfort));
+    additionalParameters.push_back(createParameter(function, baseName + ".COMFORT_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 0, 16, comfort));
 
-    PLogicalDecimal standBy(new LogicalDecimal(GD::bl));
+    PLogicalDecimal standBy(new LogicalDecimal(Gd::bl));
     standBy->minimumValue = -670760.0;
     standBy->maximumValue = 670760.0;
-    additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 16, standBy));
+    additionalParameters.push_back(createParameter(function, baseName + ".STANDBY_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 16, 16, standBy));
 
-    PLogicalDecimal eco(new LogicalDecimal(GD::bl));
+    PLogicalDecimal eco(new LogicalDecimal(Gd::bl));
     eco->minimumValue = -670760.0;
     eco->maximumValue = 670760.0;
-    additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 32, 16, eco));
+    additionalParameters.push_back(createParameter(function, baseName + ".ECO_TEMPERATURE_SHIFT", "DPT-9", "°C", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 32, 16, eco));
   }
 
   for (auto &additionalParameter : additionalParameters) {
