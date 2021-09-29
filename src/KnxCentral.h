@@ -43,7 +43,7 @@ class KnxCentral : public BaseLib::Systems::ICentral {
   PVariable searchDevices(BaseLib::PRpcClientInfo clientInfo, const std::string &interfaceId) override;
   PVariable setInterface(BaseLib::PRpcClientInfo clientInfo, uint64_t peerId, std::string interfaceId) override;
  protected:
-  std::map<std::string, std::function<BaseLib::PVariable(BaseLib::PRpcClientInfo &clientInfo, BaseLib::PArray &parameters)>> _localRpcMethods;
+  std::map<std::string, std::function<BaseLib::PVariable(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters)>> _localRpcMethods;
 
   std::unique_ptr<Search> _search;
   std::mutex _searchMutex;
@@ -66,7 +66,9 @@ class KnxCentral : public BaseLib::Systems::ICentral {
   size_t reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, const std::vector<Search::PeerInfo> &peerInfo);
 
   //{{{ Family RPC methods
-  BaseLib::PVariable updateDevices(BaseLib::PRpcClientInfo clientInfo, BaseLib::PArray &parameters);
+  BaseLib::PVariable updateDevices(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters);
+  BaseLib::PVariable groupValueRead(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters);
+  BaseLib::PVariable groupValueWrite(const BaseLib::PRpcClientInfo &clientInfo, const BaseLib::PArray &parameters);
   //}}}
 };
 

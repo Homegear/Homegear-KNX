@@ -1,6 +1,6 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
-#include "GD.h"
+#include "Gd.h"
 #include "Interfaces.h"
 #include "Knx.h"
 #include "KnxCentral.h"
@@ -8,11 +8,11 @@
 namespace Knx {
 
 Knx::Knx(BaseLib::SharedObjects *bl, BaseLib::Systems::IFamilyEventSink *eventHandler) : BaseLib::Systems::DeviceFamily(bl, eventHandler, MY_FAMILY_ID, MY_FAMILY_NAME) {
-  GD::bl = bl;
-  GD::family = this;
-  GD::out.init(bl);
-  GD::out.setPrefix(std::string("Module ") + MY_FAMILY_NAME + ": ");
-  GD::out.printDebug("Debug: Loading module...");
+  Gd::bl = bl;
+  Gd::family = this;
+  Gd::out.init(bl);
+  Gd::out.setPrefix(std::string("Module ") + MY_FAMILY_NAME + ": ");
+  Gd::out.printDebug("Debug: Loading module...");
   _physicalInterfaces.reset(new Interfaces(bl, _settings->getPhysicalInterfaceSettings()));
 }
 
@@ -20,7 +20,7 @@ Knx::~Knx() = default;
 
 bool Knx::init() {
   _bl->out.printInfo("Loading XML RPC devices...");
-  std::string xmlPath = _bl->settings.familyDataPath() + std::to_string(GD::family->getFamily()) + "/desc/";
+  std::string xmlPath = _bl->settings.familyDataPath() + std::to_string(Gd::family->getFamily()) + "/desc/";
   BaseLib::Io io;
   io.init(_bl);
   if (BaseLib::Io::directoryExists(xmlPath) && !io.getFiles(xmlPath).empty()) _rpcDevices->load(xmlPath);
@@ -36,17 +36,17 @@ void Knx::dispose() {
 
 void Knx::reloadRpcDevices() {
   _bl->out.printInfo("Reloading XML RPC devices...");
-  std::string xmlPath = _bl->settings.familyDataPath() + std::to_string(GD::family->getFamily()) + "/desc/";
+  std::string xmlPath = _bl->settings.familyDataPath() + std::to_string(Gd::family->getFamily()) + "/desc/";
   if (BaseLib::Io::directoryExists(xmlPath)) _rpcDevices->load(xmlPath);
 }
 
 void Knx::createCentral() {
   try {
     _central.reset(new KnxCentral(0, "VBF0000001", this));
-    GD::out.printMessage("Created central with id " + std::to_string(_central->getId()) + ".");
+    Gd::out.printMessage("Created central with id " + std::to_string(_central->getId()) + ".");
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
 }
 
@@ -112,7 +112,7 @@ PVariable Knx::getPairingInfo() {
     return info;
   }
   catch (const std::exception &ex) {
-    GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
   return Variable::createError(-32500, "Unknown application error.");
 }

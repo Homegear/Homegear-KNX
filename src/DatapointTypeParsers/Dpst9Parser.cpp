@@ -1,11 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst9Parser.h"
-#include "../GD.h"
-
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
+#include "../Gd.h"
 
 using namespace BaseLib::DeviceDescription;
 
@@ -18,7 +14,7 @@ void Dpst9Parser::parse(BaseLib::SharedObjects *bl,
                         std::shared_ptr<BaseLib::DeviceDescription::Parameter> &parameter) {
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalDecimal logical(new LogicalDecimal(GD::bl));
+  PLogicalDecimal logical(new LogicalDecimal(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = -670760;
   logical->maximumValue = 670760;

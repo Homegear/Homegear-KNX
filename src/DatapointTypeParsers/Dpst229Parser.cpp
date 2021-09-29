@@ -1,11 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst229Parser.h"
-#include "../GD.h"
-
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
+#include "../Gd.h"
 
 using namespace BaseLib::DeviceDescription;
 
@@ -19,7 +15,7 @@ void Dpst229Parser::parse(BaseLib::SharedObjects *bl,
   std::vector<PParameter> additionalParameters;
   ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter->casts.front());
 
-  PLogicalInteger64 logical(new LogicalInteger64(GD::bl));
+  PLogicalInteger64 logical(new LogicalInteger64(Gd::bl));
   parameter->logical = logical;
   logical->minimumValue = 0;
   logical->maximumValue = 281474976710655;
@@ -37,16 +33,17 @@ void Dpst229Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
-                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                     std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
-    PLogicalInteger counter(new LogicalInteger(GD::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".COUNTER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 32, counter));
+    PLogicalInteger counter(new LogicalInteger(Gd::bl));
+    additionalParameters.push_back(createParameter(function, baseName + ".COUNTER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 0, 32, counter));
 
-    PLogicalEnumeration valueInformation(new LogicalEnumeration(GD::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 32, 8, valueInformation));
+    PLogicalEnumeration valueInformation(new LogicalEnumeration(Gd::bl));
+    additionalParameters.push_back(createParameter(function, baseName + ".APPLICATION_AREA", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 32, 8, valueInformation));
     valueInformation->minimumValue = 0;
     valueInformation->maximumValue = 177;
     valueInformation->values.emplace_back("Energy, 0.001 Wh", 0);
@@ -152,10 +149,11 @@ void Dpst229Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    43,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".IN_ALARM",
                                                    "DPT-1",
@@ -163,10 +161,11 @@ void Dpst229Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    44,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".OVERRIDDEN",
                                                    "DPT-1",
@@ -174,10 +173,11 @@ void Dpst229Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    45,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".FAULT",
                                                    "DPT-1",
@@ -185,10 +185,11 @@ void Dpst229Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    46,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".OUT_OF_SERVICE",
                                                    "DPT-1",
@@ -196,10 +197,11 @@ void Dpst229Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    47,
                                                    1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
   }
 
   for (auto &additionalParameter : additionalParameters) {

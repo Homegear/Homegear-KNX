@@ -1,11 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "Dpst3Parser.h"
-#include "../GD.h"
-
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
+#include "../Gd.h"
 
 using namespace BaseLib::DeviceDescription;
 
@@ -35,10 +31,11 @@ void Dpst3Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::command,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    (uint16_t)parameter->physical->address,
                                                    -1,
-                                                   std::make_shared<BaseLib::DeviceDescription::LogicalAction>(GD::bl)));
+                                                   std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
   additionalParameters.push_back(createParameter(function,
                                                  baseName + ".CONTROL",
@@ -47,15 +44,16 @@ void Dpst3Parser::parse(BaseLib::SharedObjects *bl,
                                                  IPhysical::OperationType::store,
                                                  parameter->readable,
                                                  parameter->writeable,
+                                                 parameter->readOnInit,
                                                  parameter->roles,
                                                  4,
                                                  1,
-                                                 std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(GD::bl)));
+                                                 std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
 
   PLogicalInteger stepCode(new LogicalInteger(bl));
   stepCode->minimumValue = 0;
   stepCode->minimumValue = 7;
-  additionalParameters.push_back(createParameter(function, baseName + ".STEP_CODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, stepCode));
+  additionalParameters.push_back(createParameter(function, baseName + ".STEP_CODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 5, 3, stepCode));
 
   for (auto &additionalParameter : additionalParameters) {
     if (!additionalParameter) continue;

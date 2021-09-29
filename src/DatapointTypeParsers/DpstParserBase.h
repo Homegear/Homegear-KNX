@@ -30,6 +30,7 @@ class DpstParserBase {
                                                                                 BaseLib::DeviceDescription::IPhysical::OperationType::Enum operationType,
                                                                                 bool readable,
                                                                                 bool writeable,
+                                                                                bool readOnInit,
                                                                                 const std::unordered_map<uint64_t, BaseLib::Role> &roles,
                                                                                 uint16_t address,
                                                                                 int32_t size = -1,

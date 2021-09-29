@@ -35,7 +35,7 @@ class MainInterface : public BaseLib::Systems::IPhysicalInterface {
 
   std::unique_lock<std::mutex> getSendPacketLock();
 
-  void getResponse(ServiceType serviceType, const std::vector<uint8_t> &requestPacket, std::vector<uint8_t> &responsePacket, int32_t timeout = 10000);
+  void getResponse(ServiceType serviceType, const std::vector<uint8_t> &requestPacket, std::vector<uint8_t> &responsePacket, int32_t timeout = 1000);
 
   void registerPacketReceivedCallback(std::function<void(const PKnxIpPacket &)> packet) { _packetReceivedCallback.swap(packet); }
 

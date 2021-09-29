@@ -1,7 +1,7 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "DpstParser.h"
-#include "../GD.h"
+#include "../Gd.h"
 
 #include "Dpst1Parser.h"
 #include "Dpst2Parser.h"
@@ -160,7 +160,7 @@ bool DpstParser::parse(const std::shared_ptr<BaseLib::DeviceDescription::Functio
 
   if (parsersIterator == parsers.end()) return false;
 
-  parsersIterator->second->parse(GD::bl, function, datapointType, datapointSubtype, parameter);
+  parsersIterator->second->parse(Gd::bl, function, datapointType, datapointSubtype, parameter);
   return true;
 }
 

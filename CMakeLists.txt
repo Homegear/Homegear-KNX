@@ -12,8 +12,8 @@ set(SOURCE_FILES
         src/Factory.h
         src/KnxIpForwarder.cpp
         src/KnxIpForwarder.h
-        src/GD.cpp
-        src/GD.h
+        src/Gd.cpp
+        src/Gd.h
         src/Interfaces.cpp
         src/Interfaces.h
         src/KnxCentral.cpp

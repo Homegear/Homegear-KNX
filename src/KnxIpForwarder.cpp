@@ -3,14 +3,14 @@
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "KnxIpForwarder.h"
-#include "GD.h"
+#include "Gd.h"
 #include "KnxIpPacket.h"
 
 namespace Knx {
 
 KnxIpForwarder::KnxIpForwarder(std::string listenIp, uint16_t port, std::shared_ptr<MainInterface> interface) : _listenIpSetting(std::move(listenIp)), _port(port) {
-  _out.init(GD::bl);
-  _out.setPrefix(GD::out.getPrefix() + "KNXNet/IP forwarder (port " + std::to_string(port) + "): ");
+  _out.init(Gd::bl);
+  _out.setPrefix(Gd::out.getPrefix() + "KNXNet/IP forwarder (port " + std::to_string(port) + "): ");
 
   signal(SIGPIPE, SIG_IGN);
 
@@ -22,7 +22,7 @@ KnxIpForwarder::KnxIpForwarder(std::string listenIp, uint16_t port, std::shared_
 KnxIpForwarder::~KnxIpForwarder() {
   try {
     _stopThreads = true;
-    GD::bl->threadManager.join(_listenThread);
+    Gd::bl->threadManager.join(_listenThread);
   }
   catch (const std::exception &ex) {
     _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
@@ -33,7 +33,7 @@ void KnxIpForwarder::startListening() {
   try {
     stopListening();
     _stopThreads = false;
-    GD::bl->threadManager.start(_listenThread, true, &KnxIpForwarder::listen, this);
+    Gd::bl->threadManager.start(_listenThread, true, &KnxIpForwarder::listen, this);
   }
   catch (const std::exception &ex) {
     _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
@@ -43,7 +43,7 @@ void KnxIpForwarder::startListening() {
 void KnxIpForwarder::stopListening() {
   try {
     _stopThreads = true;
-    GD::bl->threadManager.join(_listenThread);
+    Gd::bl->threadManager.join(_listenThread);
   }
   catch (const std::exception &ex) {
     _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
@@ -114,13 +114,13 @@ void KnxIpForwarder::listen() {
         socketTimeout.tv_sec = 1;
         socketTimeout.tv_usec = 0;
         FD_ZERO(&readFileDescriptor);
-        auto fileDescriptorGuard = GD::bl->fileDescriptorManager.getLock();
+        auto fileDescriptorGuard = Gd::bl->fileDescriptorManager.getLock();
         fileDescriptorGuard.lock();
         nfds = _serverSocketDescriptor->descriptor + 1;
         if (nfds <= 0) {
           fileDescriptorGuard.unlock();
           _out.printError("Error: Socket closed (1).");
-          GD::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
+          Gd::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
           continue;
         }
         FD_SET(_serverSocketDescriptor->descriptor, &readFileDescriptor);
@@ -131,7 +131,7 @@ void KnxIpForwarder::listen() {
           continue;
         } else if (bytesReceived != 1) {
           _out.printError("Error: Socket closed (2).");
-          GD::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
+          Gd::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
           continue;
         }
 
@@ -141,11 +141,11 @@ void KnxIpForwarder::listen() {
 
         if (bytesReceived == 0) {
           _out.printError("Error: Socket closed (3).");
-          GD::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
+          Gd::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
           continue;
         } else if (bytesReceived == -1) {
           _out.printError("Error: Socket closed (4).");
-          GD::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
+          Gd::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
           continue;
         }
 
@@ -163,19 +163,19 @@ void KnxIpForwarder::listen() {
         ipStringBuffer.back() = '\0';
         auto senderIp = std::string(ipStringBuffer.data());
 
-        if (GD::bl->debugLevel >= 4) _out.printInfo("Info: Packet received from " + senderIp + ": " + BaseLib::HelperFunctions::getHexString(buffer.data(), bytesReceived));
+        if (Gd::bl->debugLevel >= 4) _out.printInfo("Info: Packet received from " + senderIp + ": " + BaseLib::HelperFunctions::getHexString(buffer.data(), bytesReceived));
         processRawPacket(senderIp, senderPort, std::vector<uint8_t>(buffer.data(), buffer.data() + bytesReceived));
       }
       catch (const std::exception &ex) {
         _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-        GD::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
+        Gd::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
       }
     }
   }
   catch (const std::exception &ex) {
     _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
   }
-  GD::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
+  Gd::bl->fileDescriptorManager.shutdown(_serverSocketDescriptor);
 }
 
 std::shared_ptr<BaseLib::FileDescriptor> KnxIpForwarder::getSocketDescriptor() {
@@ -183,13 +183,13 @@ std::shared_ptr<BaseLib::FileDescriptor> KnxIpForwarder::getSocketDescriptor() {
   try {
     setListenAddress();
     if (_listenIp.empty()) return serverSocketDescriptor;
-    serverSocketDescriptor = GD::bl->fileDescriptorManager.add(socket(AF_INET, SOCK_DGRAM, 0));
+    serverSocketDescriptor = Gd::bl->fileDescriptorManager.add(socket(AF_INET, SOCK_DGRAM, 0));
     if (serverSocketDescriptor->descriptor == -1) {
       _out.printError("Error: Could not create socket.");
       return serverSocketDescriptor;
     }
 
-    if (GD::bl->debugLevel >= 5) _out.printInfo("Debug: SSDP server: Binding to address: " + _listenIp);
+    if (Gd::bl->debugLevel >= 5) _out.printInfo("Debug: SSDP server: Binding to address: " + _listenIp);
 
     char loopch = 0;
     if (setsockopt(serverSocketDescriptor->descriptor, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&loopch, sizeof(loopch)) == -1) {
@@ -210,7 +210,7 @@ std::shared_ptr<BaseLib::FileDescriptor> KnxIpForwarder::getSocketDescriptor() {
 
     if (bind(serverSocketDescriptor->descriptor.load(), (struct sockaddr *)&localSock, sizeof(localSock)) == -1) {
       _out.printError("Error: Binding to address " + _listenIp + " failed: " + std::string(strerror(errno)));
-      GD::bl->fileDescriptorManager.close(serverSocketDescriptor);
+      Gd::bl->fileDescriptorManager.close(serverSocketDescriptor);
       return serverSocketDescriptor;
     }
   }
@@ -233,7 +233,7 @@ void KnxIpForwarder::processRawPacket(const std::string &senderIp, uint16_t send
         auto packetData = packet->getConnectRequest();
         if (!packetData) return;
         if (packetData->dataEndpointIpString != packetData->controlEndpointIpString || packetData->dataEndpointIpString != senderIp) {
-          GD::out.printError("Error: Can't process connect packet from " + senderIp + ". The IP addresses in the packet (" + packetData->dataEndpointIpString + " and " + packetData->controlEndpointIpString
+          Gd::out.printError("Error: Can't process connect packet from " + senderIp + ". The IP addresses in the packet (" + packetData->dataEndpointIpString + " and " + packetData->controlEndpointIpString
                                  + ") do not match the sender's IP address. This is currently not supported.");
           auto status = (uint8_t)KnxIpErrorCodes::E_CONNECTION_OPTION;
           rawResponsePacket = std::vector<uint8_t>{6, 0x10, 2, 6, 0, 8, 0, status};
