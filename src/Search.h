@@ -74,6 +74,7 @@ class Search {
     int32_t autoChannel = -1;
     bool writeFlag = true;
     bool readFlag = true;
+    bool readOnInitFlag = false;
     bool transmitFlag = true;
     bool autocreated = false;
     std::string comObjectName;
@@ -90,6 +91,7 @@ class Search {
     std::string datapointType;
     bool writeFlag = true;
     bool readFlag = true;
+    bool readOnInitFlag = false;
     bool transmitFlag = true;
   };
 

@@ -3,10 +3,6 @@
 #include "Dpst217Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -36,6 +32,7 @@ void Dpst217Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
@@ -44,17 +41,17 @@ void Dpst217Parser::parse(BaseLib::SharedObjects *bl,
     PLogicalInteger magic(new LogicalInteger(Gd::bl));
     magic->minimumValue = 0;
     magic->maximumValue = 31;
-    additionalParameters.push_back(createParameter(function, baseName + ".MAGIC_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 5, magic));
+    additionalParameters.push_back(createParameter(function, baseName + ".MAGIC_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 0, 5, magic));
 
     PLogicalInteger version(new LogicalInteger(Gd::bl));
     version->minimumValue = 0;
     version->maximumValue = 31;
-    additionalParameters.push_back(createParameter(function, baseName + ".VERSION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 5, version));
+    additionalParameters.push_back(createParameter(function, baseName + ".VERSION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 5, 5, version));
 
     PLogicalInteger revision(new LogicalInteger(Gd::bl));
     revision->minimumValue = 0;
     revision->maximumValue = 63;
-    additionalParameters.push_back(createParameter(function, baseName + ".REVISION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 10, 6, revision));
+    additionalParameters.push_back(createParameter(function, baseName + ".REVISION_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 10, 6, revision));
   }
 
   for (auto &additionalParameter : additionalParameters) {

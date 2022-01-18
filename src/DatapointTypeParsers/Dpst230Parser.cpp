@@ -3,10 +3,6 @@
 #include "Dpst230Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -34,22 +30,23 @@ void Dpst230Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
                                                      std::make_shared<BaseLib::DeviceDescription::LogicalAction>(Gd::bl)));
 
     PLogicalInteger manufacturerId(new LogicalInteger(Gd::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".MANUFACTURER_ID", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 0, 16, manufacturerId));
+    additionalParameters.push_back(createParameter(function, baseName + ".MANUFACTURER_ID", "DPT-7", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 0, 16, manufacturerId));
 
     PLogicalInteger identNumber(new LogicalInteger(Gd::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 16, 32, identNumber));
+    additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-12", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 16, 32, identNumber));
 
     PLogicalInteger version(new LogicalInteger(Gd::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 48, 8, version));
+    additionalParameters.push_back(createParameter(function, baseName + ".IDENT_NUMBER", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 48, 8, version));
 
     PLogicalEnumeration medium(new LogicalEnumeration(Gd::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".MEDIUM", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 56, 8, medium));
+    additionalParameters.push_back(createParameter(function, baseName + ".MEDIUM", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 56, 8, medium));
     medium->minimumValue = 0;
     medium->maximumValue = 55;
     medium->values.emplace_back("Other", 0);

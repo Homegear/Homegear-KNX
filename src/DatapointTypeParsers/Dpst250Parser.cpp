@@ -3,10 +3,6 @@
 #include "Dpst250Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -34,6 +30,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
@@ -46,6 +43,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    4,
                                                    1,
@@ -54,7 +52,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
     PLogicalInteger cctStep(new LogicalInteger(Gd::bl));
     cctStep->minimumValue = 1;
     cctStep->maximumValue = 7;
-    additionalParameters.push_back(createParameter(function, baseName + ".CCT_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, cctStep));
+    additionalParameters.push_back(createParameter(function, baseName + ".CCT_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 5, 3, cctStep));
 
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".CB_INCREASE",
@@ -63,6 +61,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    12,
                                                    1,
@@ -71,7 +70,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
     PLogicalInteger cbStep(new LogicalInteger(Gd::bl));
     cbStep->minimumValue = 1;
     cbStep->maximumValue = 7;
-    additionalParameters.push_back(createParameter(function, baseName + ".CB_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 13, 3, cbStep));
+    additionalParameters.push_back(createParameter(function, baseName + ".CB_STEP", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 13, 3, cbStep));
 
     additionalParameters.push_back(createParameter(function,
                                                    baseName + ".CCT_VALID",
@@ -80,6 +79,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    22,
                                                    1,
@@ -91,6 +91,7 @@ void Dpst250Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    23,
                                                    1,

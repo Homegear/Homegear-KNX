@@ -3,10 +3,6 @@
 #include "Dpst6Parser.h"
 #include "../Gd.h"
 
-#include <homegear-base/DeviceDescription/Function.h>
-#include <homegear-base/DeviceDescription/Parameter.h>
-#include <homegear-base/DeviceDescription/ParameterCast.h>
-
 using namespace BaseLib::DeviceDescription;
 
 namespace Knx {
@@ -39,6 +35,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                      IPhysical::OperationType::command,
                                                      parameter->readable,
                                                      parameter->writeable,
+                                                     parameter->readOnInit,
                                                      parameter->roles,
                                                      parameter->physical->address,
                                                      -1,
@@ -51,6 +48,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    0,
                                                    1,
@@ -62,6 +60,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    1,
                                                    1,
@@ -73,6 +72,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    2,
                                                    1,
@@ -84,6 +84,7 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    3,
                                                    1,
@@ -95,12 +96,13 @@ void Dpst6Parser::parse(BaseLib::SharedObjects *bl,
                                                    IPhysical::OperationType::store,
                                                    parameter->readable,
                                                    parameter->writeable,
+                                                   parameter->readOnInit,
                                                    parameter->roles,
                                                    4,
                                                    1,
                                                    std::make_shared<BaseLib::DeviceDescription::LogicalBoolean>(Gd::bl)));
     PLogicalEnumeration enumeration(new LogicalEnumeration(Gd::bl));
-    additionalParameters.push_back(createParameter(function, baseName + ".MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->roles, 5, 3, enumeration));
+    additionalParameters.push_back(createParameter(function, baseName + ".MODE", "DPT-5", "", IPhysical::OperationType::store, parameter->readable, parameter->writeable, parameter->readOnInit, parameter->roles, 5, 3, enumeration));
     enumeration->minimumValue = 1;
     enumeration->maximumValue = 4;
     enumeration->values.emplace_back("Mode 0", 1);

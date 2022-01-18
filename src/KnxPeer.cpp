@@ -65,14 +65,45 @@ void KnxPeer::worker() {
     if (_readVariables) {
       _readVariables = false;
       for (Functions::iterator i = _rpcDevice->functions.begin(); i != _rpcDevice->functions.end(); ++i) {
-        if (i->first == 0) continue;
-
         PParameterGroup parameterGroup = getParameterSet(i->first, ParameterGroup::Type::variables);
         if (!parameterGroup) continue;
 
         for (Parameters::iterator j = parameterGroup->parameters.begin(); j != parameterGroup->parameters.end(); ++j) {
           if (_stopWorkerThread) return;
-          if (!j->second->readable) continue;
+          if (j->second->service) continue;
+          if (!j->second->readable) {
+            //{{{ Process "read on init" devices
+            if (j->second->readOnInit) {
+              //When the "read on init" flag is set, Homegear writes the last known value to the device on start up. This only is allowed when no read flag is set, because in the latter case the value is read from another device.
+              auto channelIterator = valuesCentral.find(i->first);
+              if (channelIterator != valuesCentral.end()) {
+                auto variableIterator = channelIterator->second.find(j->second->id);
+                if (variableIterator != channelIterator->second.end()) {
+                  auto parameter = variableIterator->second;
+                  auto parameterData = variableIterator->second.getBinaryData();
+                  bool fitsInFirstByte = false;
+                  if (!parameter.rpcParameter->casts.empty()) {
+                    ParameterCast::PGeneric cast = std::dynamic_pointer_cast<ParameterCast::Generic>(parameter.rpcParameter->casts.at(0));
+                    if (!cast) {
+                      Gd::out.printError("Error: No DPT conversion defined for parameter " + parameter.rpcParameter->id + ". Can't send value.");
+                      continue;
+                    }
+                    fitsInFirstByte = _dptConverter->fitsInFirstByte(cast->type);
+                  }
+
+                  if (Gd::bl->debugLevel >= 4)
+                    Gd::out.printInfo(
+                        "Info: Writing " + j->second->id + " to peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first) + ", because \"read on init\" flag is set and there is no other device to read the value from.");
+                  auto cemi = std::make_shared<Cemi>(Cemi::Operation::groupValueWrite, 0, j->second->physical->address, fitsInFirstByte, parameterData);
+
+                  sendPacket(cemi);
+                }
+              }
+            }
+            //}}}
+
+            continue;
+          }
           if (Gd::bl->debugLevel >= 4) Gd::out.printInfo("Info: Reading " + j->second->id + " of peer " + std::to_string(_peerID) + " on channel " + std::to_string(i->first));
           getValueFromDevice(j->second, i->first, false);
         }
@@ -402,7 +433,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
       Gd::out.printInfo("Info: No parameter was found for group address (empty): " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
     }
 
-    if (packet->getOperation() == Cemi::Operation::groupValueWrite) {
+    if (packet->getOperation() == Cemi::Operation::groupValueWrite || packet->getOperation() == Cemi::Operation::groupValueResponse) {
       for (auto &parameterIterator : parametersIterator->second) {
         BaseLib::Systems::RpcConfigurationParameter &parameter = valuesCentral[parameterIterator.channel][parameterIterator.parameter->id];
         if (!parameter.rpcParameter) {
@@ -490,8 +521,8 @@ void KnxPeer::packetReceived(PCemi &packet) {
         raiseEvent(eventSource, _peerID, parameterIterator.channel, valueKeys, values);
         raiseRPCEvent(eventSource, _peerID, parameterIterator.channel, address, valueKeys, values);
       }
-    } /*else if (packet->getOperation() == Cemi::Operation::groupValueRead) {
-      //Check if groupValueRead really needs to be implemented here.
+    } else if (packet->getOperation() == Cemi::Operation::groupValueRead) {
+      //Homegear only answers to a read request when there is no readable device connected to the group variable (i. e. no linked device has the read flag set).
 
       if (parametersIterator->second.empty()) return;
       int32_t channel = parametersIterator->second.front().channel;
@@ -501,6 +532,11 @@ void KnxPeer::packetReceived(PCemi &packet) {
         if (_bl->debugLevel >= 4)
           Gd::out.printInfo("Info: No RPC parameter was found for group address: " + packet->getFormattedDestinationAddress() + " by peer: " + std::to_string(_peerID));
 
+        return;
+      }
+
+      if (parameter.rpcParameter->readable) {
+        Gd::out.printDebug("Debug: Ignoring groupValueRead, because parameter is readable.");
         return;
       }
 
@@ -522,7 +558,7 @@ void KnxPeer::packetReceived(PCemi &packet) {
 
       auto responsePacket = std::make_shared<Cemi>(Cemi::Operation::groupValueResponse, 0, parameter.rpcParameter->physical->address, fitsInFirstByte, parameterData);
       sendPacket(responsePacket);
-    }*/
+    }
   }
   catch (const std::exception &ex) {
     Gd::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
@@ -552,7 +588,7 @@ PVariable KnxPeer::getValueFromDevice(PParameter &parameter, int32_t channel, bo
     auto packet = std::make_shared<Cemi>(Cemi::Operation::groupValueRead, 0, valuesIterator->second.rpcParameter->physical->address);
     sendPacket(packet);
 
-    if (!_getValueFromDeviceInfo.conditionVariable.wait_for(lock, std::chrono::milliseconds(2000), [&] { return _getValueFromDeviceInfo.mutexReady; })) {
+    if (!_getValueFromDeviceInfo.conditionVariable.wait_for(lock, std::chrono::milliseconds(1000), [&] { return _getValueFromDeviceInfo.mutexReady; })) {
       return std::make_shared<Variable>(VariableType::tVoid);
     }
 
@@ -644,7 +680,15 @@ PVariable KnxPeer::getDeviceInfo(BaseLib::PRpcClientInfo clientInfo, std::map<st
     PVariable info(Peer::getDeviceInfo(clientInfo, fields));
     if (info->errorStruct) return info;
 
-    if (fields.empty() || fields.find("INTERFACE") != fields.end()) info->structValue->emplace("INTERFACE", std::make_shared<Variable>(_rpcDevice->interface));
+    std::string interfaceId;
+    if (_rpcDevice->interface.empty()) {
+      for (auto &interface : Gd::physicalInterfaces) {
+        interfaceId = interface.first;
+      }
+    } else {
+      interfaceId = _rpcDevice->interface;
+    }
+    if (fields.empty() || fields.find("INTERFACE") != fields.end()) info->structValue->emplace("INTERFACE", std::make_shared<Variable>(interfaceId));
 
     return info;
   }
@@ -664,7 +708,7 @@ PVariable KnxPeer::putParamset(BaseLib::PRpcClientInfo clientInfo, int32_t chann
     if (type == ParameterGroup::Type::none) type = ParameterGroup::Type::link;
     PParameterGroup parameterGroup = functionIterator->second->getParameterGroup(type);
     if (!parameterGroup) return Variable::createError(-3, "Unknown parameter set.");
-    if (variables->structValue->empty()) return PVariable(new Variable(VariableType::tVoid));
+    if (variables->structValue->empty()) return std::make_shared<Variable>(VariableType::tVoid);
 
     auto central = getCentral();
     if (!central) return Variable::createError(-32500, "Could not get central.");
@@ -731,13 +775,13 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
       }
 
       if (!parameterConverted) {
-        std::vector<uint8_t> parameterData;
-        rpcParameter->convertToPacket(value, parameter.mainRole(), parameterData);
-        parameter.setBinaryData(parameterData);
+        std::vector<uint8_t> parameterData2;
+        rpcParameter->convertToPacket(value, parameter.mainRole(), parameterData2);
+        parameter.setBinaryData(parameterData2);
 
         if (rpcParameter->readable) {
           valueKeys->push_back(valueKey);
-          values->push_back(rpcParameter->convertFromPacket(parameterData, parameter.mainRole(), false));
+          values->push_back(rpcParameter->convertFromPacket(parameterData2, parameter.mainRole(), false));
         }
       }
     }
@@ -799,8 +843,8 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
       auto groupedParametersIterator = groupedParametersChannelIterator->second.find(baseName);
       if (groupedParametersIterator == groupedParametersChannelIterator->second.end()) return Variable::createError(-8, "No grouped parameters found.");
 
-      for (std::vector<PParameter>::iterator i = groupedParametersIterator->second.parameters.begin(); i != groupedParametersIterator->second.parameters.end(); ++i) {
-        auto groupedParameterIterator = channelIterator->second.find((*i)->id);
+      for (auto &loopIterator : groupedParametersIterator->second.parameters) {
+        auto groupedParameterIterator = channelIterator->second.find(loopIterator->id);
         if (groupedParameterIterator == channelIterator->second.end()) continue;
         PParameter groupedRpcParameter = groupedParameterIterator->second.rpcParameter;
         if (!groupedRpcParameter) continue;
@@ -814,11 +858,12 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
         if (groupedParameter.equals(groupedParameterData)) continue;
         groupedParameter.setBinaryData(groupedParameterData);
         if (groupedParameter.databaseId > 0) saveParameter(groupedParameter.databaseId, groupedParameterData);
-        else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, (*i)->id, groupedParameterData);
+        else saveParameter(0, ParameterGroup::Type::Enum::variables, channel, loopIterator->id, groupedParameterData);
         if (_bl->debugLevel >= 4)
-          Gd::out.printInfo("Info: " + (*i)->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameterData) + ".");
+          Gd::out.printInfo(
+              "Info: " + loopIterator->id + " of peer " + std::to_string(_peerID) + " with serial number " + _serialNumber + ":" + std::to_string(channel) + " was set to 0x" + BaseLib::HelperFunctions::getHexString(groupedParameterData) + ".");
 
-        valueKeys->push_back((*i)->id);
+        valueKeys->push_back(loopIterator->id);
         values->push_back(_dptConverter->getVariable(groupedCast->type, groupedParameterData, groupedParameter.mainRole()));
       }
     }
