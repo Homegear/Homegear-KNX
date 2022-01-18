@@ -29,7 +29,7 @@ void KnxCentral::dispose(bool wait) {
     _stopWorkerThread = true;
 
     auto peers = getPeers();
-    for (auto &peer : peers) {
+    for (auto &peer: peers) {
       auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peer);
       myPeer->stopWorkerThread();
     }
@@ -82,7 +82,7 @@ void KnxCentral::init() {
 void KnxCentral::interfaceReconnected() {
   try {
     auto peers = getPeers();
-    for (auto &peer : peers) {
+    for (auto &peer: peers) {
       auto myPeer = std::dynamic_pointer_cast<KnxPeer>(peer);
       myPeer->interfaceReconnected();
     }
@@ -242,7 +242,7 @@ bool KnxCentral::onPacketReceived(std::string &senderId, std::shared_ptr<BaseLib
 
     auto peers = getPeer(myPacket->getDestinationAddress());
     if (!peers) return false;
-    for (auto &peer : *peers) {
+    for (auto &peer: *peers) {
       peer.second->packetReceived(myPacket);
     }
 
@@ -274,12 +274,12 @@ void KnxCentral::setPeerId(uint64_t oldPeerId, uint64_t newPeerId) {
     auto peer = getPeer(newPeerId);
     auto groupAddresses = peer->getGroupAddresses();
 
-    for (const uint16_t &address : groupAddresses) {
+    for (const uint16_t &address: groupAddresses) {
       removePeerFromGroupAddresses(address, oldPeerId);
     }
 
     std::lock_guard<std::mutex> peersGuard(_peersMutex);
-    for (const uint16_t &address : groupAddresses) {
+    for (const uint16_t &address: groupAddresses) {
       auto peersIterator = _peersByGroupAddress.find(address);
       if (peersIterator == _peersByGroupAddress.end()) _peersByGroupAddress.emplace(address, std::make_shared<std::map<uint64_t, PKnxPeer>>());
       _peersByGroupAddress[address]->emplace(newPeerId, peer);
@@ -333,7 +333,7 @@ void KnxCentral::deletePeer(uint64_t id) {
       groupAddresses = peer->getGroupAddresses();
     }
 
-    for (const uint16_t &address : groupAddresses) {
+    for (const uint16_t &address: groupAddresses) {
       removePeerFromGroupAddresses(address, id);
     }
 
@@ -673,7 +673,7 @@ PVariable KnxCentral::searchDevices(BaseLib::PRpcClientInfo clientInfo, const st
     {
       std::lock_guard<std::mutex> peersGuard(_peersMutex);
 
-      for (auto &peer : _peersById) {
+      for (auto &peer: _peersById) {
         auto rpcDevice = peer.second->getRpcDevice();
         if (rpcDevice->supportedDevices.empty() || !rpcDevice->metadata) continue;
         auto metadataIterator = rpcDevice->metadata->structValue->find("useAutoChannel");
@@ -719,7 +719,7 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
     loadPeers();
 
     std::vector<std::shared_ptr<KnxPeer>> newPeers;
-    for (auto &peerInfoElement : peerInfo) {
+    for (auto &peerInfoElement: peerInfo) {
       {
         std::lock_guard<std::mutex> peersGuard(_peersMutex);
         auto peersIterator = _peersBySerial.find(peerInfoElement.serialNumber);
@@ -729,13 +729,16 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
             peersIterator->second->setRoom(-1, peerInfoElement.roomId);
           }
           if (!peerInfoElement.name.empty() && peersIterator->second->getName() != peerInfoElement.name) {
-            peersIterator->second->setName(peerInfoElement.name);
+            auto useKnxProjectDeviceNames = Gd::family->getFamilySetting("useKnxProjectDeviceNames");
+            if (useKnxProjectDeviceNames && (bool)useKnxProjectDeviceNames->integerValue) {
+              peersIterator->second->setName(peerInfoElement.name);
+            }
           } else if (myPeer->getName().empty()) {
             peersIterator->second->setName(myPeer->getFormattedAddress());
           }
 
-          for (auto &roomChannel : peerInfoElement.variableRoomIds) {
-            for (auto &variableRoom : roomChannel.second) {
+          for (auto &roomChannel: peerInfoElement.variableRoomIds) {
+            for (auto &variableRoom: roomChannel.second) {
               auto variableName = variableRoom.first;
               auto roomId = myPeer->getVariableRoom(roomChannel.first, variableName);
               if (roomId != variableRoom.second) {
@@ -762,8 +765,8 @@ size_t KnxCentral::reloadAndUpdatePeers(BaseLib::PRpcClientInfo clientInfo, cons
       if (!peerInfoElement.name.empty()) peer->setName(peerInfoElement.name);
       else peer->setName(peer->getFormattedAddress());
       if (peerInfoElement.roomId != 0) peer->setRoom(-1, peerInfoElement.roomId);
-      for (auto &roomChannel : peerInfoElement.variableRoomIds) {
-        for (auto &variableRoom : roomChannel.second) {
+      for (auto &roomChannel: peerInfoElement.variableRoomIds) {
+        for (auto &variableRoom: roomChannel.second) {
           auto variableName = variableRoom.first;
           peer->setVariableRoom(roomChannel.first, variableName, variableRoom.second);
         }
@@ -821,7 +824,7 @@ BaseLib::PVariable KnxCentral::updateDevices(const BaseLib::PRpcClientInfo &clie
     auto usedTypeNumbers = Gd::family->getRpcDevices()->getKnownTypeNumbers();
     auto idTypeNumberMap = Gd::family->getRpcDevices()->getIdTypeNumberMap();
 
-    for (auto &infoStruct : *parameters->at(0)->arrayValue) {
+    for (auto &infoStruct: *parameters->at(0)->arrayValue) {
 
       auto peerInfo = _search->updateDevice(usedTypeNumbers, idTypeNumberMap, infoStruct);
       if (peerInfo.address == -1 || peerInfo.type == -1) {
@@ -837,7 +840,7 @@ BaseLib::PVariable KnxCentral::updateDevices(const BaseLib::PRpcClientInfo &clie
     Gd::out.printInfo("Info: Parsing completed. Found " + std::to_string(updatedPeersInfo.size()) + " devices.");
 
     //{{{ Remove updated peers
-    for (auto &peerInfo : updatedPeersInfo) {
+    for (auto &peerInfo: updatedPeersInfo) {
       auto peer = getPeer(peerInfo.serialNumber);
       if (peer) {
         {
@@ -848,7 +851,7 @@ BaseLib::PVariable KnxCentral::updateDevices(const BaseLib::PRpcClientInfo &clie
         }
 
         auto groupAddresses = peer->getGroupAddresses();
-        for (const uint16_t &address : groupAddresses) {
+        for (const uint16_t &address: groupAddresses) {
           removePeerFromGroupAddresses(address, peer->getID());
         }
 
