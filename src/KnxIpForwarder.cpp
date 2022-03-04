@@ -1,10 +1,10 @@
-#include <utility>
-
 /* Copyright 2013-2019 Homegear GmbH */
 
 #include "KnxIpForwarder.h"
 #include "Gd.h"
 #include "KnxIpPacket.h"
+
+#include <utility>
 
 namespace Knx {
 
@@ -244,10 +244,10 @@ void KnxIpForwarder::processRawPacket(const std::string &senderIp, uint16_t send
           _lastPacketReceived = time;
           _senderConfigPort = packetData->controlEndpointPort;
           _senderDataPort = packetData->dataEndpointPort;
-          auto knxAddress = _interface->getKnxAddress();
+          auto physicalAddress = _interface->getPhysicalAddress();
           auto status = (uint8_t)KnxIpErrorCodes::E_NO_ERROR;
           if (packetData->connectionTypeCode == 4) rawResponsePacket = std::vector<uint8_t>{6, 0x10, 2, 6, 0, 0x14, ++_channelId, status, 8, 1, _listenIpBytes[0], _listenIpBytes[1], _listenIpBytes[2], _listenIpBytes[3], (uint8_t)(_port >> 8),
-                                                                                            (uint8_t)(_port & 0xFF), 4, 4, (uint8_t)(knxAddress >> 8), (uint8_t)(knxAddress & 0xFF)};
+                                                                                            (uint8_t)(_port & 0xFF), 4, 4, (uint8_t)(physicalAddress >> 8), (uint8_t)(physicalAddress & 0xFF)};
           else if (packetData->connectionTypeCode == 3) rawResponsePacket =
                                                             std::vector<uint8_t>{6, 0x10, 2, 6, 0, 0x12, ++_managementChannelId, status, 8, 1, _listenIpBytes[0], _listenIpBytes[1], _listenIpBytes[2], _listenIpBytes[3], (uint8_t)(_port >> 8),
                                                                                  (uint8_t)(_port & 0xFF), 2, 3};

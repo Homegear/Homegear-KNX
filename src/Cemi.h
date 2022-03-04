@@ -51,6 +51,7 @@ class Cemi : public BaseLib::Systems::Packet {
   std::vector<uint8_t> getBinary();
   uint8_t getMessageCode() { return _messageCode; }
   uint16_t getSourceAddress() { return _sourceAddress; }
+  void setSourceAddress(uint16_t value) { _rawPacket.clear(); _sourceAddress = value; }
   uint16_t getDestinationAddress() { return _destinationAddress; }
   Operation getOperation() { return _operation; }
   std::string getOperationString();

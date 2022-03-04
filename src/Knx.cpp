@@ -103,6 +103,13 @@ PVariable Knx::getPairingInfo() {
     field->structValue->emplace("const", std::make_shared<BaseLib::Variable>(std::string("3671")));
     interface->structValue->emplace("port", field);
 
+    field = std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tStruct);
+    field->structValue->emplace("pos", std::make_shared<BaseLib::Variable>(3));
+    field->structValue->emplace("label", std::make_shared<BaseLib::Variable>(std::string("l10n.knx.pairingInfo.physicaladdress")));
+    field->structValue->emplace("type", std::make_shared<BaseLib::Variable>(std::string("string")));
+    field->structValue->emplace("required", std::make_shared<BaseLib::Variable>(false));
+    interface->structValue->emplace("physicalAddress", field);
+
     interfaces->structValue->emplace("knxnetip", interface);
     //}}}
 

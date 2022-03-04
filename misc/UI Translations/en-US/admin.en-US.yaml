@@ -3,4 +3,5 @@
 l10n.knx.pairingInfo.id: 'ID'
 l10n.knx.pairingInfo.hostname: 'IP address of gateway'
 l10n.knx.pairingInfo.listenip: 'Local IP adress or name of network interface'
+l10n.knx.pairingInfo.physicaladdress: 'Physical KNX address to use for communication (optional, default: auto)'
 # }}}

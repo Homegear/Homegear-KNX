@@ -25,7 +25,7 @@ class KnxIpForwarder {
   std::string _listenIpSetting;
   uint16_t _port = 3672;
   std::string _listenIp;
-  std::array<uint8_t, 4> _listenIpBytes;
+  std::array<uint8_t, 4> _listenIpBytes{};
   std::thread _listenThread;
   std::atomic_bool _stopThreads{false};
 
