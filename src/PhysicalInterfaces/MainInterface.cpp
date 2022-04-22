@@ -70,7 +70,6 @@ uint16_t MainInterface::getPhysicalAddress() {
   return _physicalAddress;
 }
 
-
 bool MainInterface::managementConnected() {
   return _managementConnected;
 }
@@ -559,10 +558,8 @@ void MainInterface::getResponse(ServiceType serviceType, const std::vector<uint8
     }
 
     if (!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(timeout), [&] { return request->mutexReady || _stopCallbackThread; })) {
-      if (timeout >= 1000) {
-        _out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
-        _stopped = true; //Force reconnect
-      } else _out.printInfo("Info: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
+      _out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
+      _stopped = true; //Force reconnect
     }
     responsePacket = request->response;
 
