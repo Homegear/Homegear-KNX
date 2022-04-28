@@ -454,6 +454,23 @@ void KnxPeer::packetReceived(PCemi &packet) {
         PVariable variable = _dptConverter->getVariable(parameterIterator.cast->type, packet->getPayload(), parameter.mainRole());
         if (!variable) return;
 
+        //Process service messages
+        if (parameter.rpcParameter->service || parameter.rpcParameter->serviceInverted || parameter.hasServiceRole()) {
+          if (variable->type == BaseLib::VariableType::tBoolean && parameterIterator.channel == 0) {
+            auto service_value = variable->booleanValue;
+            if (parameter.rpcParameter->serviceInverted) service_value = !service_value;
+            serviceMessages->set(parameterIterator.parameter->id, service_value);
+          } else if (variable->type == BaseLib::VariableType::tBoolean) {
+            auto service_value = variable->booleanValue;
+            if (parameter.rpcParameter->serviceInverted) service_value = !service_value;
+            serviceMessages->set(parameterIterator.parameter->id, service_value, parameterIterator.channel);
+          } else if (variable->type == BaseLib::VariableType::tInteger || variable->type == BaseLib::VariableType::tInteger64) {
+            auto service_value = variable->integerValue;
+            if (parameter.rpcParameter->serviceInverted) service_value = !service_value;
+            serviceMessages->set(parameterIterator.parameter->id, service_value, parameterIterator.channel);
+          }
+        }
+
         std::shared_ptr<std::vector<std::string>> valueKeys(new std::vector<std::string>{parameterIterator.parameter->id});
         std::shared_ptr<std::vector<PVariable>> values(new std::vector<PVariable>{variable});
 
@@ -739,7 +756,6 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
     Peer::setValue(clientInfo, channel, valueKey, value, wait); //Ignore result, otherwise setHomegerValue might not be executed
     if (_disposing) return Variable::createError(-32500, "Peer is disposing.");
     if (valueKey.empty()) return Variable::createError(-5, "Value key is empty.");
-    if (channel == 0 && serviceMessages->set(valueKey, value->booleanValue)) return std::make_shared<Variable>(VariableType::tVoid);
     auto channelIterator = valuesCentral.find(channel);
     if (channelIterator == valuesCentral.end()) return Variable::createError(-2, "Unknown channel.");
     auto parameterIterator = channelIterator->second.find(valueKey);
@@ -749,6 +765,11 @@ PVariable KnxPeer::setValue(BaseLib::PRpcClientInfo clientInfo, uint32_t channel
     BaseLib::Systems::RpcConfigurationParameter &parameter = parameterIterator->second;
     std::shared_ptr<std::vector<std::string>> valueKeys(new std::vector<std::string>());
     std::shared_ptr<std::vector<PVariable>> values(new std::vector<PVariable>());
+
+    if (channel == 0 && rpcParameter->service) {
+      serviceMessages->set(valueKey, value->booleanValue);
+      return std::make_shared<Variable>(VariableType::tVoid);
+    }
 
     bool fitsInFirstByte = false;
     std::vector<uint8_t> parameterData;

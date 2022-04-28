@@ -21,10 +21,9 @@ MainInterface::MainInterface(const std::shared_ptr<BaseLib::Systems::PhysicalInt
   }
 
   _stopped = true;
-  _sequenceCounter = 0;
-  _initComplete = false;
-  _knxAddress = 0;
-  _channelId = 0;
+
+  auto settingsIterator = settings->all.find("physicaladdress");
+  if (settingsIterator != settings->all.end()) _physicalAddress = Cemi::parsePhysicalAddress(settingsIterator->second->stringValue);
 }
 
 MainInterface::~MainInterface() {
@@ -63,8 +62,12 @@ void MainInterface::incrementManagementSequenceCounter() {
   _managementSequenceCounter++;
 }
 
-uint16_t MainInterface::getKnxAddress() {
-  return _knxAddress;
+uint16_t MainInterface::getGatewayAddress() {
+  return _gatewayAddress;
+}
+
+uint16_t MainInterface::getPhysicalAddress() {
+  return _physicalAddress;
 }
 
 bool MainInterface::managementConnected() {
@@ -93,6 +96,7 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
       _out.printWarning(std::string("Warning: !!!Not!!! sending packet, because a management connection is open."));
       return;
     }
+
     std::unique_lock<std::mutex> sendPacketGuard(_sendPacketMutex, std::defer_lock);
     std::unique_lock<std::mutex> requestsGuard(_requestsMutex, std::defer_lock);
     std::lock(sendPacketGuard, requestsGuard);
@@ -106,6 +110,7 @@ void MainInterface::sendPacket(std::shared_ptr<BaseLib::Systems::Packet> packet)
     //}}}
 
     PCemi cemi = std::dynamic_pointer_cast<Cemi>(packet);
+    cemi->setSourceAddress(_physicalAddress);
     PKnxIpPacket myIpPacket = std::make_shared<KnxIpPacket>(_channelId, _sequenceCounter++, cemi);
     std::vector<uint8_t> data = myIpPacket->getBinary();
     if (data.size() > 200) {
@@ -223,11 +228,12 @@ void MainInterface::init() {
       _stopped = true;
       return;
     }
-    _knxAddress = (((int32_t)(uint8_t)
+    _gatewayAddress = (((int32_t)(uint8_t)
         response.at(18)) << 8) | (uint8_t)response.at(19);
-    _myAddress = _knxAddress;
+    if (_physicalAddress == 0) _physicalAddress = _gatewayAddress.load();
+    _myAddress = _gatewayAddress;
     _channelId = response.at(6);
-    _out.printInfo("Info: Connected. Gateway's KNX address is: " + Cemi::getFormattedPhysicalAddress(_knxAddress));
+    _out.printInfo("Info: Connected. Gateway's KNX address is: " + Cemi::getFormattedPhysicalAddress(_gatewayAddress));
     // }}}
 
     _lastConnectionState = BaseLib::HelperFunctions::getTime();
@@ -552,10 +558,8 @@ void MainInterface::getResponse(ServiceType serviceType, const std::vector<uint8
     }
 
     if (!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(timeout), [&] { return request->mutexReady || _stopCallbackThread; })) {
-      if (timeout >= 1000) {
-        _out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
-        _stopped = true; //Force reconnect
-      } else _out.printInfo("Info: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
+      _out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
+      _stopped = true; //Force reconnect
     }
     responsePacket = request->response;
 
