@@ -245,6 +245,7 @@ void MainInterface::init() {
   }
   catch (const std::exception &ex) {
     _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    _stopped = true;
   }
 }
 
@@ -412,7 +413,7 @@ void MainInterface::listen() {
     std::array<uint8_t, 2048> buffer{};
 
     while (!_stopCallbackThread) {
-      if (_stopped || !_socket->isOpen()) {
+      if (_stopped || !isOpen()) {
         if (_stopCallbackThread) return;
         if (_stopped) _out.printWarning("Warning: Connection to device closed. Trying to reconnect...");
         _socket->close();
