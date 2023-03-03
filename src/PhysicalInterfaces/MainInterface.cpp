@@ -436,7 +436,7 @@ void MainInterface::listen() {
           }
         } while (receivedBytes == buffer.size());
       }
-      catch (const BaseLib::SocketTimeOutException &ex) {
+      catch (const C1Net::TimeoutException &ex) {
         if (data.empty()) {
           if (BaseLib::HelperFunctions::getTime() - _lastConnectionState > 60000) {
             _lastConnectionState = BaseLib::HelperFunctions::getTime();
@@ -446,13 +446,13 @@ void MainInterface::listen() {
           continue; //When receivedBytes is exactly 2048 bytes long, proofread will be called again, time out and the packet is received with a delay of 5 seconds. It doesn't matter as packets this big should never be received.
         }
       }
-      catch (const BaseLib::SocketClosedException &ex) {
+      catch (const C1Net::ClosedException &ex) {
         _stopped = true;
         _out.printWarning("Warning: " + std::string(ex.what()));
         std::this_thread::sleep_for(std::chrono::milliseconds(10000));
         continue;
       }
-      catch (const BaseLib::SocketOperationException &ex) {
+      catch (const C1Net::Exception &ex) {
         _stopped = true;
         _out.printError("Error: " + std::string(ex.what()));
         std::this_thread::sleep_for(std::chrono::milliseconds(10000));
@@ -553,7 +553,7 @@ void MainInterface::getResponse(ServiceType serviceType, const std::vector<uint8
       _out.printInfo("Info: Sending packet " + BaseLib::HelperFunctions::getHexString(requestPacket));
       _socket->proofwrite((char *)requestPacket.data(), requestPacket.size());
     }
-    catch (const BaseLib::SocketOperationException &ex) {
+    catch (const C1Net::Exception &ex) {
       _out.printError("Error sending packet to gateway: " + std::string(ex.what()));
       return;
     }
@@ -580,7 +580,7 @@ void MainInterface::sendRaw(const std::vector<uint8_t> &packet) {
       _out.printInfo("Info: Sending raw packet " + BaseLib::HelperFunctions::getHexString(packet));
       _socket->proofwrite((char *)packet.data(), packet.size());
     }
-    catch (const BaseLib::SocketOperationException &ex) {
+    catch (const C1Net::Exception &ex) {
       _out.printError("Error sending packet to gateway: " + std::string(ex.what()));
       return;
     }
