@@ -19,7 +19,8 @@ class MainInterface : public BaseLib::Systems::IPhysicalInterface {
   void incrementSequenceCounter();
   uint8_t getManagementSequenceCounter();
   void incrementManagementSequenceCounter();
-  uint16_t getKnxAddress();
+  uint16_t getGatewayAddress();
+  uint16_t getPhysicalAddress();
   bool managementConnected();
   std::array<uint8_t, 4> getListenIpBytes();
   std::array<uint8_t, 2> getListenPortBytes();
@@ -53,14 +54,15 @@ class MainInterface : public BaseLib::Systems::IPhysicalInterface {
 
   BaseLib::Output _out;
   std::function<void()> _reconnected;
-  std::atomic_bool _initComplete;
+  std::atomic_bool _initComplete{false};
   std::string _port;
   std::string _listenIp;
   std::array<uint8_t, 4> _listenIpBytes;
   std::array<uint8_t, 2> _listenPortBytes;
   std::atomic_uchar _managementChannelId;
-  std::atomic_int _knxAddress;
-  std::atomic_uchar _channelId;
+  std::atomic_int _gatewayAddress{0};
+  std::atomic_int _physicalAddress{0};
+  std::atomic_uchar _channelId{0};
   std::unique_ptr<BaseLib::UdpSocket> _socket;
 
   std::mutex _sendPacketMutex;
@@ -69,8 +71,8 @@ class MainInterface : public BaseLib::Systems::IPhysicalInterface {
   std::mutex _requestsMutex;
   std::map<uint32_t, std::shared_ptr<Request>> _requests;
 
-  std::atomic_uchar _sequenceCounter;
-  std::atomic_uchar _managementSequenceCounter;
+  std::atomic_uchar _sequenceCounter{0};
+  std::atomic_uchar _managementSequenceCounter{0};
   std::atomic_bool _managementConnected{false};
   int64_t _lastConnectionState = 0;
   std::thread _keepAliveThread;

@@ -29,7 +29,8 @@ void Search::addDeviceToPeerInfo(const DeviceXmlData &deviceXml, const PHomegear
     }
     if (usedTypes.find(info.type) != usedTypes.end()) {
       Gd::out.printError(
-          "Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + device->supportedDevices.at(0)->id + " and " + usedTypes[info.type] + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
+          "Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + device->supportedDevices.at(0)->id + " and " + usedTypes[info.type]
+              + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
       return;
     }
     usedTypes.emplace(info.type, device->supportedDevices.at(0)->id);
@@ -60,7 +61,8 @@ void Search::addDeviceToPeerInfo(PHomegearDevice &device, int32_t address, std::
     }
     if (usedTypes.find(info.type) != usedTypes.end()) {
       Gd::out.printError(
-          "Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + device->supportedDevices.at(0)->id + " and " + usedTypes[info.type] + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
+          "Error: Type ID " + std::to_string(info.type) + " is used by at least two devices (" + device->supportedDevices.at(0)->id + " and " + usedTypes[info.type]
+              + "). Type IDs need to be unique per device. Please correct the JSON in ETS.");
       return;
     }
     usedTypes.emplace(info.type, device->supportedDevices.at(0)->id);
@@ -155,8 +157,8 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
           }
 
           infoIterator = infoStruct->find("room");
-          if (infoIterator != infoStruct->end() && (uint64_t)infoIterator->second->integerValue64 > 0) {
-            if (Gd::bl->db->roomExists((uint64_t)infoIterator->second->integerValue64)) deviceInfo.variableRoomIds[channel][variableName] = (uint64_t)infoIterator->second->integerValue64;
+          if (infoIterator != infoStruct->end() && (uint64_t) infoIterator->second->integerValue64 > 0) {
+            if (Gd::bl->db->roomExists((uint64_t) infoIterator->second->integerValue64)) deviceInfo.variableRoomIds[channel][variableName] = (uint64_t) infoIterator->second->integerValue64;
           }
 
           infoIterator = infoStruct->find("role");
@@ -164,7 +166,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
             auto roleIterator = infoIterator->second->structValue->find("id");
             if (roleIterator != infoIterator->second->structValue->end()) {
               Role role;
-              role.id = (uint64_t)roleIterator->second->integerValue64;
+              role.id = (uint64_t) roleIterator->second->integerValue64;
 
               if (role.id != 0) {
                 roleIterator = infoIterator->second->structValue->find("invert");
@@ -250,7 +252,7 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
 
             Role role;
             role.id = roleIdIterator->second->integerValue64;
-            if (roleDirectionIterator != element->structValue->end()) role.direction = (RoleDirection)roleDirectionIterator->second->integerValue;
+            if (roleDirectionIterator != element->structValue->end()) role.direction = (RoleDirection) roleDirectionIterator->second->integerValue;
             if (roleInvertIterator != element->structValue->end()) role.invert = roleInvertIterator->second->booleanValue;
             roles.emplace(role.id, role);
           }
@@ -258,10 +260,10 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
       }
 
       PFunction function;
-      auto functionIterator = device->functions.find((uint32_t)channel);
+      auto functionIterator = device->functions.find((uint32_t) channel);
       if (functionIterator == device->functions.end()) {
         function.reset(new Function(Gd::bl));
-        function->channel = (uint32_t)channel;
+        function->channel = (uint32_t) channel;
         function->type = "KNX_CHANNEL_" + std::to_string(channel);
         function->variablesId = "knx_values_" + std::to_string(channel);
         device->functions[function->channel] = function;
@@ -310,7 +312,9 @@ std::shared_ptr<HomegearDevice> Search::createHomegearDevice(Search::DeviceXmlDa
   return PHomegearDevice();
 }
 
-std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedTypeNumbers, std::unordered_map<std::string, uint64_t> &idTypeNumberMap, const std::unordered_set<std::string> &peersWithoutAutochannels) {
+std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedTypeNumbers,
+                                             std::unordered_map<std::string, uint64_t> &idTypeNumberMap,
+                                             const std::unordered_set<std::string> &peersWithoutAutochannels) {
   std::vector<Search::PeerInfo> peerInfo;
   try {
     auto projectFilenames = getKnxProjectFilenames();
@@ -394,7 +398,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
 
           Role role;
           role.id = roleIdIterator->second->integerValue64;
-          if (roleDirectionIterator != element->structValue->end()) role.direction = (RoleDirection)roleDirectionIterator->second->integerValue;
+          if (roleDirectionIterator != element->structValue->end()) role.direction = (RoleDirection) roleDirectionIterator->second->integerValue;
           if (roleInvertIterator != element->structValue->end()) role.invert = roleInvertIterator->second->booleanValue;
           roles.emplace(role.id, role);
         }
@@ -408,7 +412,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
         PSupportedDevice supportedDevice(new SupportedDevice(Gd::bl));
         supportedDevice->id = id;
         supportedDevice->description = supportedDevice->id;
-        if (type != -1) supportedDevice->typeNumber = (uint64_t)type + 65535;
+        if (type != -1) supportedDevice->typeNumber = (uint64_t) type + 65535;
         device->supportedDevices.push_back(supportedDevice);
         rpcDevicesJson[supportedDevice->id] = device;
 
@@ -416,25 +420,35 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
       } else {
         device = deviceIterator->second;
         if (type != -1) {
-          if (device->supportedDevices.at(0)->typeNumber == 0) device->supportedDevices.at(0)->typeNumber = (uint64_t)type + 65535;
-          else if ((int32_t)device->supportedDevices.at(0)->typeNumber != type + 65535) {
-            Gd::out.printError("Error: Device with ID \"" + id + "\" has group variables with different type IDs specified (at least " + std::to_string(type) + " and " + std::to_string(device->supportedDevices.at(0)->typeNumber - 65535)
+          if (device->supportedDevices.at(0)->typeNumber == 0) device->supportedDevices.at(0)->typeNumber = (uint64_t) type + 65535;
+          else if ((int32_t) device->supportedDevices.at(0)->typeNumber != type + 65535) {
+            Gd::out.printError("Error: Device with ID \"" + id + "\" has group variables with different type IDs specified (at least " + std::to_string(type) + " and "
+                                   + std::to_string(device->supportedDevices.at(0)->typeNumber - 65535)
                                    + "). Please check the JSON defined in ETS. Only one unique type ID is allowed per device.");
           }
         }
       }
 
       PFunction function;
-      auto functionIterator = device->functions.find((uint32_t)channel);
+      auto functionIterator = device->functions.find((uint32_t) channel);
       if (functionIterator == device->functions.end()) {
         function.reset(new Function(Gd::bl));
-        function->channel = (uint32_t)channel;
+        function->channel = (uint32_t) channel;
         function->type = "KNX_CHANNEL_" + std::to_string(channel);
         function->variablesId = "knx_values_" + std::to_string(channel);
         device->functions[function->channel] = function;
       } else function = functionIterator->second;
 
-      PParameter parameter = DpstParserBase::createParameter(function, variableName.empty() ? "VALUE" : variableName, variableXml->datapointType, unit, IPhysical::OperationType::command, readable, writeable, readOnInit, roles, variableXml->address);
+      PParameter parameter = DpstParserBase::createParameter(function,
+                                                             variableName.empty() ? "VALUE" : variableName,
+                                                             variableXml->datapointType,
+                                                             unit,
+                                                             IPhysical::OperationType::command,
+                                                             readable,
+                                                             writeable,
+                                                             readOnInit,
+                                                             roles,
+                                                             variableXml->address);
       if (!parameter) continue;
 
       parseDatapointType(function, variableXml->datapointType, parameter);
@@ -456,7 +470,7 @@ std::vector<Search::PeerInfo> Search::search(std::unordered_set<uint64_t> &usedT
           Gd::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", because it has no physical address.");
           continue;
         }
-        if (jsonOnly && (bool)jsonOnly->integerValue && (!deviceXml->description || deviceXml->description->structValue->empty())) {
+        if (jsonOnly && (bool) jsonOnly->integerValue && (!deviceXml->description || deviceXml->description->structValue->empty())) {
           Gd::out.printInfo("Info: Ignoring device with ID \"" + deviceXml->id + "\", (" + Cemi::getFormattedPhysicalAddress(deviceXml->address) + ") because it has no JSON description.");
           continue;
         }
@@ -631,7 +645,7 @@ void Search::createDirectories() {
   try {
     uid_t localUserId = BaseLib::HelperFunctions::userId(Gd::bl->settings.dataPathUser());
     gid_t localGroupId = BaseLib::HelperFunctions::groupId(Gd::bl->settings.dataPathGroup());
-    if (((int32_t)localUserId) == -1 || ((int32_t)localGroupId) == -1) {
+    if (((int32_t) localUserId) == -1 || ((int32_t) localGroupId) == -1) {
       localUserId = Gd::bl->userId;
       localGroupId = Gd::bl->groupId;
     }
@@ -723,8 +737,8 @@ Search::PProjectData Search::extractKnxProject(const std::string &projectFilenam
     }
 
     zip_int64_t filesInArchive = zip_get_num_entries(projectArchive, 0);
-    for (zip_uint64_t i = 0; i < (zip_uint64_t)filesInArchive; ++i) {
-      auto content = std::make_shared<std::vector<char>>();
+    for (zip_uint64_t i = 0; i < (zip_uint64_t) filesInArchive; ++i) {
+      auto content = std::make_shared < std::vector < char >> ();
 
       struct zip_stat st{};
       zip_stat_init(&st);
@@ -757,7 +771,7 @@ Search::PProjectData Search::extractKnxProject(const std::string &projectFilenam
         std::vector<char> projectZip;
         projectZip.resize(st.size);
         zip_file *projectZipFile = zip_fopen(projectArchive, filename.c_str(), 0);
-        if (zip_fread(projectZipFile, projectZip.data(), st.size) != (signed)st.size) {
+        if (zip_fread(projectZipFile, projectZip.data(), st.size) != (signed) st.size) {
           Gd::out.printError("Error: Could not read project zip file in archive. Error code: " + std::to_string(error));
           continue;
         }
@@ -776,7 +790,7 @@ Search::PProjectData Search::extractKnxProject(const std::string &projectFilenam
         }
 
         zip_int64_t filesInProjectArchive = zip_get_num_entries(projectZipArchive, 0);
-        for (zip_uint64_t j = 0; j < (zip_uint64_t)filesInProjectArchive; ++j) {
+        for (zip_uint64_t j = 0; j < (zip_uint64_t) filesInProjectArchive; ++j) {
           struct zip_stat projectSt{};
           zip_stat_init(&projectSt);
           if (zip_stat_index(projectZipArchive, j, 0, &projectSt) == -1) {
@@ -799,7 +813,7 @@ Search::PProjectData Search::extractKnxProject(const std::string &projectFilenam
             Gd::out.printError("Error: Could not open project file in ZIP archive. Wrong password?");
             continue;
           }
-          if (zip_fread(projectFile, content->data(), projectSt.size) != (signed)projectSt.size) {
+          if (zip_fread(projectFile, content->data(), projectSt.size) != (signed) projectSt.size) {
             Gd::out.printError("Error: Could not read project file in ZIP archive.");
             continue;
           }
@@ -824,7 +838,7 @@ Search::PProjectData Search::extractKnxProject(const std::string &projectFilenam
           Gd::out.printError("Error: Could not open project file in archive.");
           continue;
         }
-        if (zip_fread(projectFile, content->data(), st.size) != (signed)st.size) {
+        if (zip_fread(projectFile, content->data(), st.size) != (signed) st.size) {
           Gd::out.printError("Error: Could not read project file in archive.");
           continue;
         }
@@ -851,7 +865,7 @@ Search::PProjectData Search::extractKnxProject(const std::string &projectFilenam
     if (projectFileIterator != currentProjectData->xmlFiles.end()) {
       xml_document doc;
       try {
-        char *startPos = (!projectFileIterator->second || projectFileIterator->second->empty() ? nullptr : (char *)memchr(projectFileIterator->second->data(), '<', 10));
+        char *startPos = (!projectFileIterator->second || projectFileIterator->second->empty() ? nullptr : (char *) memchr(projectFileIterator->second->data(), '<', 10));
         if (!startPos) {
           Gd::bl->out.printError("Error: No '<' found in \"project.xml\".");
           doc.clear();
@@ -948,7 +962,7 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
       { //Get all ApplicationProgramRef
         xml_document doc;
         try {
-          char *startPos = (char *)memchr(file.second->data(), '<', 10);
+          char *startPos = (char *) memchr(file.second->data(), '<', 10);
           if (!startPos) {
             Gd::bl->out.printError("Error: No '<' found in \"" + file.first + "\".");
             doc.clear();
@@ -970,7 +984,8 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
                 for (xml_node *hardwareNode = hardwareGroupNode->first_node("Hardware"); hardwareNode; hardwareNode = hardwareNode->next_sibling("Hardware")) {
                   xml_node *hardware2ProgramsNode = hardwareNode->first_node("Hardware2Programs");
                   if (hardware2ProgramsNode) {
-                    for (xml_node *hardware2ProgramNode = hardware2ProgramsNode->first_node("Hardware2Program"); hardware2ProgramNode; hardware2ProgramNode = hardware2ProgramNode->next_sibling("Hardware2Program")) {
+                    for (xml_node *hardware2ProgramNode = hardware2ProgramsNode->first_node("Hardware2Program"); hardware2ProgramNode;
+                         hardware2ProgramNode = hardware2ProgramNode->next_sibling("Hardware2Program")) {
                       auto idAttribute = hardware2ProgramNode->first_attribute("Id");
                       if (!idAttribute) continue;
 
@@ -980,7 +995,8 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
                       auto &hardware2ProgramRefs = manufacturerData->hardware2programRefs[hardware2ProgramId];
                       hardware2ProgramRefs.reserve(10);
 
-                      for (xml_node *applicationProgramRefNode = hardware2ProgramNode->first_node("ApplicationProgramRef"); applicationProgramRefNode; applicationProgramRefNode = applicationProgramRefNode->next_sibling("ApplicationProgramRef")) {
+                      for (xml_node *applicationProgramRefNode = hardware2ProgramNode->first_node("ApplicationProgramRef"); applicationProgramRefNode;
+                           applicationProgramRefNode = applicationProgramRefNode->next_sibling("ApplicationProgramRef")) {
                         auto attribute = applicationProgramRefNode->first_attribute("RefId");
                         if (attribute) {
                           auto value = std::string(attribute->value(), attribute->value_size());
@@ -1015,7 +1031,7 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
 
         xml_document doc;
         try {
-          char *startPos = (char *)memchr(fileEntry->second->data(), '<', 10);
+          char *startPos = (char *) memchr(fileEntry->second->data(), '<', 10);
           if (!startPos) {
             Gd::bl->out.printError("Error: No '<' found in \"" + fileEntry->first + "\".");
             doc.clear();
@@ -1035,7 +1051,8 @@ std::unordered_map<std::string, Search::PManufacturerData> Search::extractManufa
             if (manufacturerNode) {
               xml_node *applicationProgramsNode = manufacturerNode->first_node("ApplicationPrograms");
               if (applicationProgramsNode) {
-                for (xml_node *applicationProgramNode = applicationProgramsNode->first_node("ApplicationProgram"); applicationProgramNode; applicationProgramNode = applicationProgramNode->next_sibling("ApplicationProgram")) {
+                for (xml_node *applicationProgramNode = applicationProgramsNode->first_node("ApplicationProgram"); applicationProgramNode;
+                     applicationProgramNode = applicationProgramNode->next_sibling("ApplicationProgram")) {
                   auto programTypeAttribute = applicationProgramNode->first_attribute("ProgramType");
                   if (!programTypeAttribute || std::string(programTypeAttribute->value(), programTypeAttribute->value_size()) != "ApplicationProgram") continue;
 
@@ -1114,7 +1131,7 @@ std::shared_ptr<Search::ManufacturerProductData> Search::extractProductData(xml_
 
         //This is the number visible in ETS in the first column of "communication objects".
         auto numberAttribute = comObjectNode->first_attribute("Number");
-        if (numberAttribute) comObjectData->number = (int32_t)BaseLib::Math::getUnsignedNumber(std::string(numberAttribute->value(), numberAttribute->value_size()));
+        if (numberAttribute) comObjectData->number = (int32_t) BaseLib::Math::getUnsignedNumber(std::string(numberAttribute->value(), numberAttribute->value_size()));
 
         auto functionTextAttribute = comObjectNode->first_attribute("FunctionText");
         if (functionTextAttribute) {
@@ -1214,7 +1231,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
 
   xml_document doc;
   try {
-    char *startPos = (!projectData->projectXml || projectData->projectXml->empty()) ? nullptr : (char *)memchr(projectData->projectXml->data(), '<', 10);
+    char *startPos = (!projectData->projectXml || projectData->projectXml->empty()) ? nullptr : (char *) memchr(projectData->projectXml->data(), '<', 10);
     if (!startPos) {
       Gd::bl->out.printError("Error: No '<' found in KNX project XML.");
       doc.clear();
@@ -1229,7 +1246,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
     }
 
     std::unordered_map<std::string, std::shared_ptr<DeviceXmlData>> deviceById;
-    std::unordered_map<std::string, std::set<std::shared_ptr<DeviceXmlData>>> deviceByGroupVariable;
+    std::unordered_map < std::string, std::set < std::shared_ptr < DeviceXmlData>>> deviceByGroupVariable;
     for (xml_node *projectNode = rootNode->first_node("Project"); projectNode; projectNode = projectNode->next_sibling("Project")) {
       for (xml_node *installationsNode = projectNode->first_node("Installations"); installationsNode; installationsNode = installationsNode->next_sibling("Installations")) {
         for (xml_node *installationNode = installationsNode->first_node("Installation"); installationNode; installationNode = installationNode->next_sibling("Installation")) {
@@ -1250,7 +1267,10 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                 attributeValue = std::string(attribute->value());
                 currentLine = Math::getNumber(attributeValue) & 0x0F;
 
-                for (xml_node *deviceNode = lineNode->first_node("DeviceInstance"); deviceNode; deviceNode = deviceNode->next_sibling("DeviceInstance")) {
+                xml_node *segmentNode = lineNode->first_node("Segment");
+                if (!segmentNode) segmentNode = lineNode; //Backwards compatability to ETS5
+
+                for (xml_node *deviceNode = segmentNode->first_node("DeviceInstance"); deviceNode; deviceNode = deviceNode->next_sibling("DeviceInstance")) {
                   std::shared_ptr<DeviceXmlData> device = std::make_shared<DeviceXmlData>();
 
                   //{{{ Assign interface
@@ -1349,7 +1369,8 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
 
                   auto *moduleInstancesNode = deviceNode->first_node("ModuleInstances");
                   if (moduleInstancesNode) {
-                    for (xml_node *moduleInstanceNode = moduleInstancesNode->first_node("ModuleInstance"); moduleInstanceNode; moduleInstanceNode = moduleInstanceNode->next_sibling("ModuleInstance")) {
+                    for (xml_node *moduleInstanceNode = moduleInstancesNode->first_node("ModuleInstance"); moduleInstanceNode;
+                         moduleInstanceNode = moduleInstanceNode->next_sibling("ModuleInstance")) {
                       attribute = moduleInstanceNode->first_attribute("Id");
                       if (!attribute) continue;
                       std::string moduleInstanceId(attribute->value(), attribute->value_size());
@@ -1384,8 +1405,10 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                     }
                   }
 
-                  for (xml_node *comInstanceRefsNode = deviceNode->first_node("ComObjectInstanceRefs"); comInstanceRefsNode; comInstanceRefsNode = comInstanceRefsNode->next_sibling("ComObjectInstanceRefs")) {
-                    for (xml_node *comInstanceRefNode = comInstanceRefsNode->first_node("ComObjectInstanceRef"); comInstanceRefNode; comInstanceRefNode = comInstanceRefNode->next_sibling("ComObjectInstanceRef")) {
+                  for (xml_node *comInstanceRefsNode = deviceNode->first_node("ComObjectInstanceRefs"); comInstanceRefsNode;
+                       comInstanceRefsNode = comInstanceRefsNode->next_sibling("ComObjectInstanceRefs")) {
+                    for (xml_node *comInstanceRefNode = comInstanceRefsNode->first_node("ComObjectInstanceRef"); comInstanceRefNode;
+                         comInstanceRefNode = comInstanceRefNode->next_sibling("ComObjectInstanceRef")) {
                       GroupVariableInfo variableInfo;
 
                       attribute = comInstanceRefNode->first_attribute("DatapointType");
@@ -1410,7 +1433,8 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                             //ETS >= 5.7
                             if (parts.at(0).compare(0, 3, "MD-") == 0) {
                               //Get from ModuleDef, e. g. M-0083_A-0128-42-08F8_MD-1_O-2-51_R-17 from MD-1_M-5_MI-1_O-2-51_R-17. The second pair part is the module instance.
-                              applicationInfo.emplace_back(ApplicationInfo{applicationProgramRefId + '_' + parts.at(0) + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1), parts.at(0) + '_' + parts.at(1) + '_' + parts.at(2),
+                              applicationInfo.emplace_back(ApplicationInfo{applicationProgramRefId + '_' + parts.at(0) + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1),
+                                                                           parts.at(0) + '_' + parts.at(1) + '_' + parts.at(2),
                                                                            applicationProgramRefId});
                             } else {
                               applicationInfo.emplace_back(ApplicationInfo{applicationProgramRefId + '_' + parts.at(parts.size() - 2) + '_' + parts.at(parts.size() - 1), "", applicationProgramRefId});
@@ -1443,7 +1467,8 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                           //{{{ Set index
                           if (productDataElement->baseNumber.empty() && productDataElement->number > -1) {
                             variableInfo.index = productDataElement->number;
-                          } else if (!applicationProgramRefId.empty() && productDataElement->baseNumber.size() > applicationProgramRefId.size() + 1 && !moduleInstanceId.empty() && productDataElement->number > -1) {
+                          } else if (!applicationProgramRefId.empty() && productDataElement->baseNumber.size() > applicationProgramRefId.size() + 1 && !moduleInstanceId.empty()
+                              && productDataElement->number > -1) {
                             auto moduleInstanceIterator = device->moduleArguments.find(moduleInstanceId);
                             if (moduleInstanceIterator != device->moduleArguments.end()) {
                               auto argumentId = productDataElement->baseNumber.substr(applicationProgramRefId.size() + 1);
@@ -1466,14 +1491,16 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                       //}}}
 
                       if (variableInfo.index == -1) {
-                        Gd::out.printWarning("Warning: Could not determine index of variable " + variableInfo.name + " of device " + Cemi::getFormattedPhysicalAddress(device->address) + " (reference ID: " + referenceId + ").");
+                        Gd::out.printWarning(
+                            "Warning: Could not determine index of variable " + variableInfo.name + " of device " + Cemi::getFormattedPhysicalAddress(device->address) + " (reference ID: "
+                                + referenceId + ").");
                       }
 
                       attribute = comInstanceRefNode->first_attribute("ChannelId");
                       if (attribute) {
                         std::string channelId(attribute->value(), attribute->value_size());
                         auto channelIterator = device->channelIndexByRefId.find(channelId);
-                        if (channelIterator != device->channelIndexByRefId.end()) variableInfo.autoChannel = (int32_t)channelIterator->second;
+                        if (channelIterator != device->channelIndexByRefId.end()) variableInfo.autoChannel = (int32_t) channelIterator->second;
                       }
 
                       //{{{ Overwrite default flags. In ETS versions before 5.7 the flags seem always to be set here in deviceNode (needs to be reverified). In ETS >= 5.7 the flags are specified in ComObjectInstanceRef, if they are different from the default.
@@ -1527,7 +1554,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                       {
                         attributeValue = std::string(attribute->value());
                         std::vector<std::string> groupAddresses = BaseLib::HelperFunctions::splitAll(attributeValue, ' ');
-                        for (int32_t i = 0; i < (signed)groupAddresses.size(); i++) {
+                        for (int32_t i = 0; i < (signed) groupAddresses.size(); i++) {
                           auto &groupAddress = groupAddresses[i];
                           if (groupAddress.empty()) continue;
                           Gd::out.printDebug("Debug: Device " + Cemi::getFormattedPhysicalAddress(device->address) + " has group address " + groupAddress);
@@ -1671,7 +1698,7 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                     if (!attribute) continue;
 
                     std::string attributeValue(attribute->value());
-                    element->address = (uint16_t)BaseLib::Math::getNumber(attributeValue);
+                    element->address = (uint16_t) BaseLib::Math::getNumber(attributeValue);
 
                     Gd::out.printDebug("Debug: Address of group address with ID " + id + ": " + Cemi::getFormattedGroupAddress(element->address));
 
@@ -1725,14 +1752,16 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                             }
 
                             if (element->datapointType.empty()) {
-                              Gd::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF)
-                                                       + ". The group variable does not work.");
+                              Gd::out.printWarning(
+                                  "Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/"
+                                      + std::to_string(element->address & 0xFF)
+                                      + ". The group variable does not work.");
                               break;
                             }
 
                             {
                               //Delete old element if necessary
-                              auto deviceVariableElement = device->variables.find((uint32_t)variableInfoElement.index);
+                              auto deviceVariableElement = device->variables.find((uint32_t) variableInfoElement.index);
                               if (deviceVariableElement != device->variables.end()) {
                                 if (!deviceVariableElement->second->autocreated && !variableInfoElement.writeFlag) continue; //Ignore
 
@@ -1758,7 +1787,8 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                           }
                         } else {
                           if (element->datapointType.empty()) {
-                            Gd::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF)
+                            Gd::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/"
+                                                     + std::to_string(element->address & 0xFF)
                                                      + ". The group variable does not work.");
                             break;
                           }
@@ -1775,7 +1805,8 @@ void Search::extractXmlData(XmlData &xmlData, const PProjectData &projectData) {
                     //}}}
 
                     if (element->datapointType.empty()) {
-                      Gd::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/" + std::to_string(element->address & 0xFF)
+                      Gd::out.printWarning("Warning: Group variable has no datapoint type: " + std::to_string(element->address >> 11) + "/" + std::to_string((element->address >> 8) & 0x7) + "/"
+                                               + std::to_string(element->address & 0xFF)
                                                + ". The group variable does not work.");
                       continue;
                     }

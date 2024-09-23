@@ -16,7 +16,7 @@ Interfaces::~Interfaces() {
 
 void Interfaces::create() {
   try {
-    for (auto deviceEntry : _physicalInterfaceSettings) {
+    for (const auto& deviceEntry : _physicalInterfaceSettings) {
       std::shared_ptr<MainInterface> device;
       if (!deviceEntry.second) continue;
       Gd::out.printDebug("Debug: Creating physical device. Type defined in knx.conf is: " + deviceEntry.second->type);
