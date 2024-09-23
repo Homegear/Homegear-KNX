@@ -5,6 +5,7 @@
 #include "KnxIpPacket.h"
 
 #include <utility>
+#include <arpa/inet.h>
 
 namespace Knx {
 

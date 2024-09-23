@@ -245,6 +245,7 @@ void MainInterface::init() {
   }
   catch (const std::exception &ex) {
     _out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    _stopped = true;
   }
 }
 
@@ -435,7 +436,7 @@ void MainInterface::listen() {
           }
         } while (receivedBytes == buffer.size());
       }
-      catch (const BaseLib::SocketTimeOutException &ex) {
+      catch (const C1Net::TimeoutException &ex) {
         if (data.empty()) {
           if (BaseLib::HelperFunctions::getTime() - _lastConnectionState > 60000) {
             _lastConnectionState = BaseLib::HelperFunctions::getTime();
@@ -445,13 +446,13 @@ void MainInterface::listen() {
           continue; //When receivedBytes is exactly 2048 bytes long, proofread will be called again, time out and the packet is received with a delay of 5 seconds. It doesn't matter as packets this big should never be received.
         }
       }
-      catch (const BaseLib::SocketClosedException &ex) {
+      catch (const C1Net::ClosedException &ex) {
         _stopped = true;
         _out.printWarning("Warning: " + std::string(ex.what()));
         std::this_thread::sleep_for(std::chrono::milliseconds(10000));
         continue;
       }
-      catch (const BaseLib::SocketOperationException &ex) {
+      catch (const C1Net::Exception &ex) {
         _stopped = true;
         _out.printError("Error: " + std::string(ex.what()));
         std::this_thread::sleep_for(std::chrono::milliseconds(10000));
@@ -537,6 +538,8 @@ void MainInterface::processPacket(const std::vector<uint8_t> &data) {
 
 void MainInterface::getResponse(ServiceType serviceType, const std::vector<uint8_t> &requestPacket, std::vector<uint8_t> &responsePacket, int32_t timeout) {
   try {
+    static uint32_t fail_counter = 0;
+
     if (_stopped) return;
     responsePacket.clear();
 
@@ -552,14 +555,20 @@ void MainInterface::getResponse(ServiceType serviceType, const std::vector<uint8
       _out.printInfo("Info: Sending packet " + BaseLib::HelperFunctions::getHexString(requestPacket));
       _socket->proofwrite((char *)requestPacket.data(), requestPacket.size());
     }
-    catch (const BaseLib::SocketOperationException &ex) {
+    catch (const C1Net::Exception &ex) {
       _out.printError("Error sending packet to gateway: " + std::string(ex.what()));
       return;
     }
 
     if (!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(timeout), [&] { return request->mutexReady || _stopCallbackThread; })) {
       _out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
-      _stopped = true; //Force reconnect
+      fail_counter++;
+      if (fail_counter == 100) {
+        fail_counter = 0;
+        _stopped = true; //Force reconnect
+      }
+    } else {
+      fail_counter = 0;
     }
     responsePacket = request->response;
 
@@ -579,7 +588,7 @@ void MainInterface::sendRaw(const std::vector<uint8_t> &packet) {
       _out.printInfo("Info: Sending raw packet " + BaseLib::HelperFunctions::getHexString(packet));
       _socket->proofwrite((char *)packet.data(), packet.size());
     }
-    catch (const BaseLib::SocketOperationException &ex) {
+    catch (const C1Net::Exception &ex) {
       _out.printError("Error sending packet to gateway: " + std::string(ex.what()));
       return;
     }
