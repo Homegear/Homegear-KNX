@@ -538,6 +538,8 @@ void MainInterface::processPacket(const std::vector<uint8_t> &data) {
 
 void MainInterface::getResponse(ServiceType serviceType, const std::vector<uint8_t> &requestPacket, std::vector<uint8_t> &responsePacket, int32_t timeout) {
   try {
+    static uint32_t fail_counter = 0;
+
     if (_stopped) return;
     responsePacket.clear();
 
@@ -560,7 +562,13 @@ void MainInterface::getResponse(ServiceType serviceType, const std::vector<uint8
 
     if (!request->conditionVariable.wait_for(lock, std::chrono::milliseconds(timeout), [&] { return request->mutexReady || _stopCallbackThread; })) {
       _out.printError("Error: No response received to packet: " + BaseLib::HelperFunctions::getHexString(requestPacket));
-      _stopped = true; //Force reconnect
+      fail_counter++;
+      if (fail_counter == 100) {
+        fail_counter = 0;
+        _stopped = true; //Force reconnect
+      }
+    } else {
+      fail_counter = 0;
     }
     responsePacket = request->response;
 
