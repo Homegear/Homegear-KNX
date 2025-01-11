@@ -295,10 +295,10 @@ void KnxIpForwarder::processRawPacket(const std::string &senderIp, uint16_t send
       return;
     }
 
-    if (senderIp != _lastSenderIp || (senderPort != _senderConfigPort && senderPort != _senderDataPort)) {
+    /*if (senderIp != _lastSenderIp || (senderPort != _senderConfigPort && senderPort != _senderDataPort)) {
       _out.printWarning("Warning: Not processing packet, because the client is not connected: " + BaseLib::HelperFunctions::getHexString(data));
       return;
-    }
+    }*/
 
     if (packet->getServiceType() == ServiceType::CONNECTIONSTATE_REQUEST) {
       auto packetData = packet->getConnectionStateRequest();
