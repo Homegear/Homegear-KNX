@@ -3,6 +3,8 @@
 #ifndef FORWARDER_H_
 #define FORWARDER_H_
 
+#include <cstdint>
+
 #include <homegear-base/BaseLib.h>
 #include "KnxIpPacket.h"
 

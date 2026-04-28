@@ -3,6 +3,8 @@
 #ifndef DPTCONVERTER_H_
 #define DPTCONVERTER_H_
 
+#include <cstdint>
+
 #include <homegear-base/BaseLib.h>
 
 using namespace BaseLib;

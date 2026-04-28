@@ -3,6 +3,8 @@
 #ifndef SEARCH_H_
 #define SEARCH_H_
 
+#include <cstdint>
+
 #include "../config.h"
 #include <homegear-base/BaseLib.h>
 
