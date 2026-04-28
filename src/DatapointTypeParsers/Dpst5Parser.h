@@ -3,6 +3,8 @@
 #ifndef HOMEGEAR_KNX_DPST5PARSER_H
 #define HOMEGEAR_KNX_DPST5PARSER_H
 
+#include <cstdint>
+
 #include "DpstParserBase.h"
 
 namespace Knx {

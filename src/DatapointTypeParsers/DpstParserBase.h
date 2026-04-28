@@ -3,6 +3,8 @@
 #ifndef HOMEGEAR_KNX_DPSTPARSERBASE_H
 #define HOMEGEAR_KNX_DPSTPARSERBASE_H
 
+#include <cstdint>
+
 #include <homegear-base/DeviceDescription/Physical.h>
 #include <homegear-base/Systems/Role.h>
 
