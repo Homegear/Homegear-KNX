@@ -3,6 +3,8 @@
 #ifndef FACTORY_H
 #define FACTORY_H
 
+#include <cstdint>
+
 #include <homegear-base/BaseLib.h>
 #include "Knx.h"
 

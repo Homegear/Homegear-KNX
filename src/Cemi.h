@@ -3,6 +3,8 @@
 #ifndef KNXPACKET_H_
 #define KNXPACKET_H_
 
+#include <cstdint>
+
 #include <homegear-base/BaseLib.h>
 
 namespace Knx {

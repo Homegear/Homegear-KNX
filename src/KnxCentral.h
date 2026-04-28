@@ -3,6 +3,8 @@
 #ifndef MYCENTRAL_H_
 #define MYCENTRAL_H_
 
+#include <cstdint>
+
 #include <homegear-base/BaseLib.h>
 #include "KnxPeer.h"
 #include "Search.h"

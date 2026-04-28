@@ -3,6 +3,8 @@
 #ifndef MAININTERFACE_H_
 #define MAININTERFACE_H_
 
+#include <cstdint>
+
 #include <homegear-base/BaseLib.h>
 #include "../KnxIpPacket.h"
 

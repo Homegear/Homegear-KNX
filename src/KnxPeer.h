@@ -3,6 +3,8 @@
 #ifndef MYPEER_H_
 #define MYPEER_H_
 
+#include <cstdint>
+
 #include "PhysicalInterfaces/MainInterface.h"
 #include "DptConverter.h"
 

@@ -3,6 +3,8 @@
 #ifndef MYFAMILY_H_
 #define MYFAMILY_H_
 
+#include <cstdint>
+
 #include <homegear-base/BaseLib.h>
 
 using namespace BaseLib;
